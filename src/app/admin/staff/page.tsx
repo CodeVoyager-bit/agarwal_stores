@@ -26,7 +26,7 @@ export default async function Staff() {
   return (
     <>
       <h1>Staff</h1>
-      <p className="muted">Staff log in with their own mobile number, the same way customers do. Their role decides what they see.</p>
+      <p className="muted">Add someone by their mobile number here, then they tap <strong>Forgot password?</strong> on the login page once to set their own password. Their role decides what they see.</p>
       <ul className="role-guide">
         {(["delivery", "admin", "owner"] as const).map((r) => (
           <li key={r}>
@@ -87,7 +87,7 @@ export default async function Staff() {
               </td>
               <td data-label="Role">
                 <ActionForm action={setRoleAction} submit="Change" className="inline-form">
-                  <input type="hidden" name="phone" value={u.phone} />
+                  <input type="hidden" name="phone" value={u.phone ?? ""} />
                   <select key={u.role} name="role" defaultValue={u.role ?? "customer"} aria-label={`Role for ${u.name || u.phone}`}>
                     {CHOICES.map((r) => (
                       <option key={r} value={r}>

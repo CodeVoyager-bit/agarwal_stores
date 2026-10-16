@@ -17,7 +17,7 @@ const details = { name: "Test Customer", line: "12 Station Road, Civil Lines", l
 
 test("stock is taken once, never oversold, and returned once on cancel", async () => {
   const user = await User.create({ phone: "9876543210" });
-  const who = { id: String(user._id), phone: user.phone };
+  const who = { id: String(user._id), phone: user.phone! };
   const a = await Product.create({ name: "Anar", category: "Anar", mrp: 100, price: 40, stock: 3 });
   const b = await Product.create({ name: "Rocket", category: "Rockets", mrp: 50, price: 20, stock: 1 });
 
@@ -57,7 +57,7 @@ test("delivery: only the assigned person, only with the customer's code and the 
   const other = await User.create({ phone: "9876500003", role: "delivery" });
   const shopper = await User.create({ phone: "9876500004" }); // a customer can't be given deliveries
   const p = await Product.create({ name: "Chakri", category: "Chakri", mrp: 200, price: 80, stock: 10 });
-  const order = await placeOrder({ id: String(customer._id), phone: customer.phone }, [{ id: String(p._id), qty: 2 }], details);
+  const order = await placeOrder({ id: String(customer._id), phone: customer.phone! }, [{ id: String(p._id), qty: 2 }], details);
   const id = String(order._id);
 
   await assert.rejects(assignDelivery(id, String(shopper._id), "owner"), OrderError);
@@ -88,7 +88,7 @@ test("delivery: five wrong codes lock it; a missed delivery goes back to packed"
   const customer = await User.create({ phone: "9876500005" });
   const rider = await User.create({ phone: "9876500006", role: "delivery" });
   const p = await Product.create({ name: "Rocket", category: "Rockets", mrp: 50, price: 20, stock: 10 });
-  const order = await placeOrder({ id: String(customer._id), phone: customer.phone }, [{ id: String(p._id), qty: 1 }], details);
+  const order = await placeOrder({ id: String(customer._id), phone: customer.phone! }, [{ id: String(p._id), qty: 1 }], details);
   const id = String(order._id);
   await assignDelivery(id, String(rider._id), "owner");
   await startDelivery(id, String(rider._id), "r");

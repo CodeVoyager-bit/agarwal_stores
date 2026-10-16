@@ -373,7 +373,9 @@ main:has(.cartbar) { padding-bottom: 88px; }
   html { scroll-padding-top: 130px; }
   body { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom)); }
   .top { position: static; }
-  .top .wrap { justify-content: center; min-height: 52px; }
+  .top .wrap { justify-content: space-between; min-height: 52px; }
+  .logout-btn span { display: none; }
+  .logout-btn { width: 40px; padding: 0; justify-content: center; }
   .toolbar { top: 0; }
   .site-nav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
@@ -554,6 +556,51 @@ ul.chips { list-style: none; margin: 0 0 12px; }
   .import-body { padding: 14px; }
 }
 
+/* ---- login ---- */
+.password-input { position: relative; display: block; }
+.password-input input { padding-right: 52px; }
+.password-input button { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 44px; height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer; }
+.password-input button:hover { color: var(--red); }
+.auth-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; font-size: 0.92rem; font-weight: 600; }
+
+.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 12px; background: var(--cream); border: 1px solid #f6d7b3; }
+.segmented button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: inherit; font-weight: 700; cursor: pointer; transition: background-color 150ms var(--ease), color 150ms var(--ease); }
+.segmented button[aria-pressed="true"] { background: #fff; color: var(--red); box-shadow: var(--shadow-1); }
+.login .panel { margin-top: 4px; }
+.login > .segmented { margin-bottom: 12px; }
+.fields-plain { display: grid; gap: 14px; }
+.google-signin { display: grid; gap: 14px; margin-bottom: 14px; }
+.btn.google { background: #fff; border-color: #d9d3e4; color: var(--ink); }
+.btn.google:hover { border-color: var(--ink); color: var(--ink); }
+.divider { display: flex; align-items: center; gap: 12px; margin: 0; color: var(--muted); font-size: 0.85rem; }
+.divider::before, .divider::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.logout { margin: 0; }
+.logout-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1.5px solid rgb(122 16 34 / 0.25); background: rgb(255 255 255 / 0.35); color: var(--maroon); font: inherit; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background-color 150ms var(--ease); }
+.logout-btn:hover { background: #fff; }
+
+/* ---- loading: a spinning chakri, and a saffron bar across the top while a link loads ---- */
+.page-loading { display: grid; justify-items: center; gap: 12px; padding: 90px 16px; color: var(--muted); }
+.page-loading p { margin: 0; font-weight: 600; }
+.chakri {
+  display: grid; place-items: center; width: 84px; height: 84px; border-radius: 999px; color: #e65100;
+  background: radial-gradient(circle, #fff 38%, transparent 40%), conic-gradient(var(--saffron), var(--marigold), #e91e63, var(--saffron));
+  box-shadow: 0 0 0 6px var(--cream), 0 10px 30px -10px rgb(230 81 0 / 0.6);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+/* from Agarwal Online: waits 120ms before showing, so pages that open at once never flash it */
+.nav-progress {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200; height: 3px; pointer-events: none;
+  background: linear-gradient(90deg, var(--red), var(--saffron), var(--marigold)); box-shadow: 0 0 10px rgb(255 153 51 / 0.8);
+  transform-origin: left; scale: 0 1; opacity: 0;
+}
+.nav-progress[data-state="loading"] { opacity: 1; transition: opacity 0.15s 0.12s; animation: nav-trickle 12s cubic-bezier(0.1, 0.75, 0.2, 1) forwards; }
+.nav-progress[data-state="done"] { scale: 1 1; opacity: 0; transition: scale 0.2s ease-out, opacity 0.3s 0.15s; }
+@keyframes nav-trickle { from { scale: 0 1; } 6% { scale: 0.35 1; } to { scale: 0.92 1; } }
+a[data-pending] { cursor: progress; opacity: 0.72; transition: opacity 0.15s 0.12s; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+  /* no trickle: the bar just stands part-way while the page loads */
+  .nav-progress[data-state="loading"] { scale: 0.6 1; }
 }

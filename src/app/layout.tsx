@@ -2,7 +2,11 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Baloo_2 } from "next/font/google";
 import Link from "next/link";
+import { Suspense } from "react";
+import { NavProgress } from "@/components/nav-progress";
+import { LogOut } from "lucide-react";
 import { SiteNav } from "@/components/nav";
+import { logoutAction } from "@/lib/actions";
 import { currentUser } from "@/lib/auth";
 
 // Headings, prices and the brand: round and friendly, with Devanagari for the Diwali greeting.
@@ -19,6 +23,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={display.variable}>
       <body>
+        {/* reads the address, so it waits for it instead of holding up the page */}
+        <Suspense fallback={null}>
+          <NavProgress />
+        </Suspense>
         <a href="#main" className="skip">
           Skip to content
         </a>
@@ -28,6 +36,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               Agarwal Stores <span>Crackers</span>
             </Link>
             <SiteNav role={user?.role ?? null} />
+            {user && (
+              <form action={logoutAction} className="logout">
+                <button className="logout-btn" aria-label="Log out" title={`Logged in as ${user.name || user.phone || user.email}`}>
+                  <LogOut size={18} aria-hidden="true" /> <span>Log Out</span>
+                </button>
+              </form>
+            )}
           </div>
           <div className="toran" aria-hidden="true" />
         </header>

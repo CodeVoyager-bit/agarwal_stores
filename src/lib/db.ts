@@ -54,7 +54,14 @@ const addressSchema = new Schema(
 
 const userSchema = new Schema(
   {
-    phone: { type: String, required: true, unique: true, match: /^[6-9]\d{9}$/ },
+    // shared with better-auth (lib/better-auth.ts), which also writes email, emailVerified, phoneVerified
+    // and image; phone and email are each unique when present (its ensureIndexes), not required:
+    // Google accounts start without a phone, phone accounts with a placeholder email
+    phone: { type: String, match: /^[6-9]\d{9}$/ },
+    phoneVerified: Boolean,
+    email: { type: String, lowercase: true, trim: true },
+    emailVerified: Boolean,
+    image: String,
     name: { type: String, trim: true, default: "" },
     address: { type: addressSchema, required: false },
     role: { type: String, enum: ROLES, default: "customer", index: true },
@@ -62,21 +69,14 @@ const userSchema = new Schema(
   { timestamps: true },
 );
 
-const sessionSchema = new Schema({
-  tokenHash: { type: String, required: true, unique: true },
-  user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+const counterSchema = new Schema({ _id: String, seq: Number });
+
+/** Counts tries per key in a time window (copied from Agarwal Online's rate limit); Mongo removes old windows. */
+const rateLimitSchema = new Schema({
+  key: { type: String, required: true, unique: true },
+  count: { type: Number, default: 0 },
   expiresAt: { type: Date, required: true, expires: 0 },
 });
-
-const otpSchema = new Schema({
-  phone: { type: String, required: true, index: true },
-  ip: { type: String, index: true },
-  hash: { type: String, required: true },
-  attempts: { type: Number, default: 0 },
-  createdAt: { type: Date, default: Date.now, expires: 600 },
-});
-
-const counterSchema = new Schema({ _id: String, seq: Number });
 
 // Product photos live apart from products, so listing the catalog never loads image bytes.
 const photoSchema = new Schema({ _id: Schema.Types.ObjectId, data: { type: Buffer, required: true }, type: { type: String, required: true } });
@@ -136,9 +136,8 @@ function define<S extends Schema>(name: string, schema: S) {
 
 export const Product = define("Product", productSchema);
 export const User = define("User", userSchema);
-export const Session = define("Session", sessionSchema);
-export const Otp = define("Otp", otpSchema);
 export const Counter = define("Counter", counterSchema);
+export const RateLimit = define("RateLimit", rateLimitSchema);
 export const Photo = define("Photo", photoSchema);
 export const Audit = define("Audit", auditSchema);
 export const Order = define("Order", orderSchema);

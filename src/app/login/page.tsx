@@ -1,22 +1,31 @@
 import type { Metadata } from "next";
-import { Smartphone } from "lucide-react";
 import { redirect } from "next/navigation";
+import { GoogleButton, googleProblem } from "@/components/google-button";
 import { LoginForm } from "@/components/login-form";
-import { currentUser, mockOtp, safeNext } from "@/lib/auth";
+import { currentUser, safeNext } from "@/lib/auth";
+import { googleEnabled } from "@/lib/better-auth";
 
-export const metadata: Metadata = { title: "Log in · Agarwal Stores" };
+export const metadata: Metadata = { title: "Log In · Agarwal Stores" };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const next = safeNext((await searchParams).next);
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; error?: string; email?: string; reset?: string }> }) {
+  const params = await searchParams;
+  const next = safeNext(params.next);
   if (await currentUser()) redirect(next);
+  const problem = googleProblem(params.error);
   return (
     <div className="narrow login">
-      <span className="login-icon">
-        <Smartphone size={26} strokeWidth={1.6} aria-hidden="true" />
-      </span>
       <h1>Log In</h1>
-      <p className="muted">Use your mobile number. We’ll send you a 6‑digit code, and call this number before delivery.</p>
-      <LoginForm next={next} hint={mockOtp() ? `Test mode: the code is ${process.env.MOCK_OTP_CODE || "123456"}` : undefined} />
+      <p className="muted">With your mobile number or email, and your password. Shop staff log in here too.</p>
+      {params.email === "verified" && <p className="success">Email confirmed. You can log in with it now.</p>}
+      {params.email && params.email !== "verified" && <p className="error">That confirmation link has expired. Log in and we’ll send a new one when you add the email again.</p>}
+      {params.reset === "done" && <p className="success">Password changed. Log in with the new one.</p>}
+      {problem && (
+        <p role="alert" className="error">
+          {problem}
+        </p>
+      )}
+      {googleEnabled() && <GoogleButton next={next} />}
+      <LoginForm next={next} />
     </div>
   );
 }

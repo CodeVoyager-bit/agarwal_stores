@@ -7,11 +7,12 @@ import { useActionState, useEffect } from "react";
 import { placeOrderAction } from "@/lib/actions";
 import { inr, type ShopItem } from "@/lib/format";
 import { clearCart, setQty, Stepper, useCart } from "./cart";
+import { AddPhone } from "./login-form";
 import { ProductArt } from "./category";
 
 type Customer = { phone: string; name: string; address: { line: string; landmark: string; pincode: string } | null };
 
-export function CartView({ items, customer, deliveryDays }: { items: ShopItem[]; customer: Customer | null; deliveryDays: number }) {
+export function CartView({ items, customer, deliveryDays, codeHint }: { items: ShopItem[]; customer: Customer | null; deliveryDays: number; codeHint?: string }) {
   const cart = useCart();
   const router = useRouter();
   const [state, action, pending] = useActionState(placeOrderAction, null);
@@ -97,7 +98,9 @@ export function CartView({ items, customer, deliveryDays }: { items: ShopItem[];
           </li>
         </ul>
 
-        {customer ? (
+        {customer && !customer.phone ? (
+          <AddPhone hint={codeHint} />
+        ) : customer ? (
           <form action={action} className="fields">
             <h3>Delivery Details</h3>
             <input type="hidden" name="cart" value={JSON.stringify(lines.map((l) => ({ id: l.id, qty: l.qty })))} />
