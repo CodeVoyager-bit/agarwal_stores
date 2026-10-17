@@ -3,6 +3,7 @@
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import { tenDigitMobile } from "@/lib/format";
 import { addPhoneAction, emailResetAction, loginEmailAction, loginPhoneAction, newPasswordAction, sendCodeAction, setPasswordAction } from "@/lib/actions";
 
 /** A password box with a show/hide toggle, so people can check what they typed (from Agarwal Online). */
@@ -21,29 +22,63 @@ function PasswordInput({ name, autoComplete, label }: { name: string; autoComple
   );
 }
 
-/** Controlled, so a failed try doesn't clear the number. */
-function PhoneField({ autoComplete }: { autoComplete: "username" | "tel-national" }) {
+/**
+ * A mobile-number box that only ever holds digits (from Agarwal Online): letters are dropped as they're
+ * typed, and a pasted "+91 98765 43210" or "09876543210" becomes 9876543210. Controlled, so a failed try
+ * doesn't clear it. No maxLength: it would cut a pasted "+91 …" short before the prefix comes off.
+ */
+function PhoneField() {
   const [phone, setPhone] = useState("");
   return (
     <label>
       Mobile number
       <span className="phone">
         <span aria-hidden="true">+91</span>
-        <input name="phone" type="tel" inputMode="numeric" autoComplete={autoComplete} placeholder="98765 43210" required maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <input
+          name="phone"
+          type="tel"
+          inputMode="numeric"
+          autoComplete="tel-national"
+          pattern="[6-9][0-9]{9}"
+          title="10-digit mobile number"
+          placeholder="9876543210"
+          required
+          value={phone}
+          onChange={(e) => setPhone(tenDigitMobile(e.target.value))}
+        />
       </span>
     </label>
   );
 }
 
-function EmailField({ autoComplete, required = true, label = "Email" }: { autoComplete: "username" | "email"; required?: boolean; label?: React.ReactNode }) {
+/** An email box: email keyboard, no capitals or spell-check, spaces dropped as they're typed or pasted. */
+function EmailField({ required = true, label = "Email" }: { required?: boolean; label?: React.ReactNode }) {
   const [email, setEmail] = useState("");
   return (
     <label>
       {label}
-      <input name="email" type="email" autoComplete={autoComplete} spellCheck={false} placeholder="name@example.com" required={required} value={email} onChange={(e) => setEmail(e.target.value)} />
+      <input
+        name="email"
+        type="email"
+        inputMode="email"
+        autoComplete="email"
+        autoCapitalize="none"
+        spellCheck={false}
+        placeholder="name@example.com"
+        required={required}
+        value={email}
+        onChange={(e) => setEmail(e.target.value.replace(/\s/g, ""))}
+      />
     </label>
   );
 }
+
+/** Six-digit code boxes keep only the digits of whatever is typed or pasted ("123 456" → 123456). */
+const codeDigits = (event: React.FormEvent<HTMLInputElement>) => {
+  const box = event.currentTarget;
+  const clean = box.value.replace(/\D/g, "").slice(0, 6);
+  if (box.value !== clean) box.value = clean;
+};
 
 /** React empties a form after each submit; on a mistake people should only have to fix one field. */
 const keepTyped = (event: React.FormEvent) => event.preventDefault();
@@ -80,7 +115,7 @@ export function LoginForm({ next }: { next: string }) {
       {way === "mobile" ? (
         <form action={loginPhone} onReset={keepTyped} className="fields-plain">
           <input type="hidden" name="next" value={next} />
-          <PhoneField autoComplete="username" />
+          <PhoneField />
           <PasswordInput name="password" autoComplete="current-password" label="Password" />
           <Message error={byPhone?.error} />
           <button className="btn primary big" disabled={phonePending}>
@@ -90,7 +125,7 @@ export function LoginForm({ next }: { next: string }) {
       ) : (
         <form action={loginEmail} onReset={keepTyped} className="fields-plain">
           <input type="hidden" name="next" value={next} />
-          <EmailField autoComplete="username" />
+          <EmailField />
           <PasswordInput name="password" autoComplete="current-password" label="Password" />
           <Message error={byEmail?.error} />
           <button className="btn primary big" disabled={emailPending}>
@@ -124,7 +159,7 @@ function CodeSteps({ purpose, next, hint, restart }: { purpose: "signup" | "rese
     return (
       <form action={send} className="panel">
         <input type="hidden" name="purpose" value={purpose} />
-        <PhoneField autoComplete="tel-national" />
+        <PhoneField />
         <p className="note">We’ll send a 6‑digit code on WhatsApp (or SMS) to check the number is yours.</p>
         <Message error={sent?.error} />
         <button className="btn primary big" disabled={sending}>
@@ -153,7 +188,7 @@ function CodeSteps({ purpose, next, hint, restart }: { purpose: "signup" | "rese
       <label>
         6‑digit code
         {/* the keyboard is already open from the number step, so the code field takes it over */}
-        <input name="code" className="otp" inputMode="numeric" autoComplete="one-time-code" spellCheck={false} pattern="\d{6}" maxLength={6} required autoFocus />
+        <input name="code" className="otp" inputMode="numeric" autoComplete="one-time-code" spellCheck={false} pattern="\d{6}" maxLength={6} onInput={codeDigits} required autoFocus />
       </label>
       {hint && <p className="note">{hint}</p>}
       {purpose === "signup" && (
@@ -163,7 +198,6 @@ function CodeSteps({ purpose, next, hint, restart }: { purpose: "signup" | "rese
             <input name="name" autoComplete="name" required minLength={2} maxLength={80} />
           </label>
           <EmailField
-            autoComplete="email"
             required={false}
             label={
               <span>
@@ -199,7 +233,7 @@ export function ResetChoices({ next, hint }: { next: string; hint?: string }) {
       </div>
       {way === "email" ? (
         <form action={request} onReset={keepTyped} className="panel">
-          <EmailField autoComplete="email" />
+          <EmailField />
           <Message error={state?.error} ok={state?.ok} />
           <button className="btn primary big" disabled={pending}>
             {pending ? "Sending…" : "Email Me a Link"}
@@ -246,7 +280,7 @@ function AddPhoneSteps({ hint, restart }: { hint?: string; restart: () => void }
         <h3>Add Your Mobile Number</h3>
         <p className="note">We call this number before delivery. We’ll check it once with a code on WhatsApp (or SMS).</p>
         <input type="hidden" name="purpose" value="add" />
-        <PhoneField autoComplete="tel-national" />
+        <PhoneField />
         <Message error={sent?.error} />
         <button className="btn primary big" disabled={sending}>
           {sending ? "Sending Code…" : "Send Code"}
@@ -265,7 +299,7 @@ function AddPhoneSteps({ hint, restart }: { hint?: string; restart: () => void }
       <input type="hidden" name="phone" value={sent.phone} />
       <label>
         6‑digit code
-        <input name="code" className="otp" inputMode="numeric" autoComplete="one-time-code" spellCheck={false} pattern="\d{6}" maxLength={6} required autoFocus />
+        <input name="code" className="otp" inputMode="numeric" autoComplete="one-time-code" spellCheck={false} pattern="\d{6}" maxLength={6} onInput={codeDigits} required autoFocus />
       </label>
       {hint && <p className="note">{hint}</p>}
       <Message error={added?.error} ok={added?.ok} />

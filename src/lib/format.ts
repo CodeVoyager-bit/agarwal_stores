@@ -17,3 +17,10 @@ export type ShopItem = { id: string; name: string; category: string; unit: strin
 /** "17 Oct, 4:05 pm", India time, for history lines and the audit log. */
 export const when = (d: Date) =>
   new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }).format(d);
+
+/** What a typed or pasted mobile number means: digits only, any +91 or leading 0 removed, at most ten
+ *  (from Agarwal Online). Room is left for a +91 or 0 still being typed in front, one key at a time. */
+export function tenDigitMobile(value: string) {
+  const digits = value.replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, "");
+  return digits.slice(0, digits.startsWith("91") ? 12 : digits.startsWith("0") ? 11 : 10);
+}
