@@ -3,6 +3,21 @@ export const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 export const day = (d: Date) =>
   new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Kolkata" }).format(d);
 
+/** The most of one product in one order. */
+export const MAX_QTY = 500;
+
+/**
+ * What staff can change an order's status to by hand. Out for Delivery only comes from the delivery
+ * person's Start Delivery (it sends the handover code). Delivered by hand is for a counter pickup or
+ * the shop delivering itself, and puts the full amount on the Cash page to count in. Delivered and
+ * Cancelled are final.
+ */
+export const BY_HAND: Record<string, string[]> = {
+  placed: ["packed", "delivered", "cancelled"],
+  packed: ["placed", "delivered", "cancelled"],
+  out_for_delivery: ["packed", "delivered", "cancelled"],
+};
+
 export const STATUS_LABEL: Record<string, string> = {
   placed: "Placed",
   packed: "Packed",

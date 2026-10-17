@@ -70,7 +70,7 @@ function RankBars({ rows, unit }: { rows: { label: string; value: number; note?:
 export default async function Reports({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
   await requireStaff("reports", "/admin/reports");
   const asked = (await searchParams).range;
-  const range = asked && asked in RANGES ? (asked as keyof typeof RANGES) : "30";
+  const range = asked && Object.hasOwn(RANGES, asked) ? (asked as keyof typeof RANGES) : "30";
   await connectDB();
   const first = await Order.findOne().sort({ createdAt: 1 }).select("createdAt").lean();
   // the whole season is capped at 90 days of columns

@@ -164,7 +164,8 @@ function unzip(bytes: Uint8Array) {
   let end = bytes.length - 22;
   while (end >= 0 && view.getUint32(end, true) !== 0x06054b50) end--;
   if (end < 0) throw new Error("This isn't an Excel (.xlsx) file.");
-  const files = new Map<string, Uint8Array>();
+  // inflated only when read, and capped: a small upload can't unpack into gigabytes
+  const files = new Map<string, () => Uint8Array>();
   let at = view.getUint32(end + 16, true);
   for (let i = view.getUint16(end + 10, true); i > 0; i--) {
     if (view.getUint32(at, true) !== 0x02014b50) throw new Error("This Excel file is damaged.");
@@ -176,7 +177,7 @@ function unzip(bytes: Uint8Array) {
     const local = view.getUint32(at + 42, true);
     const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
     const data = bytes.subarray(start, start + size);
-    files.set(name, method === 0 ? data : inflateRawSync(data));
+    files.set(name, () => (method === 0 ? data : inflateRawSync(data, { maxOutputLength: 20 * 2 ** 20 })));
     at += 46 + skip;
   }
   return files;
@@ -187,7 +188,7 @@ export function readXlsx(bytes: Uint8Array): string[][] {
   const files = unzip(bytes);
   const read = (name: string) => {
     const file = files.get(name);
-    return file ? dec.decode(file) : "";
+    return file ? dec.decode(file()) : "";
   };
   const firstSheet = /<sheet\b[^>]*\br:id="([^"]+)"/.exec(read("xl/workbook.xml"))?.[1];
   const rel = [...read("xl/_rels/workbook.xml.rels").matchAll(/<Relationship\b[^>]*>/g)].find((m) => m[0].includes(`Id="${firstSheet}"`))?.[0];
@@ -203,6 +204,7 @@ export function readXlsx(bytes: Uint8Array): string[][] {
       const attrs = cell[1];
       const ref = /\br="([A-Z]+)\d+"/.exec(attrs)?.[1] ?? "";
       const index = ref ? [...ref].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1 : cells.length;
+      if (index > 200) continue; // a price list has a few dozen columns; "XFD1" mustn't make a million-cell row
       const type = /\bt="(\w+)"/.exec(attrs)?.[1];
       const value = /<v>([\s\S]*?)<\/v>/.exec(cell[2] ?? "")?.[1] ?? "";
       cells[index] =

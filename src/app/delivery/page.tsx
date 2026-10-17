@@ -13,7 +13,7 @@ export default async function Deliveries() {
   const mine = { assignedTo: user.id };
   const [stops, done, carrying] = await Promise.all([
     Order.find({ ...mine, status: { $in: ["placed", "packed", "out_for_delivery"] } }).sort({ deliverBy: 1 }).lean(),
-    Order.find({ ...mine, status: "delivered" }).sort({ updatedAt: -1 }).limit(20).lean(),
+    Order.find({ ...mine, status: "delivered" }).sort({ "cash.collectedAt": -1 }).limit(20).lean(),
     Order.find({ ...mine, "cash.collected": { $exists: true }, "cash.receivedAt": { $exists: false } }).select("cash").lean(),
   ]);
   const cash = carrying.reduce((n, o) => n + (o.cash?.collected ?? 0), 0);
@@ -27,7 +27,7 @@ export default async function Deliveries() {
           <span>stops to make</span>
         </div>
         <div>
-          <strong>{done.filter((o) => o.updatedAt > new Date(Date.now() - 86_400_000)).length}</strong>
+          <strong>{done.filter((o) => (o.cash?.collectedAt?.getTime() ?? 0) > Date.now() - 86_400_000).length}</strong>
           <span>delivered in 24 hours</span>
         </div>
         <div className={cash ? "alert" : ""}>

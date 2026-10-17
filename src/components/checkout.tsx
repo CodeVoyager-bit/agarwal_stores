@@ -7,7 +7,7 @@ import { useActionState, useEffect, useState } from "react";
 import { placeOrderAction } from "@/lib/actions";
 import { inr, type ShopItem } from "@/lib/format";
 import { goesWith } from "@/lib/pairs";
-import { clearCart, setQty, Stepper, useCart } from "./cart";
+import { clearCart, pruneCart, setQty, Stepper, useCart } from "./cart";
 import { ProductCard } from "./catalog";
 import { PhoneField } from "./login-form";
 import { ProductArt } from "./category";
@@ -15,9 +15,16 @@ import { ProductArt } from "./category";
 type Address = { id: string; label: string; line: string; landmark: string; pincode: string; phone: string };
 type Customer = { phone: string; name: string; addresses: Address[] };
 
+/** React empties a form after each submit; after a refused order the address must still be there. */
+const keepTyped = (e: React.FormEvent) => e.preventDefault();
+
 export function CartView({ items, customer, deliveryDays, popular }: { items: ShopItem[]; customer: Customer | null; deliveryDays: number; popular: string[] }) {
   const cart = useCart();
   const router = useRouter();
+  // products taken off sale since they were added leave the cart, and its count
+  useEffect(() => {
+    if (cart) pruneCart(new Set(items.map((i) => i.id)));
+  }, [cart, items]);
   const [state, action, pending] = useActionState(placeOrderAction, null);
   // the default (first saved) address, or a new one when there are none
   const [deliverTo, setDeliverTo] = useState(customer?.addresses[0]?.id ?? "new");
@@ -65,7 +72,16 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
                 </small>
                 {l.qty > l.stock && (
                   <small className="error" role="alert">
-                    {l.stock ? `Only ${l.stock} left. Lower the quantity.` : "Out of stock. Please remove it."}
+                    {l.stock ? (
+                      <>
+                        Only {l.stock} left.{" "}
+                        <button type="button" className="link" onClick={() => setQty(l.id, l.stock)}>
+                          Change to {l.stock}
+                        </button>
+                      </>
+                    ) : (
+                      "Out of stock. Please remove it."
+                    )}
                   </small>
                 )}
               </div>
@@ -121,7 +137,7 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
         </ul>
 
         {customer ? (
-          <form action={action} className="fields">
+          <form action={action} className="fields" onReset={keepTyped}>
             <h3>Delivery Details</h3>
             <input type="hidden" name="cart" value={JSON.stringify(lines.map((l) => ({ id: l.id, qty: l.qty })))} />
             <label>

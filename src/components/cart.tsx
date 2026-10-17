@@ -2,6 +2,7 @@
 
 import { Minus, Plus } from "lucide-react";
 import { useSyncExternalStore } from "react";
+import { MAX_QTY } from "@/lib/format";
 
 /** product id → quantity, kept in this browser until the order is placed. */
 type Cart = Record<string, number>;
@@ -57,6 +58,12 @@ export function setQty(id: string, qty: number) {
 }
 
 export const clearCart = () => write({});
+
+/** Drops products no longer sold (taken off sale or deleted), so the cart count stays true. */
+export function pruneCart(known: Set<string>) {
+  const cart = read();
+  if (Object.keys(cart).some((id) => !known.has(id))) write(Object.fromEntries(Object.entries(cart).filter(([id]) => known.has(id))));
+}
 
 /**
  * Adding from a product card or page: a copy of its picture arcs into the cart icon, which catches it with a
@@ -133,7 +140,7 @@ export function Stepper({ id, name, max }: { id: string; name: string; max: numb
           flyToCart(e.currentTarget);
           setQty(id, qty + 1);
         }}
-        disabled={qty >= max}
+        disabled={qty >= Math.min(max, MAX_QTY)}
         aria-label={`One more ${name}`}
       >
         <Plus size={18} strokeWidth={2.25} aria-hidden="true" />

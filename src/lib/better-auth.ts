@@ -155,7 +155,7 @@ async function ensureIndexes() {
   const db = mongoose.connection.db!;
   const users = db.collection("users");
   for (const field of ["phone", "email"]) {
-    const old = (await users.indexes()).find((i) => i.name === `${field}_1`);
+    const old = (await users.indexes().catch(() => [])).find((i) => i.name === `${field}_1`);
     if (old && !old.partialFilterExpression) await users.dropIndex(`${field}_1`);
     await users.createIndex({ [field]: 1 }, { name: `${field}_1`, unique: true, partialFilterExpression: { [field]: { $type: "string" } } });
   }

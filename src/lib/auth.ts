@@ -13,8 +13,9 @@ export { mockOtp };
 export const tenDigits = (value: string) => value.replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, "");
 export const validPhone = (phone: string) => /^[6-9]\d{9}$/.test(phone);
 
-/** Only paths on this site, so a crafted ?next= can't send people elsewhere after login. */
-export const safeNext = (next: unknown) => (typeof next === "string" && /^\/(?![\/\\])/.test(next) ? next : "/");
+/** Only paths on this site, so a crafted ?next= can't send people elsewhere after login. No backslash or
+ *  control characters either: browsers drop a tab in "/\t/evil.example", leaving "//evil.example". */
+export const safeNext = (next: unknown) => (typeof next === "string" && /^\/(?![\/\\])[^\\\x00-\x1f]*$/.test(next) ? next : "/");
 
 /** ADMIN_PHONES are the owners: always Owner, whatever the Staff page says, so the shop can never lock itself out. */
 export const ownerPhones = () => (process.env.ADMIN_PHONES ?? "").split(",").map(tenDigits).filter(Boolean);

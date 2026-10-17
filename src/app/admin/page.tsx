@@ -1,5 +1,6 @@
 import { Clock, IndianRupee, MessageCircle, Package, Phone, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
+import { isValidObjectId } from "mongoose";
 import Link from "next/link";
 import { StatusForm } from "@/components/status-form";
 import { requireStaff } from "@/lib/auth";
@@ -16,13 +17,15 @@ const pieces = (items: { qty?: number | null }[]) => {
 };
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-export default async function AdminOrders({ searchParams }: { searchParams: Promise<{ status?: string; q?: string }> }) {
+export default async function AdminOrders({ searchParams }: { searchParams: Promise<{ status?: string; q?: string; customer?: string }> }) {
   await requireStaff("orders", "/admin");
   const params = await searchParams;
   const status = params.status && params.status in TABS ? params.status : "open";
   const q = (params.q ?? "").trim().slice(0, 60);
 
   const filter: Record<string, unknown> = status === "open" ? { status: { $in: OPEN } } : status === "all" ? {} : { status };
+  // from the Customers page: everything one account ordered, whatever number each address had
+  if (params.customer && isValidObjectId(params.customer)) filter.user = params.customer;
   if (q) {
     const rx = new RegExp(escape(q), "i");
     filter.$or = [{ name: rx }, { phone: rx }, { "address.pincode": rx }, { "address.line": rx }, ...(/^\d+$/.test(q) ? [{ number: Number(q) }] : [])];

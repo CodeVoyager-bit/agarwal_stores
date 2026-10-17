@@ -2,17 +2,37 @@
 
 import { ArrowRight, Search } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { inr, type ShopItem } from "@/lib/format";
-import { Stepper, useCart } from "./cart";
+import { pruneCart, Stepper, useCart } from "./cart";
 import { CategoryIcon, ProductArt } from "./category";
+
+/** Words people type for each shelf that its products' names may not have ("anar" finds Flower Pots). */
+const ALSO_CALLED: Record<string, string> = {
+  Sparklers: "phuljhadi phooljhadi fuljhadi sparkler",
+  Chakri: "chakkar chakra spinner wheel",
+  Anar: "flower pot flowerpot fountain",
+  Rockets: "rocket",
+  Bombs: "bomb patakha pataka sutli",
+  "Sky Shots": "aerial shot cake",
+  "Kids Special": "kids children",
+  "Gift Boxes": "gift box combo",
+};
 
 export function Catalog({ items, categories, initialQuery, initialCategory }: { items: ShopItem[]; categories: string[]; initialQuery: string; initialCategory: string }) {
   const cart = useCart();
   const [q, setQ] = useState(initialQuery);
   const [category, setCategory] = useState(categories.includes(initialCategory) ? initialCategory : "");
   const query = q.trim().toLowerCase();
-  const shown = items.filter((i) => (!category || i.category === category) && i.name.toLowerCase().includes(query));
+  // every word typed must be in the name, the shelf, or what people call that shelf
+  const words = query.split(/\s+/).filter(Boolean);
+  const shown = items.filter((i) => {
+    const text = `${i.name} ${i.category} ${ALSO_CALLED[i.category] ?? ""}`.toLowerCase();
+    return (!category || i.category === category) && words.every((w) => text.includes(w));
+  });
+  useEffect(() => {
+    if (cart) pruneCart(new Set(items.map((i) => i.id)));
+  }, [cart, items]);
   const count = Object.values(cart ?? {}).reduce((a, b) => a + b, 0);
   const total = items.reduce((sum, i) => sum + (cart?.[i.id] ?? 0) * i.price, 0);
 

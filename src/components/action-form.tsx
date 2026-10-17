@@ -28,6 +28,10 @@ export function ActionForm({
       onSubmit={(e) => {
         if (confirm && !window.confirm(confirm)) e.preventDefault();
       }}
+      // React empties a form after its action; on a mistake people should only have to fix one field
+      onReset={(e) => {
+        if (state?.error) e.preventDefault();
+      }}
     >
       {children}
       {state?.error && (

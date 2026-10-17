@@ -25,6 +25,8 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   await connectDB();
   // the handover code is only ever shown to the customer it belongs to
   const orders = await Order.find({ user: user.id }).select("+handoverCode").sort({ createdAt: -1 }).lean();
+  // only for an order of theirs: a typed-in number shows nothing
+  const placedOrder = typeof placed === "string" ? orders.find((o) => o.number === Number(placed)) : undefined;
 
   return (
     <>
@@ -36,7 +38,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           </button>
         </form>
       </div>
-      {typeof placed === "string" && /^\d+$/.test(placed) && (
+      {placedOrder && (
         <div className="success" role="status">
           <span className="firework" aria-hidden="true">
             <CircleCheck size={22} />
@@ -44,7 +46,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
             <Sparks count={8} />
           </span>
           <p>
-            <strong>Order #{placed} is placed.</strong> We’ll call +91&nbsp;{orders.find((o) => o.number === Number(placed))?.phone} before we deliver.
+            <strong>Order #{placed} is placed.</strong> We’ll call +91&nbsp;{placedOrder.phone} before we deliver.
           </p>
         </div>
       )}

@@ -93,7 +93,7 @@ export default async function Customers({ searchParams }: { searchParams: Promis
                   </small>
                 </td>
                 <td data-label="Orders" className="num">
-                  <Link href={`/admin?status=all&q=${c.phone}`}>{c.orders}</Link>
+                  <Link href={`/admin?status=all&customer=${String(c._id)}`}>{c.orders}</Link>
                   {c.open > 0 && <small>{c.open} to deliver</small>}
                 </td>
                 <td data-label="Spent" className="num">

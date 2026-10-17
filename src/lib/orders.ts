@@ -1,10 +1,12 @@
 import { randomInt, timingSafeEqual } from "node:crypto";
 import { isValidObjectId, type Types } from "mongoose";
 import { ADDRESS_LABELS, audit, connectDB, Counter, MAX_ADDRESSES, Order, Product, User, type OrderStatus } from "./db";
-import { STATUS_LABEL } from "./format";
+import { BY_HAND, MAX_QTY, STATUS_LABEL } from "./format";
 import { mockOtp, sendCode } from "./sms";
 
 export const DELIVERY_DAYS = 4;
+/** Bookings one account may have waiting for the shop's call: stock is held from the moment of booking. */
+export const MAX_WAITING = 5;
 
 /** A mistake the person can fix; its message is safe to show them. */
 export class OrderError extends Error {}
@@ -31,11 +33,15 @@ export async function placeOrder(user: { id: string }, lines: Line[], details: D
   await connectDB();
   const wanted = new Map<string, number>();
   for (const { id, qty } of lines) {
-    if (!isValidObjectId(id) || !Number.isInteger(qty) || qty < 1 || qty > 500)
+    if (!isValidObjectId(id) || !Number.isInteger(qty) || qty < 1)
       throw new OrderError("Your cart has an item we can't read. Please refresh the page.");
     wanted.set(id, (wanted.get(id) ?? 0) + qty);
   }
   if (!wanted.size) throw new OrderError("Your cart is empty.");
+  // counted after the lines are added up, so splitting one product over many lines doesn't get past it
+  if ([...wanted.values()].some((qty) => qty > MAX_QTY)) throw new OrderError(`At most ${MAX_QTY} of one item per order. Call the shop for more.`);
+  if ((await Order.countDocuments({ user: user.id, status: "placed" })) >= MAX_WAITING)
+    throw new OrderError(`You have ${MAX_WAITING} orders waiting for our call already. We'll call you soon, or call the shop.`);
   const problem = checkDetails(details);
   if (problem) throw new OrderError(problem);
 
@@ -70,9 +76,12 @@ export async function placeOrder(user: { id: string }, lines: Line[], details: D
       deliverBy: new Date(Date.now() + DELIVERY_DAYS * 86_400_000),
       history: [{ by: `${details.name} · ${details.phone}`, text: "Order placed" }],
     });
-    // remembered for next time: the name, and a new address joins the address book
-    await User.updateOne({ _id: user.id }, { name: details.name });
-    await saveToBook(user.id, { ...address, phone: details.phone, label: details.label });
+    // the order stands from here: a failure below must not put its stock back (the catch would)
+    taken.length = 0;
+    // remembered for next time: the name if the account has none yet (staff booking for a caller keep
+    // theirs), and a new address joins the address book; neither is worth failing a booked order for
+    await User.updateOne({ _id: user.id, name: { $in: [null, "", "Customer"] } }, { name: details.name }).catch(console.error);
+    await saveToBook(user.id, { ...address, phone: details.phone, label: details.label }).catch(console.error);
     return order;
   } catch (error) {
     await Promise.all(taken.map((t) => Product.updateOne({ _id: t.id }, { $inc: { stock: t.qty } })));
@@ -101,12 +110,25 @@ export async function saveToBook(userId: string, a: { line: string; landmark: st
 
 const OPEN: OrderStatus[] = ["placed", "packed", "out_for_delivery"];
 
-/** Staff changing the status by hand. Cancelled is final: its stock goes back on the shelf exactly once. */
+/**
+ * Staff changing the status by hand, only the moves BY_HAND allows. Cancelled is final: its stock goes
+ * back on the shelf exactly once. Delivered by hand records the full amount as collected by that staff
+ * member, so the Cash page still asks for it.
+ */
 export async function setOrderStatus(orderId: string, status: OrderStatus, by: string) {
   await connectDB();
+  const from = Object.keys(BY_HAND).filter((s) => BY_HAND[s].includes(status)) as OrderStatus[];
+  const open = await Order.findOne({ _id: orderId, status: { $in: from } }, "total");
+  if (!open) return;
   const order = await Order.findOneAndUpdate(
-    { _id: orderId, status: { $nin: ["cancelled", status] } },
-    { status, $push: { history: { by, text: `Marked ${STATUS_LABEL[status]}` } }, ...(status === "cancelled" && { $unset: { handoverCode: 1 } }) },
+    { _id: orderId, status: { $in: from } },
+    {
+      status,
+      $push: { history: { by, text: status === "delivered" ? `Marked ${STATUS_LABEL[status]}, ₹${open.total} to count in` : `Marked ${STATUS_LABEL[status]}` } },
+      // only the delivery person's Start Delivery makes a code; any move by hand ends the one there was
+      $unset: { handoverCode: 1 },
+      ...(status === "delivered" && { cash: { collected: open.total, collectedAt: new Date(), collectedBy: by } }),
+    },
   );
   if (!order) return;
   if (status === "cancelled")
@@ -150,6 +172,10 @@ export async function startDelivery(orderId: string, riderId: string, by: string
 /** At the door: the customer's code and the full amount in cash or UPI close the order. */
 export async function completeDelivery(orderId: string, riderId: string, code: string, collected: number, by: string) {
   await connectDB();
+  // the amount first: a slip typing it shouldn't use up one of the five code tries
+  const open = await Order.findOne({ _id: orderId, assignedTo: riderId, status: "out_for_delivery" }, "total");
+  if (!open) throw new OrderError("This delivery isn't open for you. Call the shop.");
+  if (collected !== open.total) throw new OrderError(`Collect the full ${open.total} rupees before marking it delivered.`);
   // one try used per check, so five wrong codes lock it until the shop restarts the delivery
   const order = await Order.findOneAndUpdate(
     { _id: orderId, assignedTo: riderId, status: "out_for_delivery", handoverTries: { $lt: 5 } },
@@ -158,8 +184,8 @@ export async function completeDelivery(orderId: string, riderId: string, code: s
   if (!order) throw new OrderError("This delivery isn't open for you, or the code was tried too many times. Call the shop.");
   const a = Buffer.from(order.handoverCode ?? "");
   const b = Buffer.from(code);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) throw new OrderError("That code is not right. Ask the customer to read it again from their order page.");
-  if (collected !== order.total) throw new OrderError(`Collect the full ${order.total} rupees before marking it delivered.`);
+  // no code on the order means no handover is possible (two empty buffers would compare equal)
+  if (!a.length || a.length !== b.length || !timingSafeEqual(a, b)) throw new OrderError("That code is not right. Ask the customer to read it again from their order page.");
 
   const now = new Date();
   const done = await Order.findOneAndUpdate(

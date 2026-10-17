@@ -40,6 +40,8 @@ function Fields({ p }: { p: Editable }) {
         <span>Stock</span>
         <input name="stock" {...whole} defaultValue={p.stock} />
       </label>
+      {/* the stock when the page was drawn: the server applies only the difference typed */}
+      {p._id ? <input type="hidden" name="stockWas" value={p.stock} /> : null}
       <div className="f-image">
         <PhotoInput current={p.image} />
       </div>

@@ -177,7 +177,6 @@ function LoginSteps({ next, hint, google, by, setBy, restart }: { next: string; 
         <h2>Welcome back{state.name ? `, ${state.name}` : ""}</h2>
         {who}
         {carry}
-        <input type="hidden" name="known" value={state.name ?? ""} />
         <PasswordInput name="password" autoComplete="current-password" label="Password" />
         <Message error={state.error} />
         <button className="btn primary big" name="intent" value="password" disabled={pending}>

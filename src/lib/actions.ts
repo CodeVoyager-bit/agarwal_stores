@@ -45,6 +45,8 @@ async function sendCodeTo(by: LoginStep["by"], id: string) {
   // generous per network: Indian mobile carriers put many phones behind one address
   if ((await overLimit(`code:${id}`, 3, 10 * 60_000)) || (await overLimit(`code-ip:${await clientIp()}`, 30, 10 * 60_000)))
     return "Too many codes asked for. Please wait 10 minutes and try again.";
+  // ponytail: one daily ceiling for the whole shop; raise it if real sign-ups ever reach it
+  if (await overLimit("code-all", 1500, 86_400_000)) return "We can't send more codes today. Please call the shop.";
   try {
     if (by === "phone") await (await authApi()).sendPhoneNumberOTP({ body: { phoneNumber: id }, headers: await headerList() });
     else await (await authApi()).sendVerificationOTP({ body: { email: id, type: "sign-in" }, headers: await headerList() });
@@ -65,19 +67,22 @@ export async function loginStepAction(_: LoginStep, form: FormData): Promise<Log
   if (intent === "identify" || intent === "forgot") {
     if (await overLimit(`identify-ip:${await clientIp()}`, 60)) return { ...at, error: "Too many tries. Please wait 15 minutes." };
     const user = await User.findOne(by === "phone" ? { phone: id } : { email: id }).lean();
-    const name = user?.name && user.name !== "Customer" ? user.name : undefined;
-    if (intent === "identify" && user && (await hasPassword(user._id))) return { ...at, step: "password", name };
+    // no name back: anyone can type any number, so the next step must not say whose account it is
+    if (intent === "identify" && user && (await hasPassword(user._id))) return { ...at, step: "password" };
     // made with Google and no password yet: Google already knows it's them, so no code is needed
     if (intent === "identify" && user && googleEnabled() && (await mongoose.connection.collection("authAccounts").findOne({ userId: user._id, providerId: "google" })))
-      return { ...at, step: "google", name };
+      return { ...at, step: "google" };
     const problem = await sendCodeTo(by, id);
-    if (problem) return intent === "forgot" ? { ...at, step: "password", name, error: problem } : { by, error: problem };
-    return { ...at, step: "code", name, isNew: !user, ok: intent === "forgot" ? "Code sent." : undefined };
+    if (problem) return intent === "forgot" ? { ...at, step: "password", error: problem } : { by, error: problem };
+    return { ...at, step: "code", isNew: !user, ok: intent === "forgot" ? "Code sent." : undefined };
   }
 
   if (intent === "password") {
     const password = String(form.get("password") ?? "");
-    if ((await overLimit(`login:${id}`, 10)) || (await overLimit(`login-ip:${await clientIp()}`, 60)))
+    // counted per number and network, so a stranger's wrong guesses can't lock the owner out; the wider
+    // cap per number still stops slow guessing from many networks
+    const ip = await clientIp();
+    if ((await overLimit(`login:${id}:${ip}`, 10)) || (await overLimit(`login:${id}`, 100)) || (await overLimit(`login-ip:${ip}`, 60)))
       return { ...at, step: "password", error: "Too many tries. Please wait 15 minutes, or use Forgot password." };
     try {
       if (by === "phone") await (await authApi()).signInPhoneNumber({ body: { phoneNumber: id, password }, headers: await headerList() });
@@ -157,6 +162,9 @@ export async function addPhoneAction(_: LoginState, form: FormData): Promise<Log
   } catch {
     return { phone, error: "That code is not right, or it has expired. Check it, or ask for a new one." };
   }
+  // a phone account's stand-in email follows the number, so the old number is free to sign up again
+  const user = await currentUser();
+  if (user && !user.email) await User.updateOne({ _id: user.id }, { email: placeholderEmail(phone) }).catch(() => {});
   revalidatePath("/", "layout");
   return { phone, ok: "Number added." };
 }
@@ -379,7 +387,13 @@ export async function saveProductAction(form: FormData) {
 
   const id = text(form, "id");
   const before = id ? await Product.findById(id).lean() : null;
-  const product = id ? await Product.findByIdAndUpdate(id, fields, { runValidators: true }) : await Product.create(fields);
+  // the stock on the page may be minutes old while orders keep taking from it: a changed number is
+  // applied as the change made (+5 received, −2 broken), so sales in between aren't undone
+  const stockWas = Number(text(form, "stockWas") || NaN);
+  const { stock, ...rest } = fields;
+  const product = id ? await Product.findByIdAndUpdate(id, Number.isInteger(stockWas) ? rest : fields, { runValidators: true }) : await Product.create(fields);
+  if (product && id && Number.isInteger(stockWas) && stock !== stockWas)
+    await Product.collection.updateOne({ _id: product._id }, [{ $set: { stock: { $max: [0, { $add: ["$stock", stock - stockWas] }] } } }]);
   if (product && hasPhoto) {
     await Photo.updateOne({ _id: product._id }, { data: Buffer.from(await photo.arrayBuffer()), type: photo.type }, { upsert: true });
     // the version in the address lets browsers keep each photo forever (app/photo/[id]/route.ts)
@@ -461,11 +475,11 @@ export async function setRoleAction(_: Result, form: FormData): Promise<Result> 
     if (ownerPhones().includes(phone)) throw new OrderError("This number is an owner (ADMIN_PHONES), so its role can't change here.");
     await connectDB();
     const name = text(form, "name").slice(0, 80);
-    // a new person gets what better-auth expects of a user; they set their password with Forgot password
-    const now = new Date();
+    // a new person gets what better-auth expects of a user (Mongoose adds createdAt/updatedAt); they set
+    // their password with Forgot password
     const before = await User.findOneAndUpdate(
       { phone },
-      { role, ...(name && { name }), $setOnInsert: { phone, email: placeholderEmail(phone), emailVerified: false, ...(!name && { name: "Customer" }), createdAt: now, updatedAt: now } },
+      { role, ...(name && { name }), $setOnInsert: { phone, email: placeholderEmail(phone), emailVerified: false, ...(!name && { name: "Customer" }) } },
       { upsert: true },
     );
     await audit(who(user), "staff.role", name || before?.name || phone, `${ROLE_LABEL[(before?.role as Role) ?? "customer"]} → ${ROLE_LABEL[role]}`);

@@ -13,6 +13,7 @@ const COLUMNS = {
   mrp: ["mrp", "actual price", "list price", "actual rate"],
   price: ["price", "our price", "offer price", "offer rate", "selling price", "net price", "sale price", "discount price", "rate", "net rate"],
   stock: ["stock", "qty", "quantity", "in stock", "on hand", "count"],
+  addStock: ["add stock", "received", "new stock", "add qty"],
   active: ["on sale", "active", "live", "available", "show"],
   image: ["photo", "image", "picture", "photo link", "image url", "photo url"],
   // last on purpose: many lists call the product's name "Description", and the name takes it first
@@ -25,7 +26,7 @@ export type PlanRow = {
   name: string;
   outcome: "create" | "update" | "same" | "heading" | "error";
   message?: string;
-  fields?: { name: string; category: string; unit: string; mrp: number; price: number; stock: number; active: boolean; image?: string; description?: string };
+  fields?: { name: string; category: string; unit: string; mrp: number; price: number; stock?: number; addStock?: number; active: boolean; image?: string; description?: string };
   id?: string;
 };
 
@@ -75,20 +76,26 @@ export function readSheet(bytes: Uint8Array) {
 const clean = (text: string) => text.replace(/\s+/g, " ").trim();
 const key = (name: string) => clean(name).toLowerCase();
 const titleCase = (text: string) => clean(text).toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-/** "₹1,200", "1200.00", "Rs. 1200" → 1200; NaN when it isn't an amount. */
-const amount = (text: string) => (text.trim() ? Number(text.replace(/rs\.?|₹|,|\s/gi, "")) : NaN);
+/** "₹1,200", "1200.00", "Rs. 1200", "60/-" → the number; NaN when it isn't an amount. */
+const amount = (text: string) => (text.trim() ? Number(text.replace(/rs\.?|inr|₹|,|\s|\/-$/gi, "")) : NaN);
 const yes = (text: string) => !/^(no|n|false|0|off|hide|hidden)$/i.test(text.trim());
 
-/** Which position each known column has in the header row; a column is only ever used once. */
+/**
+ * Which position each known column has in the header row; a column is only ever used once. The best
+ * name wins over position ("Name" over a "Description" left of it), and "Price (Rs.)" reads as Price.
+ */
 function positions(header: string[]) {
-  const names = header.map((h) => key(h).replace(/[_.()]/g, " ").replace(/\s+/g, " ").trim());
+  const names = header.map((h) => key(h).replace(/[_.()]/g, " ").replace(/₹|\b(in )?(rs|inr|rupees)\b/g, " ").replace(/\s+/g, " ").trim());
   const found: Partial<Record<Column, number>> = {};
   const taken = new Set<number>();
   for (const [column, aliases] of Object.entries(COLUMNS) as [Column, readonly string[]][]) {
-    const index = names.findIndex((n, i) => !taken.has(i) && (aliases as readonly string[]).includes(n));
-    if (index >= 0) {
-      found[column] = index;
-      taken.add(index);
+    for (const alias of aliases) {
+      const index = names.findIndex((n, i) => !taken.has(i) && n === alias);
+      if (index >= 0) {
+        found[column] = index;
+        taken.add(index);
+        break;
+      }
     }
   }
   return found;
@@ -121,7 +128,8 @@ export async function planImport(table: string[][]): Promise<{ rows: PlanRow[]; 
     const name = cell(cells, "name");
     const [mrpText, priceText, stockText] = [cell(cells, "mrp"), cell(cells, "price"), cell(cells, "stock")];
     if (!name) return { line, name: "", outcome: "same", message: "Empty row." };
-    if (!mrpText && !priceText && !stockText && !cell(cells, "category")) {
+    // a heading has nothing but its name and isn't a product already ("SPARKLERS" above its rows)
+    if ((Object.keys(columns) as Column[]).every((c) => c === "name" || !cell(cells, c)) && !existing.has(key(name))) {
       section = titleCase(name);
       return { line, name, outcome: "heading", message: `Rows below go in “${section}”.` };
     }
@@ -132,25 +140,30 @@ export async function planImport(table: string[][]): Promise<{ rows: PlanRow[]; 
     const old = existing.get(key(name));
     const price = priceText ? amount(priceText) : old?.price ?? amount(mrpText);
     const mrp = mrpText ? amount(mrpText) : old?.mrp ?? price;
-    const stock = stockText ? amount(stockText) : old?.stock ?? 0;
-    for (const [label, value] of [["Price", price], ["MRP", mrp], ["Stock", stock]] as const)
+    // Stock replaces the number (a recount); Add stock adds to what is on the shelf by then. A blank
+    // Stock leaves it alone, so orders taken since the sheet was written aren't undone
+    const added = cell(cells, "addStock") ? amount(cell(cells, "addStock")) : 0;
+    const stock = stockText ? amount(stockText) : old ? undefined : 0;
+    for (const [label, value] of [["Price", price], ["MRP", mrp], ["Stock", stock ?? 0], ["Add stock", added]] as const)
       if (!Number.isInteger(value) || value < 0) return { line, name, outcome: "error", message: `${label} must be whole rupees or a whole number, 0 or more.` };
     if (price > mrp) return { line, name, outcome: "error", message: "Price is more than the MRP." };
     const category = cell(cells, "category") ? titleCase(cell(cells, "category")) : old?.category || section;
     if (!category) return { line, name, outcome: "error", message: "No category: add a Category column, or a heading row like “Sparklers” above it." };
     const image = cell(cells, "image");
     if (image && !/^https:\/\//.test(image)) return { line, name, outcome: "error", message: "The photo must be a link starting with https://" };
+    if (cell(cells, "unit").length > 40) return { line, name, outcome: "error", message: "The pack is longer than 40 letters." };
     // like the other columns, an empty cell keeps what the product has; line breaks inside a cell stay
     const description = columns.description === undefined ? "" : String(cells[columns.description] ?? "").replace(/\r\n?/g, "\n").replace(/[ \t]+/g, " ").replace(/ ?\n ?/g, "\n").trim();
     if (description.length > 1000) return { line, name, outcome: "error", message: "The description is longer than 1000 letters." };
 
+    const stockFields: { stock?: number; addStock?: number } = stock !== undefined ? { stock: stock + added } : added ? { addStock: added } : {};
     const fields = {
       name: old?.name ?? name,
       category,
       unit: cell(cells, "unit") || old?.unit || "1 box",
       mrp,
       price,
-      stock,
+      ...stockFields,
       active: cell(cells, "active") ? yes(cell(cells, "active")) : (old?.active ?? true),
       ...(image ? { image } : {}),
       ...(description ? { description } : {}),
@@ -159,8 +172,9 @@ export async function planImport(table: string[][]): Promise<{ rows: PlanRow[]; 
     const changed = (["category", "unit", "mrp", "price", "stock", "active", "image", "description"] as const).filter(
       (f) => fields[f as keyof typeof fields] !== undefined && fields[f as keyof typeof fields] !== old[f],
     );
-    return changed.length
-      ? { line, name, outcome: "update", message: `Changes ${changed.join(", ")}.`, fields, id: String(old._id) }
+    const what = [...changed.map((f) => (f === "stock" ? `stock ${old.stock} → ${fields.stock}` : f)), ...(fields.addStock ? [`stock +${fields.addStock}`] : [])];
+    return what.length
+      ? { line, name, outcome: "update", message: `Changes ${what.join(", ")}.`, fields, id: String(old._id) }
       : { line, name, outcome: "same", message: "Already the same." };
   });
   return { rows };
@@ -176,7 +190,8 @@ export async function applyImport(rows: PlanRow[], by: string) {
       await Product.create(row.fields!);
       created++;
     } else if (row.outcome === "update") {
-      await Product.updateOne({ _id: row.id }, row.fields!, { runValidators: true });
+      const { addStock, ...fields } = row.fields!;
+      await Product.updateOne({ _id: row.id }, { ...fields, ...(addStock && { $inc: { stock: addStock } }) }, { runValidators: true });
       updated++;
     }
   }
