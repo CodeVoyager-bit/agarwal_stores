@@ -1,10 +1,9 @@
 "use client";
 
 import { Eye, EyeOff } from "lucide-react";
-import Link from "next/link";
 import { useActionState, useState } from "react";
+import { addPhoneAction, loginStepAction, sendPhoneCodeAction, type LoginStep } from "@/lib/actions";
 import { tenDigitMobile } from "@/lib/format";
-import { addPhoneAction, emailResetAction, loginEmailAction, loginPhoneAction, newPasswordAction, sendCodeAction, setPasswordAction } from "@/lib/actions";
 
 /** A password box with a show/hide toggle, so people can check what they typed (from Agarwal Online). */
 function PasswordInput({ name, autoComplete, label }: { name: string; autoComplete: "current-password" | "new-password"; label: string }) {
@@ -27,7 +26,7 @@ function PasswordInput({ name, autoComplete, label }: { name: string; autoComple
  * typed, and a pasted "+91 98765 43210" or "09876543210" becomes 9876543210. Controlled, so a failed try
  * doesn't clear it. No maxLength: it would cut a pasted "+91 …" short before the prefix comes off.
  */
-function PhoneField() {
+function PhoneField({ name = "phone", focus = false }: { name?: string; focus?: boolean }) {
   const [phone, setPhone] = useState("");
   return (
     <label>
@@ -35,7 +34,7 @@ function PhoneField() {
       <span className="phone">
         <span aria-hidden="true">+91</span>
         <input
-          name="phone"
+          name={name}
           type="tel"
           inputMode="numeric"
           autoComplete="tel-national"
@@ -43,6 +42,7 @@ function PhoneField() {
           title="10-digit mobile number"
           placeholder="9876543210"
           required
+          autoFocus={focus}
           value={phone}
           onChange={(e) => setPhone(tenDigitMobile(e.target.value))}
         />
@@ -52,20 +52,21 @@ function PhoneField() {
 }
 
 /** An email box: email keyboard, no capitals or spell-check, spaces dropped as they're typed or pasted. */
-function EmailField({ required = true, label = "Email" }: { required?: boolean; label?: React.ReactNode }) {
+function EmailField({ name = "email", focus = false }: { name?: string; focus?: boolean }) {
   const [email, setEmail] = useState("");
   return (
     <label>
-      {label}
+      Email
       <input
-        name="email"
+        name={name}
         type="email"
         inputMode="email"
         autoComplete="email"
         autoCapitalize="none"
         spellCheck={false}
         placeholder="name@example.com"
-        required={required}
+        required
+        autoFocus={focus}
         value={email}
         onChange={(e) => setEmail(e.target.value.replace(/\s/g, ""))}
       />
@@ -94,192 +95,127 @@ const Message = ({ error, ok }: { error?: string; ok?: string }) =>
     </p>
   ) : null;
 
-const nextQuery = (next: string) => (next === "/" ? "" : `?next=${encodeURIComponent(next)}`);
-
-/** Everyday login with mobile or email, and a password. Costs nothing, unlike a code. */
-export function LoginForm({ next }: { next: string }) {
-  const [way, setWay] = useState<"mobile" | "email">("mobile");
-  const [byPhone, loginPhone, phonePending] = useActionState(loginPhoneAction, null);
-  const [byEmail, loginEmail, emailPending] = useActionState(loginEmailAction, null);
-  const q = nextQuery(next);
-  return (
-    <div className="panel">
-      <div className="segmented" role="group" aria-label="Log in with">
-        <button type="button" aria-pressed={way === "mobile"} onClick={() => setWay("mobile")}>
-          Mobile
-        </button>
-        <button type="button" aria-pressed={way === "email"} onClick={() => setWay("email")}>
-          Email
-        </button>
-      </div>
-      {way === "mobile" ? (
-        <form action={loginPhone} onReset={keepTyped} className="fields-plain">
-          <input type="hidden" name="next" value={next} />
-          <PhoneField />
-          <PasswordInput name="password" autoComplete="current-password" label="Password" />
-          <Message error={byPhone?.error} />
-          <button className="btn primary big" disabled={phonePending}>
-            {phonePending ? "Logging In…" : "Log In"}
-          </button>
-        </form>
-      ) : (
-        <form action={loginEmail} onReset={keepTyped} className="fields-plain">
-          <input type="hidden" name="next" value={next} />
-          <EmailField />
-          <PasswordInput name="password" autoComplete="current-password" label="Password" />
-          <Message error={byEmail?.error} />
-          <button className="btn primary big" disabled={emailPending}>
-            {emailPending ? "Logging In…" : "Log In with Email"}
-          </button>
-        </form>
-      )}
-      <p className="auth-links">
-        <Link href={`/reset${q}`}>Forgot password?</Link>
-        <Link href={`/signup${q}`}>New here? Create an account →</Link>
-      </p>
-    </div>
-  );
-}
-
 /**
- * Creating an account (or, by SMS, setting a new password): one code to the number, then the
- * password. A new key starts over at the number step.
+ * The whole way in on one page: a mobile number or email first, then the password for someone who has
+ * one, or a code and a new password for anyone else. "Change" starts over (a new key resets the steps).
  */
-export function CodeFlow({ purpose, next, hint }: { purpose: "signup" | "reset"; next: string; hint?: string }) {
+export function LoginFlow({ next, hint }: { next: string; hint?: string }) {
   const [round, setRound] = useState(0);
-  return <CodeSteps key={round} purpose={purpose} next={next} hint={hint} restart={() => setRound((r) => r + 1)} />;
+  const [by, setBy] = useState<LoginStep["by"]>("phone");
+  return <LoginSteps key={round} next={next} hint={hint} by={by} setBy={setBy} restart={() => setRound((r) => r + 1)} />;
 }
 
-function CodeSteps({ purpose, next, hint, restart }: { purpose: "signup" | "reset"; next: string; hint?: string; restart: () => void }) {
-  const [sent, send, sending] = useActionState(sendCodeAction, null);
-  const [saved, save, saving] = useActionState(setPasswordAction, null);
-  const q = nextQuery(next);
+function LoginSteps({ next, hint, by, setBy, restart }: { next: string; hint?: string; by: LoginStep["by"]; setBy: (by: LoginStep["by"]) => void; restart: () => void }) {
+  const [state, act, pending] = useActionState(loginStepAction, { by });
+  const shown = state.id && (state.by === "phone" ? `+91 ${state.id}` : state.id);
+  const carry = (
+    <>
+      <input type="hidden" name="by" value={state.by} />
+      <input type="hidden" name="id" value={state.id ?? ""} />
+      <input type="hidden" name="next" value={next} />
+    </>
+  );
+  const who = (
+    <p className="who">
+      <span>{shown}</span>
+      <button type="button" className="link" onClick={restart}>
+        Change
+      </button>
+    </p>
+  );
 
-  if (!sent?.phone)
+  if (!state.step)
     return (
-      <form action={send} className="panel">
-        <input type="hidden" name="purpose" value={purpose} />
-        <PhoneField />
-        <p className="note">We’ll send a 6‑digit code on WhatsApp (or SMS) to check the number is yours.</p>
-        <Message error={sent?.error} />
-        <button className="btn primary big" disabled={sending}>
-          {sending ? "Sending Code…" : "Send Code"}
+      <form action={act} onReset={keepTyped} className="panel">
+        <div className="segmented" role="group" aria-label="Continue with">
+          <button type="button" aria-pressed={by === "phone"} onClick={() => setBy("phone")}>
+            Mobile
+          </button>
+          <button type="button" aria-pressed={by === "email"} onClick={() => setBy("email")}>
+            Email
+          </button>
+        </div>
+        <input type="hidden" name="intent" value="identify" />
+        <input type="hidden" name="by" value={by} />
+        <input type="hidden" name="next" value={next} />
+        {/* the login page is for this one field, so it takes the keyboard */}
+        {by === "phone" ? <PhoneField name="id" focus /> : <EmailField name="id" focus />}
+        <p className="note">New here? Just continue: we’ll check it’s yours with a code, then you choose a password.</p>
+        <Message error={state.error} />
+        <button className="btn primary big" disabled={pending}>
+          {pending ? "Checking…" : "Continue"}
         </button>
-        {purpose === "signup" && (
-          <p className="auth-links">
-            <Link href={`/login${q}`}>← Back to log in</Link>
-            <Link href={`/reset${q}`}>Already have an account?</Link>
-          </p>
-        )}
+      </form>
+    );
+
+  if (state.step === "password")
+    return (
+      <form action={act} onReset={keepTyped} className="panel">
+        <h2>Welcome back{state.name ? `, ${state.name}` : ""}</h2>
+        {who}
+        {carry}
+        <input type="hidden" name="known" value={state.name ?? ""} />
+        <PasswordInput name="password" autoComplete="current-password" label="Password" />
+        <Message error={state.error} />
+        <button className="btn primary big" name="intent" value="password" disabled={pending}>
+          {pending ? "Logging In…" : "Log In"}
+        </button>
+        {/* formNoValidate: asking for a code needs no password */}
+        <button className="link" name="intent" value="forgot" formNoValidate disabled={pending}>
+          Forgot password? Send me a code
+        </button>
       </form>
     );
 
   return (
-    <form action={save} onReset={keepTyped} className="panel">
-      <p>
-        Code sent to <strong>+91 {sent.phone}</strong>.{" "}
-        <button type="button" className="link" onClick={restart}>
-          Change Number
-        </button>
+    <form action={act} onReset={keepTyped} className="panel">
+      <h2>{state.isNew ? "Create Your Account" : "Set a Password"}</h2>
+      <p className="note">
+        We sent a 6‑digit code to <strong>{shown}</strong>
+        {state.by === "email" ? " (check spam too)" : " on WhatsApp (or SMS)"}.
       </p>
-      <input type="hidden" name="purpose" value={purpose} />
-      <input type="hidden" name="phone" value={sent.phone} />
-      <input type="hidden" name="next" value={next} />
+      {who}
+      {carry}
+      <input type="hidden" name="isNew" value={state.isNew ? "1" : ""} />
       <label>
         6‑digit code
-        {/* the keyboard is already open from the number step, so the code field takes it over */}
+        {/* the keyboard is already open from the first step, so the code field takes it over */}
         <input name="code" className="otp" inputMode="numeric" autoComplete="one-time-code" spellCheck={false} pattern="\d{6}" maxLength={6} onInput={codeDigits} required autoFocus />
       </label>
       {hint && <p className="note">{hint}</p>}
-      {purpose === "signup" && (
-        <>
-          <label>
-            Your name
-            <input name="name" autoComplete="name" required minLength={2} maxLength={80} />
-          </label>
-          <EmailField
-            required={false}
-            label={
-              <span>
-                Email <small>(optional, to log in with email too)</small>
-              </span>
-            }
-          />
-        </>
+      {state.isNew && (
+        <label>
+          Your name
+          <input name="name" autoComplete="name" required minLength={2} maxLength={80} />
+        </label>
       )}
-      <PasswordInput name="password" autoComplete="new-password" label={purpose === "signup" ? "Choose a password (8+ characters)" : "New password (8+ characters)"} />
+      <PasswordInput name="password" autoComplete="new-password" label="Choose a password (8+ characters)" />
       <PasswordInput name="confirm" autoComplete="new-password" label="Type it again" />
-      <Message error={saved?.error} />
-      <button className="btn primary big" disabled={saving}>
-        {saving ? "Saving…" : purpose === "signup" ? "Create Account" : "Save Password & Log In"}
+      <Message error={state.error} ok={state.ok} />
+      <button className="btn primary big" name="intent" value="code" disabled={pending}>
+        {pending ? "Saving…" : state.isNew ? "Create Account" : "Save Password & Log In"}
+      </button>
+      <button className="link" name="intent" value="forgot" formNoValidate disabled={pending}>
+        Send the code again
       </button>
     </form>
   );
 }
 
-/** Forgot password: a free link by email, or a code by SMS. */
-export function ResetChoices({ next, hint }: { next: string; hint?: string }) {
-  const [way, setWay] = useState<"email" | "mobile">("email");
-  const [state, request, pending] = useActionState(emailResetAction, null);
-  return (
-    <>
-      <div className="segmented" role="group" aria-label="Get the reset by">
-        <button type="button" aria-pressed={way === "email"} onClick={() => setWay("email")}>
-          Link by Email
-        </button>
-        <button type="button" aria-pressed={way === "mobile"} onClick={() => setWay("mobile")}>
-          Code by SMS
-        </button>
-      </div>
-      {way === "email" ? (
-        <form action={request} onReset={keepTyped} className="panel">
-          <EmailField />
-          <Message error={state?.error} ok={state?.ok} />
-          <button className="btn primary big" disabled={pending}>
-            {pending ? "Sending…" : "Email Me a Link"}
-          </button>
-        </form>
-      ) : (
-        <CodeFlow purpose="reset" next={next} hint={hint} />
-      )}
-      <p className="auth-links">
-        <Link href={`/login${nextQuery(next)}`}>← Back to log in</Link>
-      </p>
-    </>
-  );
-}
-
-/** Where the email link lands: choose the new password. */
-export function NewPasswordForm({ token }: { token: string }) {
-  const [state, save, pending] = useActionState(newPasswordAction, null);
-  return (
-    <form action={save} onReset={keepTyped} className="panel">
-      <input type="hidden" name="token" value={token} />
-      <PasswordInput name="password" autoComplete="new-password" label="New password (8+ characters)" />
-      <PasswordInput name="confirm" autoComplete="new-password" label="Type it again" />
-      <Message error={state?.error} />
-      <button className="btn primary big" disabled={pending}>
-        {pending ? "Saving…" : "Save New Password"}
-      </button>
-    </form>
-  );
-}
-
-/** For accounts made with Google: the mobile number the shop calls about delivery, checked with a code once. */
+/** For accounts made with Google or email: the mobile number the shop calls about delivery, checked with a code once. */
 export function AddPhone({ hint }: { hint?: string }) {
   const [round, setRound] = useState(0);
   return <AddPhoneSteps key={round} hint={hint} restart={() => setRound((r) => r + 1)} />;
 }
 
 function AddPhoneSteps({ hint, restart }: { hint?: string; restart: () => void }) {
-  const [sent, send, sending] = useActionState(sendCodeAction, null);
+  const [sent, send, sending] = useActionState(sendPhoneCodeAction, null);
   const [added, add, adding] = useActionState(addPhoneAction, null);
   if (!sent?.phone)
     return (
       <form action={send} className="fields">
         <h3>Add Your Mobile Number</h3>
         <p className="note">We call this number before delivery. We’ll check it once with a code on WhatsApp (or SMS).</p>
-        <input type="hidden" name="purpose" value="add" />
         <PhoneField />
         <Message error={sent?.error} />
         <button className="btn primary big" disabled={sending}>

@@ -2,10 +2,10 @@ import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
-import { phoneNumber } from "better-auth/plugins";
+import { emailOTP, phoneNumber } from "better-auth/plugins";
 import mongoose from "mongoose";
 import { connectDB } from "./db";
-import { placeholderEmail, resetPasswordMail, sendEmail, verifyEmailMail } from "./email";
+import { codeMail, placeholderEmail, sendEmail } from "./email";
 import { mockOtp, sendCode } from "./sms";
 
 /**
@@ -53,19 +53,6 @@ function build() {
       disableSignUp: true,
       minPasswordLength: 8,
       maxPasswordLength: 128,
-      resetPasswordTokenExpiresIn: 60 * 60,
-      revokeSessionsOnPasswordReset: true,
-      sendResetPassword: async ({ user, url }) => {
-        await sendEmail({ to: user.email, ...resetPasswordMail(user.name, url) });
-      },
-    },
-    emailVerification: {
-      // a signed 24-hour link; clicking it confirms the email and never logs anyone in by itself
-      expiresIn: 24 * 60 * 60,
-      autoSignInAfterVerification: false,
-      sendVerificationEmail: async ({ user, url }) => {
-        await sendEmail({ to: user.email, ...verifyEmailMail(user.name, url) });
-      },
     },
     ...(googleEnabled() && {
       socialProviders: {
@@ -77,7 +64,9 @@ function build() {
       // set only from the Staff page, never by the person signing up
       additionalFields: { role: { type: "string", required: false, defaultValue: "customer", input: false } },
     },
-    // Google joins an existing account only when that account's email is verified (the default)
+    // Google signs in to the account that already has its email instead of making a second one. better-auth
+    // joins them only when that account's email is verified (requireLocalEmailVerified, the default), so
+    // nobody can claim someone else's email first; emails here are always verified by their code.
     account: { modelName: "authAccounts", accountLinking: { enabled: true } },
     session: { modelName: "authSessions", expiresIn: 60 * 24 * 60 * 60, updateAge: 24 * 60 * 60 },
     verification: { modelName: "authVerifications", storeIdentifier: "hashed" },
@@ -96,9 +85,18 @@ function build() {
       before: createAuthMiddleware(async (ctx) => {
         if (!["/phone-number/send-otp", "/phone-number/verify", "/sign-in/phone-number"].includes(ctx.path)) return;
         const phone = String(ctx.body?.phoneNumber ?? "");
-        await db
-          .collection("users")
-          .updateOne({ phone, email: { $exists: false } }, { $set: { email: placeholderEmail(phone), emailVerified: false, name: "Customer", createdAt: new Date(), updatedAt: new Date() } });
+        // a pipeline, so a name or date they already have is kept
+        await db.collection("users").updateOne({ phone, email: { $exists: false } }, [
+          {
+            $set: {
+              email: placeholderEmail(phone),
+              emailVerified: false,
+              name: { $ifNull: ["$name", "Customer"] },
+              createdAt: { $ifNull: ["$createdAt", "$$NOW"] },
+              updatedAt: "$$NOW",
+            },
+          },
+        ]);
       }),
     },
     plugins: [
@@ -130,6 +128,16 @@ function build() {
         }),
         signUpOnVerification: { getTempEmail: placeholderEmail, getTempName: () => "Customer" },
         schema: { user: { fields: { phoneNumber: "phone", phoneNumberVerified: "phoneVerified" } } },
+      }),
+      // the free way in: a 6-digit code by email logs in (making the account if new) and proves the email
+      emailOTP({
+        otpLength: 6,
+        expiresIn: 10 * 60,
+        allowedAttempts: 5,
+        ...(mockOtp() && { generateOTP: () => process.env.MOCK_OTP_CODE || "123456" }),
+        sendVerificationOTP: async ({ email, otp }) => {
+          await sendEmail({ to: email, ...codeMail(otp) });
+        },
       }),
       // lets server actions set the login cookie
       nextCookies(),

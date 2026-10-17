@@ -37,27 +37,11 @@ export async function sendEmail(mail: Mail) {
   }
 }
 
-const esc = (text: string) => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
-
-/** One plain, festive email with a single button; the text version carries the same link. */
-function letter(name: string, lead: string, button: string, url: string, after: string): Pick<Mail, "html" | "text"> {
-  const hello = name && name !== "Customer" ? `Namaste ${name},` : "Namaste,";
-  return {
-    text: `${hello}\n\n${lead}\n\n${button}: ${url}\n\n${after}\n\nAgarwal Stores · Crackers`,
-    html: `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:auto;padding:24px;color:#2b1810">
+export const codeMail = (code: string) => ({
+  subject: `${code} is your Agarwal Stores code`,
+  text: `Your Agarwal Stores code is ${code}.\n\nIt works for 10 minutes. If you didn't ask for it, ignore this email.\n\nAgarwal Stores · Crackers`,
+  html: `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:auto;padding:24px;color:#2b1810">
 <p style="font-size:20px;font-weight:800;color:#7a1022;margin:0 0 16px">Agarwal Stores · Crackers</p>
-<p>${esc(hello)}</p><p>${esc(lead)}</p>
-<p style="margin:24px 0"><a href="${esc(url)}" style="background:#c8102e;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:700">${esc(button)}</a></p>
-<p style="color:#6f5548;font-size:14px">${esc(after)}</p></div>`,
-  };
-}
-
-export const verifyEmailMail = (name: string, url: string) => ({
-  subject: "Confirm your email for Agarwal Stores",
-  ...letter(name, "Please confirm this email address so you can log in with it and get order updates.", "Confirm Email", url, "The link works for 24 hours. If you didn't ask for this, ignore this email."),
-});
-
-export const resetPasswordMail = (name: string, url: string) => ({
-  subject: "Set a new password for Agarwal Stores",
-  ...letter(name, "Someone asked to set a new password for your account. Tap the button to choose one.", "Set New Password", url, "The link works for 1 hour. If you didn't ask for this, ignore this email; your password stays the same."),
+<p>Your code is</p><p style="font-size:32px;font-weight:800;letter-spacing:8px;color:#7a1022;margin:8px 0 16px">${code}</p>
+<p style="color:#6f5548;font-size:14px">It works for 10 minutes. If you didn't ask for it, ignore this email.</p></div>`,
 });

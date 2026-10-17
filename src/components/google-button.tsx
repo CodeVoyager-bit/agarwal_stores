@@ -31,7 +31,7 @@ function GoogleMark() {
 export function googleProblem(code: string | undefined) {
   if (!code) return null;
   if (code === "account_not_linked")
-    return "There's already an account with this email. Log in with its email and password (or Forgot password), then Google works next time.";
+    return "There's already an account with this email. Continue with that email below once (a code confirms it's yours), then Google logs in to the same account next time.";
   if (code === "access_denied") return "Google sign-in was cancelled.";
   return "Google sign-in didn't finish. Please try again.";
 }
