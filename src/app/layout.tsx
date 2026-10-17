@@ -8,11 +8,14 @@ import { LogOut } from "lucide-react";
 import { SiteNav } from "@/components/nav";
 import { logoutAction } from "@/lib/actions";
 import { currentUser } from "@/lib/auth";
+import { appOrigin } from "@/lib/email";
 
 // Headings, prices and the brand: round and friendly, with Devanagari for the Diwali greeting.
 const display = Baloo_2({ weight: ["600", "700", "800"], subsets: ["latin", "devanagari"], variable: "--font-display", display: "swap" });
 
 export const metadata: Metadata = {
+  // makes the shared-link picture (opengraph-image.tsx) a full https:// address
+  metadataBase: new URL(appOrigin()),
   title: "Agarwal Stores · Crackers",
   description: "Order Diwali crackers from Agarwal Stores. Home delivery in 3–4 days, pay cash or UPI on delivery.",
 };
