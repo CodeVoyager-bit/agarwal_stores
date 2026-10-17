@@ -33,6 +33,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <header className="top">
           <div className="wrap">
             <Link href="/" className="brand" translate="no">
+              {/* app/icon.svg: also the favicon; apple-icon.png is the same art for home screens */}
+              <img src="/icon.svg" alt="" width={36} height={36} className="logo" />
               Agarwal Stores <span>Crackers</span>
             </Link>
             <SiteNav role={user?.role ?? null} />
@@ -50,6 +52,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
         </main>
         <footer className="wrap foot">
+          <img src="/icon.svg" alt="" width={20} height={20} className="logo" />
           <span translate="no">Agarwal Stores</span> · Home delivery in 3–4 days · Pay cash or UPI on delivery
           {process.env.SHOP_PHONE && (
             <>

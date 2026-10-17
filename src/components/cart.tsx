@@ -123,7 +123,10 @@ export function Stepper({ id, name, max }: { id: string; name: string; max: numb
       <button type="button" onClick={() => setQty(id, qty - 1)} aria-label={`One less ${name}`}>
         <Minus size={18} strokeWidth={2.25} aria-hidden="true" />
       </button>
-      <span aria-live="polite">{qty}</span>
+      {/* a new <b> per number, so each change pops (globals.css) */}
+      <span aria-live="polite">
+        <b key={qty}>{qty}</b>
+      </span>
       <button
         type="button"
         onClick={(e) => {

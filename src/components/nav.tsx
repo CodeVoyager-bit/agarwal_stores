@@ -28,7 +28,7 @@ export function SiteNav({ role }: { role: Role | null }) {
           <span className="tab-icon">
             <Icon size={22} strokeWidth={1.75} aria-hidden="true" />
             {badge ? (
-              <span className="badge" aria-label={`${badge} in cart`}>
+              <span key={badge} className="badge" aria-label={`${badge} in cart`}>
                 {badge}
               </span>
             ) : null}

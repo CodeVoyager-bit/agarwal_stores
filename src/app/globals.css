@@ -27,6 +27,8 @@
   --shadow-2: 0 14px 30px -14px rgb(122 16 34 / 0.28);
   --shadow-3: 0 16px 36px -10px rgb(122 16 34 / 0.45);
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* a damped spring (8% overshoot) for things that pop */
+  --spring: linear(0, 0.089, 0.288, 0.515, 0.721, 0.882, 0.991, 1.054, 1.08, 1.082, 1.07, 1.051, 1.033, 1.017, 1.005, 0.998, 0.994, 0.993, 0.994, 0.995, 0.996, 0.998, 0.999, 1, 1);
   --header-h: 84px;
   --tab-h: 0px;
   color-scheme: light;
@@ -90,6 +92,10 @@ img { max-width: 100%; height: auto; }
   box-shadow: 0 0 0 2px var(--saffron-2); font-variant-numeric: tabular-nums;
 }
 .foot { color: var(--muted); font-size: 0.85rem; padding-top: 40px; padding-bottom: 40px; text-align: center; }
+.brand .logo { border-radius: 10px; box-shadow: 0 3px 8px -3px rgb(122 16 34 / 0.5); }
+.foot .logo { vertical-align: -5px; margin-right: 6px; }
+/* the smallest phones: the logo already says crackers, and Log Out needs the room */
+@media (max-width: 360px) { .brand span { display: none; } }
 
 /* ---- buttons & fields ---- */
 .btn {
@@ -301,6 +307,9 @@ main:has(.cartbar) { padding-bottom: 88px; }
 .login .panel { display: grid; gap: 16px; }
 .login .panel p { margin: 0; }
 .login-icon { display: inline-grid; place-items: center; width: 56px; height: 56px; border-radius: 18px; background: var(--cream); border: 1px solid #f6d7b3; color: var(--red); }
+.lost { display: grid; justify-items: center; gap: 14px; padding: 48px 0 24px; text-align: center; }
+.lost h1 { margin: 0; }
+.lost .search, .lost .btn { width: 100%; }
 .otp { font-size: 1.5rem; letter-spacing: 0.5em; text-align: center; font-variant-numeric: tabular-nums; padding-left: calc(12px + 0.5em); }
 
 /* ---- orders ---- */
@@ -514,6 +523,8 @@ ul.chips { list-style: none; margin: 0 0 12px; }
 /* packing slip: a plain page that prints without the site around it */
 .slip { max-width: 760px; margin: 20px auto; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; display: grid; gap: 18px; }
 .slip header { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid var(--ink); padding-bottom: 12px; }
+.slip-brand { display: flex; align-items: center; gap: 12px; }
+.slip .slip-brand small { display: block; margin: 2px 0 0; }
 .slip-shop { font-family: var(--font-display), system-ui, sans-serif; font-size: 1.4rem; color: var(--maroon); }
 .slip-number { text-align: right; }
 .slip h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-family: system-ui, sans-serif; margin-bottom: 4px; }
@@ -676,6 +687,32 @@ ul.chips { list-style: none; margin: 0 0 12px; }
 @keyframes nav-trickle { from { scale: 0 1; } 6% { scale: 0.35 1; } to { scale: 0.92 1; } }
 a[data-pending] { cursor: progress; opacity: 0.72; transition: opacity 0.15s 0.12s; }
 
+/* ---- motion: only on things that just appeared or just changed; transform and opacity only ---- */
+@keyframes enter { from { opacity: 0; transform: translateY(10px); } }
+@keyframes pop { from { opacity: 0; transform: scale(0.5); } }
+@keyframes press-in { from { opacity: 0.5; transform: scale(0.94); } }
+@keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+@keyframes grow { from { transform: scaleX(0); } }
+@keyframes bloom { from { opacity: 0; transform: scale(0.3) rotate(-60deg); } }
+/* each page settles in, top to bottom; shelves leave it to their cards, the cart bar has its own rise */
+main > :not(.shelf, .cartbar) { animation: enter 320ms var(--ease) calc(var(--stagger, 0) * 60ms) backwards; }
+main > :nth-child(2) { --stagger: 1; }
+main > :nth-child(n + 3) { --stagger: 2; }
+/* cards fade up one after another (index set in catalog.tsx), and again when a filter brings them back */
+.card { animation: enter 360ms var(--ease) calc(var(--i, 0) * 40ms) backwards; }
+/* the rangoli is drawn from the centre out, ring by ring */
+.rangoli > g { transform-box: fill-box; transform-origin: center; animation: bloom 800ms var(--spring) calc(var(--n) * 90ms + 120ms) backwards; }
+/* adding to the cart: the stepper presses in, the count and the cart badge pop */
+.stepper { animation: press-in 260ms var(--ease); }
+.stepper b, .badge { display: inline-block; animation: pop 420ms var(--spring); }
+/* a refused code or form shakes once, like a wrong passcode */
+.error[role="alert"] { animation: shake 320ms var(--ease); }
+/* order progress fills in: each dot pops, then the line to the next */
+.track li:nth-child(2) { --s: 1; }
+.track li:nth-child(3) { --s: 2; }
+.track li:nth-child(4) { --s: 3; }
+.track li.done::before { animation: pop 420ms var(--spring) calc(var(--s, 0) * 160ms + 200ms) backwards; }
+.track li.done + li.done::after { transform-origin: left; animation: grow 180ms var(--ease) calc(var(--s) * 160ms + 40ms) backwards; }
 /* a product's picture on its way to the cart (cart.tsx moves it) */
 .flying { position: fixed; z-index: 40; margin: 0; pointer-events: none; overflow: hidden; box-shadow: var(--shadow-3); }
 /* sparks out of one point, like a cracker going off: the cart catching an item, an order placed */

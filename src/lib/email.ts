@@ -70,7 +70,8 @@ export function codeMail(code: string, type = "sign-in") {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff8f0"><tr><td align="center" style="padding:28px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #f0dcc8;border-radius:18px;overflow:hidden">
   <tr><td style="background:#ff9933;background-image:linear-gradient(100deg,#ff9933,#ffb43a);padding:22px 28px">
-    <span style="${font};font-size:22px;font-weight:800;color:#7a1022">Agarwal Stores</span>
+    <img src="${site}/apple-icon.png" width="36" height="36" alt="" style="vertical-align:middle;border:0;border-radius:9px;margin-right:8px">
+    <span style="${font};font-size:22px;font-weight:800;color:#7a1022;vertical-align:middle">Agarwal Stores</span>
     <span style="${font};font-size:11px;font-weight:800;letter-spacing:2px;color:#ffffff;background:#c8102e;border-radius:99px;padding:4px 9px;margin-left:6px;vertical-align:3px">CRACKERS</span>
   </td></tr>
   <tr><td align="center" style="font-size:12px;line-height:12px;letter-spacing:4px;padding:6px 0 0">${garland}</td></tr>

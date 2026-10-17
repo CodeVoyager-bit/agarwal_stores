@@ -22,9 +22,12 @@ export default async function Slip({ params }: { params: Promise<{ id: string }>
     <article className="slip">
       <PrintButton />
       <header>
-        <div>
-          <strong className="slip-shop">Agarwal Stores · Crackers</strong>
-          {process.env.SHOP_PHONE && <small>Phone {process.env.SHOP_PHONE}</small>}
+        <div className="slip-brand">
+          <img src="/icon.svg" alt="" width={44} height={44} />
+          <div>
+            <strong className="slip-shop">Agarwal Stores · Crackers</strong>
+            {process.env.SHOP_PHONE && <small>Phone {process.env.SHOP_PHONE}</small>}
+          </div>
         </div>
         <div className="slip-number">
           <strong>Order #{order.number}</strong>
