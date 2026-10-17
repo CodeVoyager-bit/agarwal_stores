@@ -6,7 +6,7 @@ import { when } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Audit Log · Admin" };
 
-const KINDS: Record<string, string> = { "": "Everything", order: "Orders", delivery: "Deliveries", cash: "Cash", product: "Products", stock: "Imports", staff: "Staff" };
+const KINDS: Record<string, string> = { "": "Everything", order: "Orders", delivery: "Deliveries", cash: "Cash", product: "Products", stock: "Imports", staff: "Staff", shop: "Shop details", account: "Accounts" };
 const LABEL: Record<string, string> = {
   "order.status": "Changed status",
   "order.assign": "Gave for delivery",
@@ -16,16 +16,20 @@ const LABEL: Record<string, string> = {
   "cash.received": "Counted cash",
   "product.add": "Added product",
   "product.edit": "Edited product",
-  "stock.import": "Imported price list",
+  "stock.import": "Changed by price list",
   "staff.role": "Changed role",
+  "shop.edit": "Changed shop details",
+  "account.delete": "Deleted own account",
+  "account.google": "Disconnected Google",
 };
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export default async function AuditLog({ searchParams }: { searchParams: Promise<{ kind?: string; q?: string }> }) {
   await requireStaff("audit", "/admin/audit");
   const params = await searchParams;
-  const kind = params.kind && params.kind in KINDS ? params.kind : "";
-  const q = (params.q ?? "").trim().slice(0, 60);
+  const kind = typeof params.kind === "string" && params.kind in KINDS ? params.kind : "";
+  // ?q=a&q=b arrives as a list: only a single search is read
+  const q = (typeof params.q === "string" ? params.q : "").trim().slice(0, 60);
   await connectDB();
   const rx = q && new RegExp(escape(q), "i");
   const entries = await Audit.find({ ...(kind && { action: new RegExp(`^${kind}\\.`) }), ...(rx && { $or: [{ actor: rx }, { target: rx }, { detail: rx }] }) })

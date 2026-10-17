@@ -1,5 +1,8 @@
 export const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
+/** A description as stored: line breaks kept, runs of spaces and the spaces around a break dropped. Form and import alike. */
+export const tidyLines = (text: string) => text.replace(/\r\n?/g, "\n").replace(/[ \t]+/g, " ").replace(/ ?\n ?/g, "\n").trim();
+
 export const day = (d: Date) =>
   new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Kolkata" }).format(d);
 

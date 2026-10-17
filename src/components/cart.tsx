@@ -1,7 +1,7 @@
 "use client";
 
 import { Minus, Plus } from "lucide-react";
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { MAX_QTY } from "@/lib/format";
 
 /** product id → quantity, kept in this browser until the order is placed. */
@@ -132,14 +132,25 @@ function flyToCart(from: HTMLElement) {
 export function Stepper({ id, name, max }: { id: string; name: string; max: number }) {
   const cart = useCart();
   const qty = cart?.[id] ?? 0;
+  // Add turns into the stepper and back, so the button that had focus goes away: focus moves to its
+  // stand-in (+ after Add, Add after the last −), or a keyboard user would land back at the top
+  const add = useRef<HTMLButtonElement>(null);
+  const plus = useRef<HTMLButtonElement>(null);
+  const refocus = useRef<"add" | "plus" | null>(null);
+  useEffect(() => {
+    (refocus.current === "add" ? add : refocus.current === "plus" ? plus : null)?.current?.focus();
+    refocus.current = null;
+  }, [qty]);
   if (!qty)
     return (
       // measured before the button turns into a stepper
       <button
+        ref={add}
         type="button"
         className="btn add"
         onClick={(e) => {
           flyToCart(e.currentTarget);
+          refocus.current = "plus";
           setQty(id, 1);
         }}
         aria-label={`Add ${name}`}
@@ -149,7 +160,14 @@ export function Stepper({ id, name, max }: { id: string; name: string; max: numb
     );
   return (
     <div className="stepper">
-      <button type="button" onClick={() => setQty(id, qty - 1)} aria-label={`One less ${name}`}>
+      <button
+        type="button"
+        onClick={() => {
+          if (qty === 1) refocus.current = "add";
+          setQty(id, qty - 1);
+        }}
+        aria-label={`One less ${name}, ${qty} in cart`}
+      >
         <Minus size={18} strokeWidth={2.25} aria-hidden="true" />
       </button>
       {/* a new <b> per number, so each change pops (globals.css) */}
@@ -157,13 +175,14 @@ export function Stepper({ id, name, max }: { id: string; name: string; max: numb
         <b key={qty}>{qty}</b>
       </span>
       <button
+        ref={plus}
         type="button"
         onClick={(e) => {
           flyToCart(e.currentTarget);
           setQty(id, qty + 1);
         }}
         disabled={qty >= Math.min(max, MAX_QTY)}
-        aria-label={`One more ${name}`}
+        aria-label={`One more ${name}, ${qty} in cart`}
       >
         <Plus size={18} strokeWidth={2.25} aria-hidden="true" />
       </button>

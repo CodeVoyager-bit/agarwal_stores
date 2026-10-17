@@ -10,14 +10,17 @@ const OUTCOME = { create: "New", update: "Change", error: "Problem", heading: "S
 export function StockImport() {
   const [file, setFile] = useState<File | null>(null);
   const [state, run, pending] = useActionState(importAction, null);
+  // the file the preview below is of: choosing another hides it, so Save never applies an unchecked file
+  const [checked, setChecked] = useState<File | null>(null);
   const go = (intent: "check" | "apply") => {
     if (!file) return;
+    if (intent === "check") setChecked(file);
     const form = new FormData();
     form.set("file", file);
     form.set("intent", intent);
     startTransition(() => run(form));
   };
-  const rows = state?.rows ?? [];
+  const rows = checked === file ? (state?.rows ?? []) : [];
   const count = (outcome: keyof typeof OUTCOME) => rows.filter((r) => r.outcome === outcome).length;
   const changes = count("create") + count("update");
   const shown = rows.filter((r) => r.outcome !== "same");
@@ -93,7 +96,8 @@ export function StockImport() {
                     <span className={`tag ${r.outcome}`}>{OUTCOME[r.outcome]}</span>
                   </td>
                   <td>
-                    {r.fields && `${r.fields.category} · ${r.fields.unit} · ₹${r.fields.price} (MRP ₹${r.fields.mrp}) · stock ${r.fields.stock}. `}
+                    {r.fields &&
+                      `${r.fields.category} · ${r.fields.unit} · ₹${r.fields.price} (MRP ₹${r.fields.mrp})${r.fields.stock !== undefined ? ` · stock ${r.fields.stock}` : ""}${r.fields.addStock ? ` · +${r.fields.addStock} stock` : ""}. `}
                     {r.message}
                   </td>
                 </tr>

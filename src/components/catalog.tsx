@@ -125,11 +125,12 @@ export function Catalog({ items, categories, initialQuery, initialCategory }: { 
 
 /** One product on a shelf. The whole card opens its page (the name's link covers it); Add sits above. */
 export function ProductCard({ item: i, n }: { item: ShopItem; n: number }) {
+  const off = Math.round((1 - i.price / i.mrp) * 100);
   return (
     <li className={i.stock > 0 ? "card" : "card sold-out"} style={{ "--i": String(Math.min(n, 6)) } as React.CSSProperties}>
       <div className="card-art">
         <ProductArt category={i.category} image={i.image} />
-        {i.mrp > i.price && <span className="off">{Math.round((1 - i.price / i.mrp) * 100)}% Off</span>}
+        {off > 0 && <span className="off">{off}% Off</span>}
       </div>
       <div className="card-body">
         <h3>

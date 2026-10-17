@@ -140,6 +140,9 @@ const orderSchema = new Schema(
     bill: {
       number: String,
       at: Date,
+      /** the GST rate when it was made, and whether the law needs the buyer's name, address and State on it */
+      rate: Number,
+      named: Boolean,
       shop: { legalName: String, address: String, gstin: String, gstScheme: String },
     },
     /** What happened to the order and who did it, oldest first; staff notes too. */

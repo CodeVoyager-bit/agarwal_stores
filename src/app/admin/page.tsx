@@ -21,7 +21,8 @@ export default async function AdminOrders({ searchParams }: { searchParams: Prom
   await requireStaff("orders", "/admin");
   const params = await searchParams;
   const status = params.status && params.status in TABS ? params.status : "open";
-  const q = (params.q ?? "").trim().slice(0, 60);
+  // ?q=a&q=b arrives as a list: only a single search is read
+  const q = (typeof params.q === "string" ? params.q : "").trim().slice(0, 60);
 
   const filter: Record<string, unknown> = status === "open" ? { status: { $in: OPEN } } : status === "all" ? {} : { status };
   // from the Customers page: everything one account ordered, whatever number each address had

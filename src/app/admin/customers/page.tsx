@@ -12,7 +12,8 @@ type Customer = { _id: unknown; name: string; phone: string; pincode: string; li
 
 export default async function Customers({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   await requireStaff("customers", "/admin/customers");
-  const q = ((await searchParams).q ?? "").trim().slice(0, 60).toLowerCase();
+  const { q: raw } = await searchParams;
+  const q = (typeof raw === "string" ? raw : "").trim().slice(0, 60).toLowerCase();
   await connectDB();
   // everyone who has ordered, newest order first; name and address from their latest order
   const all = await Order.aggregate<Customer>([

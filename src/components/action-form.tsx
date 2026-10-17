@@ -9,16 +9,21 @@ export function ActionForm({
   submit,
   confirm,
   primary,
+  small,
   className,
   children,
+  after,
 }: {
   action: (state: Result, form: FormData) => Promise<Result>;
   submit: string;
   /** Asked first, for steps that can't be undone. */
   confirm?: string;
   primary?: boolean;
+  small?: boolean;
   className?: string;
   children?: React.ReactNode;
+  /** Shown after the button, e.g. a folded part of the form. */
+  after?: React.ReactNode;
 }) {
   const [state, dispatch, pending] = useActionState(action, null);
   return (
@@ -44,9 +49,11 @@ export function ActionForm({
           {state.ok}
         </p>
       )}
-      <button className={primary ? "btn primary" : "btn"} disabled={pending}>
+      {/* disabled while saving: a second click would send the same change twice */}
+      <button className={`btn${primary ? " primary" : ""}${small ? " small" : ""}`} disabled={pending}>
         {pending ? "Saving…" : submit}
       </button>
+      {after}
     </form>
   );
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ActionForm } from "@/components/action-form";
 import { PhotoInput } from "@/components/photo-input";
 import { StockImport } from "@/components/stock-import";
 import { saveProductAction } from "@/lib/actions";
@@ -74,7 +75,8 @@ function Description({ p }: { p: Editable }) {
 export default async function AdminProducts({ searchParams }: { searchParams: Promise<{ q?: string; low?: string }> }) {
   await requireStaff("catalog", "/admin/products");
   const params = await searchParams;
-  const q = (params.q ?? "").trim().slice(0, 60);
+  // ?q=a&q=b arrives as a list: only a single search is read
+  const q = (typeof params.q === "string" ? params.q : "").trim().slice(0, 60);
   const low = params.low === "1";
   await connectDB();
   const products = await Product.find({
@@ -97,11 +99,9 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
 
       <details className="panel add-product">
         <summary>Add a Product</summary>
-        <form action={saveProductAction} className="inv-row">
+        <ActionForm action={saveProductAction} submit="Add Product" primary className="inv-row" after={<Description p={{}} />}>
           <Fields p={{}} />
-          <button className="btn primary">Add Product</button>
-          <Description p={{}} />
-        </form>
+        </ActionForm>
       </details>
 
       <form className="filter" role="search">
@@ -117,11 +117,9 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
 
       <div className="inventory">
         {products.map((p) => (
-          <form key={String(p._id)} action={saveProductAction} className={`inv-row${p.stock <= 5 ? " low" : ""}${p.active ? "" : " off"}`}>
+          <ActionForm key={String(p._id)} action={saveProductAction} submit="Save" small className={`inv-row${p.stock <= 5 ? " low" : ""}${p.active ? "" : " off"}`} after={<Description p={p} />}>
             <Fields p={p} />
-            <button className="btn small">Save</button>
-            <Description p={p} />
-          </form>
+          </ActionForm>
         ))}
       </div>
     </>

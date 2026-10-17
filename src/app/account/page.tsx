@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
 import { GoogleMark } from "@/components/google-button";
 import { AddPhone, EmailChange, PasswordInput, PhoneField } from "@/components/login-form";
-import { addAddressAction, defaultAddressAction, deleteAccountAction, editAddressAction, linkGoogleAction, logoutAction, logoutEverywhereAction, passwordAction, removeAddressAction, saveNameAction } from "@/lib/actions";
+import { addAddressAction, defaultAddressAction, deleteAccountAction, editAddressAction, unlinkGoogleAction, linkGoogleAction, logoutAction, logoutEverywhereAction, passwordAction, removeAddressAction, saveNameAction } from "@/lib/actions";
 import { mockOtp, requireUser } from "@/lib/auth";
 import { googleEnabled } from "@/lib/better-auth";
 import { ADDRESS_LABELS, connectDB, MAX_ADDRESSES, Order, User } from "@/lib/db";
@@ -75,6 +75,7 @@ export default async function Account({ searchParams }: { searchParams: Promise<
       </div>
       {google === "linked" && <p className="success">Google is connected. You can use it to log in next time.</p>}
       {google === "failed" && <p className="error">Google wasn’t connected. Please try again.</p>}
+      {google === "password" && <p className="error">Google wasn’t connected: your password wasn’t right.</p>}
 
       <div className="account-grid">
         <section className="panel stack" aria-labelledby="profile">
@@ -175,11 +176,24 @@ export default async function Account({ searchParams }: { searchParams: Promise<
           </ActionForm>
           </details>
           {googleEnabled() && !hasGoogle && (
-            <form action={linkGoogleAction}>
+            <form action={linkGoogleAction} className="fields-plain">
+              {hasPassword && <PasswordInput name="current" autoComplete="current-password" label="Your password, to connect Google" />}
               <button className="btn google">
                 <GoogleMark /> Connect Google
               </button>
             </form>
+          )}
+          {hasGoogle && (
+            <details className="edit">
+              <summary>Disconnect Google</summary>
+              {hasPassword ? (
+                <ActionForm action={unlinkGoogleAction} submit="Disconnect Google">
+                  <PasswordInput name="current" autoComplete="current-password" label="Your password" />
+                </ActionForm>
+              ) : (
+                <p className="note">Set a password first, so you can still log in without Google.</p>
+              )}
+            </details>
           )}
         </section>
 
@@ -255,8 +269,8 @@ export default async function Account({ searchParams }: { searchParams: Promise<
               <Trash2 size={20} aria-hidden="true" /> Delete Account
             </h2>
             <p className="muted">
-              Deletes your login, addresses and Google link for good. Past bookings stay in the shop’s GST records, without your name, number and
-              address. This can’t be undone. See our <Link href="/privacy#rights">Privacy Policy</Link>.
+              Deletes your login, addresses and Google link for good, once no booking is on its way. Past bookings stay in the shop’s GST records,
+              without your name, number and street address (a bill of ₹50,000 or more before GST keeps the name and address). This can’t be undone. See our <Link href="/privacy#rights">Privacy Policy</Link>.
             </p>
             <ActionForm action={deleteAccountAction} submit="Delete My Account">
               <label>

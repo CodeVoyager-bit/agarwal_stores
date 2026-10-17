@@ -2,7 +2,7 @@ import { randomInt, timingSafeEqual } from "node:crypto";
 import { isValidObjectId, Types } from "mongoose";
 import { ADDRESS_LABELS, audit, connectDB, Counter, MAX_ADDRESSES, Order, Product, User, type OrderStatus } from "./db";
 import { BY_HAND, MAX_QTY, STATUS_LABEL } from "./format";
-import { shopDetails, TERMS_VERSION } from "./legal";
+import { billTitle, GST_RATE, gstSplit, shopDetails, TERMS_VERSION } from "./legal";
 import { mockOtp, sendCode } from "./sms";
 
 export const DELIVERY_DAYS = 4;
@@ -13,7 +13,7 @@ export const MAX_WAITING = 5;
 export class OrderError extends Error {}
 
 type Line = { id: string; qty: number };
-type Details = { name: string; phone: string; line: string; landmark: string; pincode: string; label?: string; key?: string };
+type Details = { name: string; phone: string; line: string; landmark: string; pincode: string; label?: string; key?: string; total?: number };
 
 export function checkDetails(d: Details) {
   if (d.name.length < 2 || d.name.length > 80) return "Enter your name.";
@@ -30,7 +30,7 @@ export function checkDetails(d: Details) {
  * ponytail: no transaction (plain local Mongo has none); a crash between taking stock and writing
  * the order loses that stock. Move to session.withTransaction on a replica set if that ever matters.
  */
-export async function placeOrder(user: { id: string }, lines: Line[], details: Details) {
+export async function placeOrder(user: { id: string; role?: string }, lines: Line[], details: Details) {
   await connectDB();
   // the same booking sent again (the answer to the first got lost on the way): it already stands
   const key = details.key && /^[\w-]{8,64}$/.test(details.key) ? details.key : undefined;
@@ -40,12 +40,15 @@ export async function placeOrder(user: { id: string }, lines: Line[], details: D
   for (const { id, qty } of lines) {
     if (!isValidObjectId(id) || !Number.isInteger(qty) || qty < 1)
       throw new OrderError("Your cart has an item we can't read. Please refresh the page.");
-    wanted.set(id, (wanted.get(id) ?? 0) + qty);
+    // ids compared as Mongo writes them, lower case
+    wanted.set(id.toLowerCase(), (wanted.get(id.toLowerCase()) ?? 0) + qty);
   }
   if (!wanted.size) throw new OrderError("Your cart is empty.");
   // counted after the lines are added up, so splitting one product over many lines doesn't get past it
   if ([...wanted.values()].some((qty) => qty > MAX_QTY)) throw new OrderError(`At most ${MAX_QTY} of one item per order. Call the shop for more.`);
-  if ((await Order.countDocuments({ user: user.id, status: "placed" })) >= MAX_WAITING)
+  // staff booking for callers from their own account aren't held to a customer's limit
+  // ponytail: count-then-insert, so bookings sent at the same instant can pass it together; fine for a cap on mistakes
+  if ((user.role ?? "customer") === "customer" && (await Order.countDocuments({ user: user.id, status: "placed" })) >= MAX_WAITING)
     throw new OrderError(`You have ${MAX_WAITING} orders waiting for our call already. We'll call you soon, or call the shop.`);
   const problem = checkDetails(details);
   if (problem) throw new OrderError(problem);
@@ -53,6 +56,9 @@ export async function placeOrder(user: { id: string }, lines: Line[], details: D
   const products = await Product.find({ _id: { $in: [...wanted.keys()] }, active: true });
   if (products.length !== wanted.size)
     throw new OrderError("Some items in your cart are no longer sold. Please refresh the page.");
+  // the Terms promise the price shown when booking: if it changed since the cart was opened, say so first
+  if (details.total !== undefined && details.total !== products.reduce((sum, p) => sum + p.price * wanted.get(String(p._id))!, 0))
+    throw new OrderError("Prices have changed since you opened your cart. Please refresh the page to see them, then book again.");
 
   const taken: { id: Types.ObjectId; qty: number }[] = [];
   try {
@@ -126,6 +132,7 @@ const OPEN: OrderStatus[] = ["placed", "packed", "out_for_delivery"];
  * member, so the Cash page still asks for it.
  */
 export async function setOrderStatus(orderId: string, status: OrderStatus, by: string) {
+  if (!isValidObjectId(orderId)) return;
   await connectDB();
   const from = Object.keys(BY_HAND).filter((s) => BY_HAND[s].includes(status)) as OrderStatus[];
   const open = await Order.findOne({ _id: orderId, status: { $in: from } }, "total");
@@ -135,8 +142,9 @@ export async function setOrderStatus(orderId: string, status: OrderStatus, by: s
     {
       status,
       $push: { history: { by, text: status === "delivered" ? `Marked ${STATUS_LABEL[status]}, ₹${open.total} to count in` : `Marked ${STATUS_LABEL[status]}` } },
-      // only the delivery person's Start Delivery makes a code; any move by hand ends the one there was
-      $unset: { handoverCode: 1 },
+      // only the delivery person's Start Delivery makes a code; any move by hand ends the one there was.
+      // Delivered by the shop: the staff member holds the cash (Cash page), not the rider it was given to
+      $unset: { handoverCode: 1, ...(status === "delivered" && { assignedTo: 1, assignedName: 1 }) },
       ...(status === "delivered" && { cash: { collected: open.total, collectedAt: new Date(), collectedBy: by } }),
     },
   );
@@ -234,17 +242,20 @@ export async function issueBill(orderId: string) {
   const at = order.cash?.collectedAt ?? new Date();
   const fy = financialYear(at);
   const { legalName, address, gstin, gstScheme } = await shopDetails();
+  const total = (await Order.findById(orderId, "total"))!.total;
+  // CGST rule 46(e): an unregistered buyer is named, with address and State, from ₹50,000 of taxable value
+  const taxable = billTitle({ gstin, gstScheme }) === "Tax Invoice" ? gstSplit(total).taxable / 100 : total;
   const counter = await Counter.findOneAndUpdate({ _id: `bill ${fy}` }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: "after" });
   await Order.updateOne(
     { _id: orderId, "bill.number": { $exists: false } },
-    { bill: { number: `${fy}/${String(counter!.seq).padStart(4, "0")}`, at, shop: { legalName, address, gstin, gstScheme } } },
+    { bill: { number: `${fy}/${String(counter!.seq).padStart(4, "0")}`, at, rate: GST_RATE, named: taxable >= 50_000, shop: { legalName, address, gstin, gstScheme } } },
   );
 }
 
 /**
  * Erases a customer at their request (DPDP Act, s. 12): the account, password, Google link, logins
- * and address book go. Bookings stay for the GST records, without the name, number and address; a
- * booking of ₹50,000 or more keeps the name and address, which its bill must show (CGST rule 46).
+ * and address book go. Bookings stay for the GST records, without the name, number and street address
+ * (the pincode stays, for sales by area); a bill that must name its buyer (CGST rule 46) keeps them.
  */
 export async function deleteAccount(userId: string, role: string) {
   await connectDB();
@@ -253,11 +264,11 @@ export async function deleteAccount(userId: string, role: string) {
     throw new OrderError("You have a booking that isn’t delivered yet. Receive it, or ask the shop to cancel it, then delete your account.");
   const booked = { "h.text": { $in: ["Booked", "Order placed"] } };
   await Order.updateMany(
-    { user: userId, total: { $lt: 50_000 } },
+    { user: userId, "bill.named": { $ne: true } },
     { name: "Deleted customer", phone: "removed", "address.line": "Removed at the customer’s request", "address.landmark": "", "history.$[h].by": "Customer" },
     { arrayFilters: [booked] },
   );
-  await Order.updateMany({ user: userId, total: { $gte: 50_000 } }, { phone: "removed", "history.$[h].by": "Customer" }, { arrayFilters: [booked] });
+  await Order.updateMany({ user: userId, "bill.named": true }, { phone: "removed", "history.$[h].by": "Customer" }, { arrayFilters: [booked] });
   const db = Order.db.db!;
   const ids = [new Types.ObjectId(userId), userId];
   await Promise.all([db.collection("authSessions").deleteMany({ userId: { $in: ids } }), db.collection("authAccounts").deleteMany({ userId: { $in: ids } })]);
@@ -274,6 +285,9 @@ export async function deliveryFailed(orderId: string, riderId: string, reason: s
     { status: "packed", $unset: { handoverCode: 1 }, $push: { history: { by, text: `Couldn't deliver: ${reason.trim().slice(0, 300)}` } } },
   );
   if (!order) throw new OrderError("This delivery isn't open for you.");
+  // five wrong codes locked it: only the shop can give it out again, so Start Delivery can't reset the count
+  if (order.handoverTries >= 5)
+    await Order.updateOne({ _id: orderId }, { $unset: { assignedTo: 1, assignedName: 1 }, $push: { history: { by, text: "Code tried too many times: taken off this delivery person" } } });
   await audit(by, "delivery.failed", `Order #${order.number}`, reason.trim().slice(0, 300));
 }
 

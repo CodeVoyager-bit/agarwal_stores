@@ -175,6 +175,9 @@ async function ensureIndexes() {
       .then((list) => Promise.all(list.filter((i) => ["user_1", "status_1", "assignedTo_1"].includes(i.name!)).map((i) => db.collection("orders").dropIndex(i.name!))))
       .catch(() => {}), // no orders yet, or another server dropped it first
     db.collection("authRateLimits").createIndex({ key: 1 }),
+    // its rows are keyed by IP address and kept by better-auth forever; the Privacy Policy says about a
+    // day, so a server starting up clears older ones (Vercel starts them often)
+    db.collection("authRateLimits").deleteMany({ lastRequest: { $lt: Date.now() - 86_400_000 } }),
   ]);
 }
 

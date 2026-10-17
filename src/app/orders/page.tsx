@@ -110,7 +110,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                     View bill
                   </Link>
                 ) : (
-                  <p className="muted">Pay cash or UPI when it arrives.</p>
+                  o.status !== "cancelled" && <p className="muted">Pay cash or UPI when it arrives.</p>
                 )}
               </li>
             );

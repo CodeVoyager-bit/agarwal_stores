@@ -7,7 +7,7 @@ import mongoose from "mongoose";
 process.env.MONGODB_URI = process.env.TEST_MONGODB_URI ?? "mongodb://127.0.0.1:27017/agarwal_fatake_test";
 process.env.MOCK_OTP = "true";
 const { Audit, connectDB, Order, Product, User } = await import("../src/lib/db");
-const { assignDelivery, completeDelivery, deliveryFailed, OrderError, placeOrder, receiveCash, saveToBook, setOrderStatus, startDelivery } = await import("../src/lib/orders");
+const { assignDelivery, completeDelivery, deliveryFailed, MAX_WAITING, OrderError, placeOrder, receiveCash, saveToBook, setOrderStatus, startDelivery } = await import("../src/lib/orders");
 
 await connectDB();
 await mongoose.connection.dropDatabase();
@@ -102,7 +102,42 @@ test("delivery: five wrong codes lock it; a missed delivery goes back to packed"
   await deliveryFailed(id, String(rider._id), "Nobody home", "r");
   const back = (await Order.findById(id).lean())!;
   assert.equal(back.status, "packed");
-  assert.match(back.history.at(-1)!.text!, /Nobody home/);
+  assert.ok(back.history.some((h) => /Nobody home/.test(h.text!)));
+  // locked by wrong codes: only the shop can give it out again, so the rider can't start over with fresh tries
+  assert.equal(back.assignedTo, undefined);
+  await assert.rejects(startDelivery(id, String(rider._id), "r"), OrderError);
+});
+
+test("booking: a price changed since the cart was opened is refused first, with nothing taken", async () => {
+  const customer = await User.create({ phone: "9876500020" });
+  const p = await Product.create({ name: "Price Moved", category: "Anar", mrp: 100, price: 60, stock: 5 });
+  await assert.rejects(placeOrder({ id: String(customer._id) }, [{ id: String(p._id), qty: 2 }], { ...details, total: 100 }), /Prices have changed/);
+  assert.equal((await Product.findById(p._id))!.stock, 5);
+  const order = await placeOrder({ id: String(customer._id) }, [{ id: String(p._id).toUpperCase(), qty: 2 }], { ...details, total: 120 });
+  assert.equal(order.total, 120, "an upper-case id books like the lower-case one");
+});
+
+test("booking: the waiting-orders cap is a customer's; staff booking for callers aren't held to it", async () => {
+  const user = await User.create({ phone: "9876500021" });
+  const p = await Product.create({ name: "Cap Test", category: "Anar", mrp: 10, price: 10, stock: 100 });
+  const book = (role?: string) => placeOrder({ id: String(user._id), role }, [{ id: String(p._id), qty: 1 }], details);
+  for (let i = 0; i < MAX_WAITING; i++) await book();
+  await assert.rejects(book(), /waiting for our call/);
+  await book("admin");
+});
+
+test("delivered by hand: the shop holds the cash, not the rider it was given to, and a bill is made", async () => {
+  const customer = await User.create({ phone: "9876500022" });
+  const rider = await User.create({ phone: "9876500023", role: "delivery" });
+  const p = await Product.create({ name: "Counter Pickup", category: "Anar", mrp: 50, price: 50, stock: 5 });
+  const id = String((await placeOrder({ id: String(customer._id) }, [{ id: String(p._id), qty: 1 }], details))._id);
+  await assignDelivery(id, String(rider._id), "owner");
+  await setOrderStatus("not-an-id", "delivered", "owner"); // a bad id does nothing, and doesn't throw
+  await setOrderStatus(id, "delivered", "Owner · 9999999999");
+  const done = (await Order.findById(id).lean())!;
+  assert.equal(done.assignedTo, undefined);
+  assert.equal(done.cash!.collectedBy, "Owner · 9999999999");
+  assert.match(done.bill!.number!, /^\d\d-\d\d\/\d{4}$/);
 });
 
 test("address book: a new checkout address is saved once, any capitals; at most 10", async () => {

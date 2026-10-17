@@ -2,17 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { hashPassword } from "better-auth/crypto";
+import { hashPassword, verifyPassword } from "better-auth/crypto";
 import mongoose from "mongoose";
 import { headers } from "next/headers";
-import { allowStaff, clientIp, currentUser, overLimit, ownerPhones, safeNext, tenDigits, validPhone, who } from "./auth";
+import { allowStaff, clientIp, currentUser, overLimit, ownerPhones, roleOf, safeNext, tenDigits, validPhone, who } from "./auth";
 import { getAuth, googleEnabled } from "./better-auth";
 import { isPlaceholderEmail, placeholderEmail } from "./email";
+import { tidyLines } from "./format";
 import { cloudinaryEnabled, uploadPhoto } from "./cloudinary";
 import { ADDRESS_LABELS, audit, connectDB, MAX_ADDRESSES, ORDER_STATUSES, Photo, Product, Shop, User, type OrderStatus } from "./db";
 import { addNote, assignDelivery, checkDetails, completeDelivery, deleteAccount, deliveryFailed, OrderError, saveToBook, placeOrder, receiveCash, setOrderStatus, startDelivery } from "./orders";
 import { checkShop, SHOP_FIELDS, shopDetails, type ShopDetails } from "./legal";
-import { ROLE_LABEL, ROLES, type Role } from "./roles";
+import { ROLE_LABEL, ROLES, staffHome, type Role } from "./roles";
 import { applyImport, planImport, readSheet, type PlanRow } from "./stock-import";
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
@@ -43,12 +44,21 @@ export type LoginStep = {
   ok?: string;
 };
 
-async function sendCodeTo(by: LoginStep["by"], id: string) {
-  // generous per network: Indian mobile carriers put many phones behind one address
-  if ((await overLimit(`code:${id}`, 3, 10 * 60_000)) || (await overLimit(`code-ip:${await clientIp()}`, 30, 10 * 60_000)))
+/** Every code that goes out (WhatsApp/SMS or email) passes these, or gets the message back. */
+async function codeLimit(id: string) {
+  const ip = await clientIp();
+  // generous per network: Indian mobile carriers put many phones behind one address; the daily cap
+  // keeps one network from using up the shop's whole day
+  if ((await overLimit(`code:${id}`, 3, 10 * 60_000)) || (await overLimit(`code-ip:${ip}`, 30, 10 * 60_000)) || (await overLimit(`code-ip-day:${ip}`, 150, 86_400_000)))
     return "Too many codes asked for. Please wait 10 minutes and try again.";
   // ponytail: one daily ceiling for the whole shop; raise it if real sign-ups ever reach it
   if (await overLimit("code-all", 1500, 86_400_000)) return "We can't send more codes today. Please call the shop.";
+  return null;
+}
+
+async function sendCodeTo(by: LoginStep["by"], id: string) {
+  const limited = await codeLimit(id);
+  if (limited) return limited;
   try {
     if (by === "phone") await (await authApi()).sendPhoneNumberOTP({ body: { phoneNumber: id }, headers: await headerList() });
     else await (await authApi()).sendVerificationOTP({ body: { email: id, type: "sign-in" }, headers: await headerList() });
@@ -56,6 +66,14 @@ async function sendCodeTo(by: LoginStep["by"], id: string) {
   } catch (error) {
     return authMessage(error, "We couldn't send the code. Please try again in a minute.");
   }
+}
+
+/** Where a login lands: the page they came from, or, from the plain Log In page, a staff member's own work. */
+async function landing(form: FormData, by: "phone" | "email", id: string) {
+  const next = safeNext(text(form, "next"));
+  if (next !== "/") return next;
+  const user = await User.findOne(by === "phone" ? { phone: id } : { email: id }, "phone role").lean();
+  return (user && staffHome(roleOf(user))) || "/";
 }
 
 export async function loginStepAction(_: LoginStep, form: FormData): Promise<LoginStep> {
@@ -92,7 +110,7 @@ export async function loginStepAction(_: LoginStep, form: FormData): Promise<Log
     } catch {
       return { ...at, step: "password", error: "That password isn't right. Try again, or use Forgot password." };
     }
-    redirect(safeNext(text(form, "next")));
+    redirect(await landing(form, by, id));
   }
 
   // "code": check it, set the password (and a name for a new account), log in
@@ -128,7 +146,7 @@ export async function loginStepAction(_: LoginStep, form: FormData): Promise<Log
     );
   // a new password logs every other device out, in case someone else knew the old one
   await mongoose.connection.collection("authSessions").deleteMany({ userId: uid, createdAt: { $lt: verifying } });
-  redirect(safeNext(text(form, "next")));
+  redirect(await landing(form, by, id));
 }
 
 /** "Continue with Google": better-auth sets its state cookie, then the browser goes to Google. */
@@ -270,7 +288,8 @@ export async function requestEmailChangeAction(_: EmailChangeState, form: FormDa
   if (email === user.email) return { error: "That's already your email." };
   await connectDB();
   if (await User.exists({ email })) return { error: "That email is on another account. Log in with it instead, or use a different one." };
-  if (await overLimit(`code:${email}`, 3, 10 * 60_000)) return { error: "Too many codes asked for. Please wait 10 minutes." };
+  const limited = await codeLimit(email);
+  if (limited) return { error: limited };
   try {
     await (await authApi()).requestEmailChangeEmailOTP({ body: { newEmail: email }, headers: await headerList() });
   } catch (error) {
@@ -294,7 +313,24 @@ export async function confirmEmailChangeAction(_: EmailChangeState, form: FormDa
 }
 
 /** Connects Google to the logged-in account, so it can be used to log in next time. */
-export async function linkGoogleAction() {
+/** The account's password, if it has one: the hash, or null. */
+async function passwordHash(userId: string) {
+  const account = await mongoose.connection.collection("authAccounts").findOne({ userId: new mongoose.Types.ObjectId(userId), providerId: "credential" });
+  return (account?.password as string | undefined) ?? null;
+}
+
+/**
+ * Connecting Google adds a second way into the account, so someone who only has the phone in their hand
+ * for a minute mustn't be able to: it asks for the password (when there is one), and only one Google.
+ */
+export async function linkGoogleAction(form: FormData) {
+  const user = await currentUser();
+  if (!user) redirect("/login?next=/account");
+  await connectDB();
+  if (await mongoose.connection.collection("authAccounts").findOne({ userId: new mongoose.Types.ObjectId(user.id), providerId: "google" })) redirect("/account");
+  const hash = await passwordHash(user.id);
+  const password = String(form.get("current") ?? "");
+  if (hash && !(password && (await verifyPassword({ hash, password })))) redirect("/account?google=password");
   const { url } = await (await authApi()).linkSocialAccount({
     body: { provider: "google", callbackURL: "/account?google=linked", errorCallbackURL: "/account?google=failed", disableRedirect: true },
     headers: await headerList(),
@@ -303,6 +339,20 @@ export async function linkGoogleAction() {
 }
 
 /** Logs out here and on every other phone or computer. */
+/** Takes Google off the account; the password stays the way in, so it's needed (and checked) first. */
+export async function unlinkGoogleAction(_: Result, form: FormData): Promise<Result> {
+  return attempt(async () => {
+    const user = await me();
+    const hash = await passwordHash(user.id);
+    if (!hash) throw new OrderError("Set a password first, so you can still log in without Google.");
+    const password = String(form.get("current") ?? "");
+    if (!password || !(await verifyPassword({ hash, password }))) throw new OrderError("Your password isn't right.");
+    await mongoose.connection.collection("authAccounts").deleteMany({ userId: new mongoose.Types.ObjectId(user.id), providerId: "google" });
+    await audit(who(user), "account.google", "Own account", "Google disconnected");
+    return "Google is disconnected. Log in with your number or email and password.";
+  });
+}
+
 export async function logoutEverywhereAction() {
   const api = await authApi();
   await api.revokeSessions({ headers: await headerList() }).catch(() => undefined);
@@ -353,7 +403,7 @@ export async function placeOrderAction(_: CheckoutState, form: FormData): Promis
     ? { name: text(form, "name"), phone, line: saved.line, landmark: saved.landmark, pincode: saved.pincode }
     : { name: text(form, "name"), phone, line: text(form, "line"), landmark: text(form, "landmark"), pincode: text(form, "pincode"), label: text(form, "label") };
   try {
-    const order = await placeOrder(user, lines.map((l) => ({ id: String(l?.id), qty: Number(l?.qty) })), { ...details, key: text(form, "key") });
+    const order = await placeOrder(user, lines.map((l) => ({ id: String(l?.id), qty: Number(l?.qty) })), { ...details, key: text(form, "key"), ...(/^\d+$/.test(text(form, "total")) && { total: Number(text(form, "total")) }) });
     revalidatePath("/", "layout");
     return { number: order.number };
   } catch (error) {
@@ -385,54 +435,69 @@ const rupees = (form: FormData, key: string) => {
   return n;
 };
 
-export async function saveProductAction(form: FormData) {
-  const user = await allowStaff("catalog");
-  await connectDB();
-  const fields = {
-    name: text(form, "name"),
-    category: text(form, "category"),
-    unit: text(form, "unit") || "1 box",
-    mrp: rupees(form, "mrp"),
-    price: rupees(form, "price"),
-    stock: rupees(form, "stock"),
-    description: text(form, "description").replace(/\r\n?/g, "\n").slice(0, 1000),
-    maker: text(form, "maker").replace(/\s+/g, " ").slice(0, 200),
-    active: form.get("active") === "on",
-  };
-  const photo = form.get("photo");
-  const hasPhoto = photo instanceof File && photo.size > 0;
-  // components/photo-input.tsx shrinks phone photos to ~150 KB before they are sent
-  if (hasPhoto && (!/^image\/(jpeg|png|webp)$/.test(photo.type) || photo.size > 1_500_000))
-    throw new Error("The photo must be a JPEG, PNG or WebP under 1.5 MB");
+export async function saveProductAction(_: Result, form: FormData): Promise<Result> {
+  return attempt(async () => {
+    const user = await allowStaff("catalog");
+    await connectDB();
+    // spaces collapsed as the price-list import does, so a re-imported export finds nothing changed
+    const fields = {
+      name: text(form, "name").replace(/\s+/g, " "),
+      category: text(form, "category").replace(/\s+/g, " "),
+      unit: text(form, "unit").replace(/\s+/g, " ") || "1 box",
+      mrp: rupees(form, "mrp"),
+      price: rupees(form, "price"),
+      stock: rupees(form, "stock"),
+      description: tidyLines(text(form, "description")).slice(0, 1000),
+      maker: text(form, "maker").replace(/\s+/g, " ").slice(0, 200),
+      active: form.get("active") === "on",
+    };
+    const photo = form.get("photo");
+    const hasPhoto = photo instanceof File && photo.size > 0;
+    // components/photo-input.tsx shrinks phone photos to ~150 KB before they are sent
+    if (hasPhoto && (!/^image\/(jpeg|png|webp)$/.test(photo.type) || photo.size > 1_500_000))
+      throw new OrderError("The photo must be a JPEG, PNG or WebP under 1.5 MB.");
+    if (!fields.name || !fields.category) throw new OrderError("Enter the name and category.");
+    if (fields.price > fields.mrp) throw new OrderError("The price can’t be more than the MRP.");
 
-  const id = text(form, "id");
-  const before = id ? await Product.findById(id).lean() : null;
-  // the stock on the page may be minutes old while orders keep taking from it: a changed number is
-  // applied as the change made (+5 received, −2 broken), so sales in between aren't undone
-  const stockWas = Number(text(form, "stockWas") || NaN);
-  const { stock, ...rest } = fields;
-  const product = id ? await Product.findByIdAndUpdate(id, Number.isInteger(stockWas) ? rest : fields, { runValidators: true }) : await Product.create(fields);
-  if (product && id && Number.isInteger(stockWas) && stock !== stockWas)
-    await Product.collection.updateOne({ _id: product._id }, [{ $set: { stock: { $max: [0, { $add: ["$stock", stock - stockWas] }] } } }]);
-  if (product && hasPhoto) {
-    let image;
-    if (cloudinaryEnabled()) image = await uploadPhoto(photo, String(product._id));
-    else {
-      // no Cloudinary account set (CLOUDINARY_URL): the photo goes in the database, as before
-      await Photo.updateOne({ _id: product._id }, { data: Buffer.from(await photo.arrayBuffer()), type: photo.type }, { upsert: true });
-      // the version in the address lets browsers keep each photo forever (app/photo/[id]/route.ts)
-      image = `/photo/${product._id}?v=${Date.now()}`;
+    const id = text(form, "id");
+    if (id && !mongoose.isValidObjectId(id)) throw new OrderError("This product is gone. Refresh the page.");
+    // products are matched by name on a price-list import, so two with one name would get mixed up
+    const sameName = new RegExp(`^${fields.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+    if (await Product.exists({ name: sameName, ...(id && { _id: { $ne: id } }) })) throw new OrderError(`Another product is already called “${fields.name}”. Give this one a different name.`);
+    const before = id ? await Product.findById(id).lean() : null;
+    const productId = id || String(new mongoose.Types.ObjectId());
+    // the photo first: if it fails, nothing is half saved
+    let image: string | undefined;
+    if (hasPhoto) {
+      if (cloudinaryEnabled()) image = await uploadPhoto(photo, productId).catch((error: Error) => Promise.reject(new OrderError(error.message)));
+      else {
+        // no Cloudinary account set (CLOUDINARY_URL): the photo goes in the database, as before
+        await Photo.updateOne({ _id: productId }, { data: Buffer.from(await photo.arrayBuffer()), type: photo.type }, { upsert: true });
+        // the version in the address lets browsers keep each photo forever (app/photo/[id]/route.ts)
+        image = `/photo/${productId}?v=${Date.now()}`;
+      }
     }
-    await Product.updateOne({ _id: product._id }, { image });
-  }
-  const changes = before
-    ? (Object.keys(fields) as (keyof typeof fields)[])
-        .filter((f) => fields[f] !== (before[f] ?? (f === "description" || f === "maker" ? "" : undefined)))
-        .map((f) => (f === "description" ? "description" : `${f} ${before[f]} → ${fields[f]}`))
-    : ["added"];
-  if (hasPhoto) changes.push("new photo");
-  if (changes.length) await audit(who(user), before ? "product.edit" : "product.add", fields.name, changes.join(", "));
-  revalidatePath("/", "layout");
+    // the stock on the page may be minutes old while orders keep taking from it: a changed number is
+    // applied as the change made (+5 received, −2 broken), so sales in between aren't undone
+    const stockWas = Number(text(form, "stockWas") || NaN);
+    const relative = Boolean(id) && Number.isInteger(stockWas);
+    const { stock, ...rest } = fields;
+    const product = id
+      ? await Product.findByIdAndUpdate(id, { ...(relative ? rest : fields), ...(image && { image }) }, { runValidators: true })
+      : await Product.create({ _id: productId, ...fields, ...(image && { image }) });
+    if (!product) throw new OrderError("This product is gone. Refresh the page.");
+    if (relative && stock !== stockWas)
+      await Product.collection.updateOne({ _id: product._id }, [{ $set: { stock: { $max: [0, { $add: ["$stock", stock - stockWas] }] } } }]);
+    // what was asked for: a stock typed over the page's number is logged as the change made, not as the number
+    const changes = before
+      ? (Object.keys(fields) as (keyof typeof fields)[])
+          .filter((f) => (f === "stock" && relative ? stock !== stockWas : fields[f] !== (before[f] ?? (f === "description" || f === "maker" ? "" : undefined))))
+          .map((f) => (f === "description" ? "description" : f === "stock" && relative ? `stock ${stock > stockWas ? "+" : ""}${stock - stockWas}` : `${f} ${before[f]} → ${fields[f]}`))
+      : ["added"];
+    if (hasPhoto) changes.push("new photo");
+    if (changes.length) await audit(who(user), before ? "product.edit" : "product.add", fields.name, changes.join(", "));
+    return before ? "Saved." : `Added ${fields.name}.`;
+  });
 }
 
 export async function setStatusAction(form: FormData) {
@@ -517,6 +582,8 @@ export async function setRoleAction(_: Result, form: FormData): Promise<Result> 
     if (ownerPhones().includes(phone)) throw new OrderError("This number is an owner (ADMIN_PHONES), so its role can't change here.");
     await connectDB();
     const name = text(form, "name").slice(0, 80);
+    // the team picks people by name (who delivers what), so nobody new joins as "Customer"
+    if (!name && !(await User.exists({ phone }))) throw new OrderError("Enter their name too, so the team can tell people apart.");
     // a new person gets what better-auth expects of a user (Mongoose adds createdAt/updatedAt); they set
     // their password with Forgot password
     const before = await User.findOneAndUpdate(

@@ -37,8 +37,8 @@ export default async function Cash() {
           <span>UPI to check in the account</span>
         </div>
         <div>
-          <strong>{inr(counted.reduce((n, o) => n + o.cash!.received!, 0))}</strong>
-          <span>counted at shop (last 100)</span>
+          <strong>{inr(counted.filter((o) => !upi(o)).reduce((n, o) => n + o.cash!.received!, 0))}</strong>
+          <span>cash counted at shop (last 100)</span>
         </div>
         <div className={short.length ? "alert" : ""}>
           <strong>{short.length}</strong>

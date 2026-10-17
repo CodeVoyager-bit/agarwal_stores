@@ -59,16 +59,30 @@ export function checkShop(d: ShopDetails) {
 export const HSN = "3604";
 export const GST_RATE = 18;
 
+/** GST State codes, the first two digits of a GSTIN. */
+const STATES: Record<string, string> = {
+  "01": "Jammu and Kashmir", "02": "Himachal Pradesh", "03": "Punjab", "04": "Chandigarh", "05": "Uttarakhand", "06": "Haryana", "07": "Delhi",
+  "08": "Rajasthan", "09": "Uttar Pradesh", "10": "Bihar", "11": "Sikkim", "12": "Arunachal Pradesh", "13": "Nagaland", "14": "Manipur",
+  "15": "Mizoram", "16": "Tripura", "17": "Meghalaya", "18": "Assam", "19": "West Bengal", "20": "Jharkhand", "21": "Odisha", "22": "Chhattisgarh",
+  "23": "Madhya Pradesh", "24": "Gujarat", "26": "Dadra and Nagar Haveli and Daman and Diu", "27": "Maharashtra", "29": "Karnataka", "30": "Goa",
+  "31": "Lakshadweep", "32": "Kerala", "33": "Tamil Nadu", "34": "Puducherry", "35": "Andaman and Nicobar Islands", "36": "Telangana",
+  "37": "Andhra Pradesh", "38": "Ladakh",
+};
+/** "Maharashtra (27)" from a GSTIN: the shop's own State, where it delivers. */
+export const stateOf = (gstin: string) => `${STATES[gstin.slice(0, 2)] ?? "State"} (${gstin.slice(0, 2)})`;
+
 /** What a bill is called: a Tax Invoice (regular GST), a Bill of Supply (composition) or a plain Bill (not registered). */
 export const billTitle = (shop: { gstin?: string | null; gstScheme?: string | null }) =>
   !shop.gstin ? "Bill" : shop.gstScheme === "composition" ? "Bill of Supply" : "Tax Invoice";
 
-/** A GST-inclusive total in whole rupees split into taxable value, CGST and SGST, in paise so nothing is lost to rounding. */
-export function gstSplit(total: number) {
+/**
+ * A GST-inclusive total in whole rupees split into taxable value, CGST and SGST, in paise. CGST and
+ * SGST are the same rate, so they're the same amount; the taxable value takes any rounding paisa.
+ */
+export function gstSplit(total: number, rate = GST_RATE) {
   const paise = total * 100;
-  const taxable = Math.round((paise * 100) / (100 + GST_RATE));
-  const cgst = Math.round((paise - taxable) / 2);
-  return { taxable, cgst, sgst: paise - taxable - cgst };
+  const cgst = Math.round((paise - (paise * 100) / (100 + rate)) / 2);
+  return { taxable: paise - 2 * cgst, cgst, sgst: cgst };
 }
 
 /**

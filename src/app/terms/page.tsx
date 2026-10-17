@@ -117,8 +117,11 @@ export default async function TermsPage() {
       <section id="cancel">
         <h2>Cancellation</h2>
         <ul>
-          <li>You can cancel at any time before you receive the crackers: call us, or tell the delivery person at the door. There is no charge.</li>
-          <li>We may cancel if an item runs out, the address is outside our area, we can’t reach you, or the booking breaks these terms. We tell you why.</li>
+          <li>
+            You can cancel at any time before you receive the crackers: call us, or refuse them at the door and the delivery person takes them back;
+            we then cancel the booking. There is no charge.
+          </li>
+          <li>We may cancel if an item runs out, the address is outside our area, we can’t reach you, or the booking breaks these terms. We call to tell you why.</li>
           <li>As nothing is paid before delivery, there is nothing to refund for a cancelled booking.</li>
         </ul>
       </section>
@@ -155,9 +158,8 @@ export default async function TermsPage() {
       <section id="account">
         <h2>Your account</h2>
         <p>
-          Keep your password to yourself; you are responsible for bookings made from your account. You can delete your account at any time on
-          your Account page. Give a delivery number and address you’re
-          allowed to use. How we handle your details is in our <Link href="/privacy">Privacy Policy</Link>.
+          Keep your password to yourself; you are responsible for bookings made from your account. Once no booking is on its way, you can delete
+          your account on your Account page. Give a delivery number and address you’re allowed to use. How we handle your details is in our <Link href="/privacy">Privacy Policy</Link>.
         </p>
       </section>
 

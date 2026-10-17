@@ -19,6 +19,7 @@ export const safeNext = (next: unknown) => (typeof next === "string" && /^\/(?![
 
 /** ADMIN_PHONES are the owners: always Owner, whatever the Staff page says, so the shop can never lock itself out. */
 export const ownerPhones = () => (process.env.ADMIN_PHONES ?? "").split(",").map(tenDigits).filter(Boolean);
+export const roleOf = (user: { phone?: string | null; role?: string | null }) => (user.phone && ownerPhones().includes(user.phone) ? "owner" : (user.role ?? "customer")) as Role;
 
 /** Memoised per request: the layout and the page both ask. The session is better-auth's. */
 export const currentUser = cache(async () => {
@@ -43,7 +44,7 @@ export const currentUser = cache(async () => {
     addresses,
     /** the default: first in the book */
     address: addresses[0] ?? null,
-    role: (user.phone && ownerPhones().includes(user.phone) ? "owner" : (user.role ?? "customer")) as Role,
+    role: roleOf(user),
   };
 });
 

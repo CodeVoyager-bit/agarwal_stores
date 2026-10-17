@@ -64,7 +64,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           <p className="muted">{item.unit}</p>
           <p className="price">
             <strong>{inr(item.price)}</strong>
-            {off > 0 && (
+            {item.mrp > item.price && (
               <>
                 <s>
                   <span className="sr-only">MRP </span>

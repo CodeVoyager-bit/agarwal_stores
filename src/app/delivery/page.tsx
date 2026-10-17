@@ -11,9 +11,10 @@ export default async function Deliveries() {
   const user = await requireStaff("delivery", "/delivery");
   await connectDB();
   const mine = { assignedTo: user.id };
-  const [stops, done, carrying] = await Promise.all([
+  const [stops, done, today, carrying] = await Promise.all([
     Order.find({ ...mine, status: { $in: ["placed", "packed", "out_for_delivery"] } }).sort({ deliverBy: 1 }).lean(),
     Order.find({ ...mine, status: "delivered" }).sort({ "cash.collectedAt": -1 }).limit(20).lean(),
+    Order.countDocuments({ ...mine, status: "delivered", "cash.collectedAt": { $gt: new Date(Date.now() - 86_400_000) } }),
     // cash only: UPI is already in the shop's account
     Order.find({ ...mine, "cash.collected": { $exists: true }, "cash.receivedAt": { $exists: false }, "cash.method": { $ne: "upi" } }).select("cash").lean(),
   ]);
@@ -28,7 +29,7 @@ export default async function Deliveries() {
           <span>stops to make</span>
         </div>
         <div>
-          <strong>{done.filter((o) => (o.cash?.collectedAt?.getTime() ?? 0) > Date.now() - 86_400_000).length}</strong>
+          <strong>{today}</strong>
           <span>delivered in 24 hours</span>
         </div>
         <div className={cash ? "alert" : ""}>

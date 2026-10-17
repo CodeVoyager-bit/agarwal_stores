@@ -1,4 +1,5 @@
-import { audit, connectDB, Product } from "./db";
+import { audit, CATEGORIES, connectDB, Product } from "./db";
+import { tidyLines } from "./format";
 import { readXlsx } from "./xlsx";
 
 /** The most rows one sheet may hold, and the largest file read. */
@@ -77,8 +78,14 @@ export function readSheet(bytes: Uint8Array) {
 const clean = (text: string) => text.replace(/\s+/g, " ").trim();
 const key = (name: string) => clean(name).toLowerCase();
 const titleCase = (text: string) => clean(text).toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-/** "₹1,200", "1200.00", "Rs. 1200", "60/-" → the number; NaN when it isn't an amount. */
-const amount = (text: string) => (text.trim() ? Number(text.replace(/rs\.?|inr|₹|,|\s|\/-$/gi, "")) : NaN);
+/**
+ * "₹1,200", "1200.00", "Rs. 1200", "60/-" → the number; NaN when it isn't an amount (a lone "₹" too).
+ * Rounded to paise: an Excel formula's 62.999999999999993 is the 63 it shows.
+ */
+const amount = (text: string) => {
+  const digits = text.replace(/rs\.?|inr|₹|,|\s|\/-$/gi, "");
+  return digits ? Math.round(Number(digits) * 100) / 100 : NaN;
+};
 const yes = (text: string) => !/^(no|n|false|0|off|hide|hidden)$/i.test(text.trim());
 
 /**
@@ -119,7 +126,14 @@ export async function planImport(table: string[][]): Promise<{ rows: PlanRow[]; 
   if (body.length > MAX_ROWS) return { rows: [], problem: `One file can hold up to ${MAX_ROWS} rows. Split it into smaller files.` };
 
   await connectDB();
-  const existing = new Map((await Product.find({}).lean()).map((p) => [key(p.name), p]));
+  const all = await Product.find({}).lean();
+  const existing = new Map(all.map((p) => [key(p.name), p]));
+  // two products with one name can't be told apart by name, so rows for them are refused
+  const twice = new Set(all.map((p) => key(p.name)).filter((k, i, list) => list.indexOf(k) !== i));
+  // a category keeps the spelling the shop already uses ("LED Crackers"); a new one in capitals,
+  // like a "SPARKLERS" heading, is title-cased, and any other is kept as typed
+  const shelves = new Map([...CATEGORIES, ...all.map((p) => p.category)].map((c) => [c.toLowerCase(), c]));
+  const shelf = (typed: string) => shelves.get(typed.toLowerCase()) ?? (typed === typed.toUpperCase() ? titleCase(typed) : typed);
   const seen = new Set<string>();
   let section = "";
   const cell = (cells: string[], column: Column) => (columns[column] === undefined ? "" : clean(String(cells[columns[column]!] ?? "")));
@@ -131,11 +145,12 @@ export async function planImport(table: string[][]): Promise<{ rows: PlanRow[]; 
     if (!name) return { line, name: "", outcome: "same", message: "Empty row." };
     // a heading has nothing but its name and isn't a product already ("SPARKLERS" above its rows)
     if ((Object.keys(columns) as Column[]).every((c) => c === "name" || !cell(cells, c)) && !existing.has(key(name))) {
-      section = titleCase(name);
+      section = shelf(name);
       return { line, name, outcome: "heading", message: `Rows below go in “${section}”.` };
     }
     if (name.length > 120) return { line, name, outcome: "error", message: "The name is longer than 120 letters." };
     if (seen.has(key(name))) return { line, name, outcome: "error", message: "This name is already on an earlier row." };
+    if (twice.has(key(name))) return { line, name, outcome: "error", message: "Two products already have this name. Rename one on the Inventory page first." };
     seen.add(key(name));
 
     const old = existing.get(key(name));
@@ -148,13 +163,13 @@ export async function planImport(table: string[][]): Promise<{ rows: PlanRow[]; 
     for (const [label, value] of [["Price", price], ["MRP", mrp], ["Stock", stock ?? 0], ["Add stock", added]] as const)
       if (!Number.isInteger(value) || value < 0) return { line, name, outcome: "error", message: `${label} must be whole rupees or a whole number, 0 or more.` };
     if (price > mrp) return { line, name, outcome: "error", message: "Price is more than the MRP." };
-    const category = cell(cells, "category") ? titleCase(cell(cells, "category")) : old?.category || section;
+    const category = cell(cells, "category") ? shelf(cell(cells, "category")) : old?.category || section;
     if (!category) return { line, name, outcome: "error", message: "No category: add a Category column, or a heading row like “Sparklers” above it." };
     const image = cell(cells, "image");
     if (image && !/^https:\/\//.test(image)) return { line, name, outcome: "error", message: "The photo must be a link starting with https://" };
     if (cell(cells, "unit").length > 40) return { line, name, outcome: "error", message: "The pack is longer than 40 letters." };
     // like the other columns, an empty cell keeps what the product has; line breaks inside a cell stay
-    const description = columns.description === undefined ? "" : String(cells[columns.description] ?? "").replace(/\r\n?/g, "\n").replace(/[ \t]+/g, " ").replace(/ ?\n ?/g, "\n").trim();
+    const description = columns.description === undefined ? "" : tidyLines(String(cells[columns.description] ?? ""));
     if (description.length > 1000) return { line, name, outcome: "error", message: "The description is longer than 1000 letters." };
     const maker = cell(cells, "maker");
     if (maker.length > 200) return { line, name, outcome: "error", message: "The maker is longer than 200 letters." };
@@ -176,7 +191,7 @@ export async function planImport(table: string[][]): Promise<{ rows: PlanRow[]; 
     const changed = (["category", "unit", "mrp", "price", "stock", "active", "image", "description", "maker"] as const).filter(
       (f) => fields[f as keyof typeof fields] !== undefined && fields[f as keyof typeof fields] !== old[f],
     );
-    const what = [...changed.map((f) => (f === "stock" ? `stock ${old.stock} → ${fields.stock}` : f)), ...(fields.addStock ? [`stock +${fields.addStock}`] : [])];
+    const what = [...changed.map((f) => (["stock", "mrp", "price"].includes(f) ? `${f} ${old[f as "stock"]} → ${fields[f as "stock"]}` : f)), ...(fields.addStock ? [`stock +${fields.addStock}`] : [])];
     return what.length
       ? { line, name, outcome: "update", message: `Changes ${what.join(", ")}.`, fields, id: String(old._id) }
       : { line, name, outcome: "same", message: "Already the same." };
@@ -197,8 +212,9 @@ export async function applyImport(rows: PlanRow[], by: string) {
       const { addStock, ...fields } = row.fields!;
       await Product.updateOne({ _id: row.id }, { ...fields, ...(addStock && { $inc: { stock: addStock } }) }, { runValidators: true });
       updated++;
-    }
+    } else continue;
+    // one line per product, like an edit by hand, so a bulk change can be checked afterwards
+    await audit(by, "stock.import", row.fields!.name, row.outcome === "create" ? "added" : (row.message ?? "changed").replace(/^Changes |\.$/g, ""));
   }
-  if (created || updated) await audit(by, "stock.import", "Catalog", `${created} added, ${updated} changed`);
   return { created, updated };
 }

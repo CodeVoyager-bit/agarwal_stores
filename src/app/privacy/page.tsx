@@ -35,7 +35,7 @@ export default async function PrivacyPage() {
         <Rows
           rows={[
             ["Your account", "Name, mobile number, email, and your password, stored only as a one‑way hash that no one can read."],
-            ["Google sign‑in", "Only if you use it: the name, email, profile picture link and account ID Google shares with us."],
+            ["Google sign‑in", "Only if you use it: the name, email, profile picture link and account ID Google shares with us, and the sign‑in tokens Google issues for your account."],
             ["Delivery addresses", "Address, landmark, pincode, and the mobile number the delivery person should call."],
             ["Bookings and bills", "Items, prices, address, status, who delivered, the cash or UPI collected, the bill, and the version of our terms you agreed to."],
             ["Security records", "For logged‑in sessions and to stop repeated login attempts: IP address and browser details."],
@@ -72,7 +72,7 @@ export default async function PrivacyPage() {
             ["Vercel", "Hosts the website, in Mumbai."],
             ["MiniMoth", "Sends one‑time codes by WhatsApp or SMS: your mobile number and the code."],
             ["Hostinger", "Sends our emails: your email address and the message."],
-            ["Google", "Only if you log in with Google."],
+            ["Google", "If you log in with Google. And the delivery person’s Map button opens your delivery address in Google Maps."],
             ["Brand websites", "Some product pictures load from the makers’ websites, which see your IP address when your browser fetches them."],
             ["Authorities", "Police, courts or government bodies, only when the law requires it."],
           ]}
@@ -83,8 +83,7 @@ export default async function PrivacyPage() {
       <section id="device">
         <h2>Cookies and your device</h2>
         <p>
-          We use only what the site needs to work: a login cookie that keeps you logged in for 60 days after you last use the site (or until you log
-          out), short‑lived cookies while you log in with Google, and your cart, kept in your own browser. No analytics, advertising or tracking
+          We use only what the site needs to work: a login cookie that keeps you logged in for up to 60 days (or until you log out), short‑lived cookies while you log in with Google, and your cart, kept in your own browser. No analytics, advertising or tracking
           cookies, so there is no cookie banner.
         </p>
       </section>
@@ -93,11 +92,13 @@ export default async function PrivacyPage() {
         <h2>How long we keep it</h2>
         <ul>
           <li>One‑time codes: 10 minutes.</li>
-          <li>Login sessions: 60 days after you last use the site.</li>
+          <li>Login sessions: up to 60 days, or until you log out.</li>
+          <li>Records of login attempts (with the IP address): about a day.</li>
           <li>Your account and addresses: until you delete your account.</li>
           <li>
-            Bookings and bills: as long as GST law requires (6 years). When you delete your account, your name, number and address are removed
-            from them, except on a booking of ₹50,000 or more, whose bill must show the buyer’s name and address.
+            Bookings and bills: at least as long as GST law requires (6 years). When you delete your account, your name, number and street address
+            are removed from them (the pincode stays, for our sales by area), except on a bill of ₹50,000 or more before GST, which must show the
+            buyer’s name and address.
           </li>
         </ul>
       </section>

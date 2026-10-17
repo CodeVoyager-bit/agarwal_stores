@@ -18,6 +18,10 @@ type Customer = { phone: string; name: string; addresses: Address[] };
 /** React empties a form after each submit; after a refused order the address must still be there. */
 const keepTyped = (e: React.FormEvent) => e.preventDefault();
 
+/** A short, stable code for the cart's items and quantities. */
+const fingerprint = (lines: { id: string; qty: number }[]) =>
+  [...lines.map((l) => `${l.id}:${l.qty}`).join(",")].reduce((h, c) => (h * 33 + c.charCodeAt(0)) >>> 0, 5381).toString(36);
+
 export function CartView({ items, customer, deliveryDays, popular }: { items: ShopItem[]; customer: Customer | null; deliveryDays: number; popular: string[] }) {
   const cart = useCart();
   const router = useRouter();
@@ -143,7 +147,10 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
           <form action={action} className="fields" onReset={keepTyped}>
             <h3>Delivery Details</h3>
             <input type="hidden" name="cart" value={JSON.stringify(lines.map((l) => ({ id: l.id, qty: l.qty })))} />
-            <input type="hidden" name="key" value={key} />
+            {/* a changed cart is a new booking: the id carries what's in it, so a retry finds only the same cart */}
+            <input type="hidden" name="key" value={key && `${key}-${fingerprint(lines)}`} />
+            {/* what the customer sees; the server refuses the booking if prices moved since (lib/orders.ts) */}
+            <input type="hidden" name="total" value={total} />
             <label>
               Name
               <input name="name" required minLength={2} maxLength={80} autoComplete="name" defaultValue={customer.name} />

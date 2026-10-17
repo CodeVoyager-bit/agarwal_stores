@@ -155,8 +155,12 @@ const unescape = (text: string) =>
   text.replace(/&(?:#(\d+)|#x([\da-f]+)|(amp|lt|gt|quot|apos));/gi, (_, d, h, name) =>
     d ? String.fromCodePoint(Number(d)) : h ? String.fromCodePoint(parseInt(h, 16)) : ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" } as Record<string, string>)[name.toLowerCase()],
   );
-/** All the text runs inside one shared string or inline string (rich text splits it into several). */
-const textOf = (xml: string) => [...xml.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map((m) => unescape(m[1])).join("");
+/**
+ * All the text runs inside one shared string or inline string (rich text splits it into several).
+ * Excel writes characters XML can't hold as _xHHHH_ (a Windows line end's carriage return is _x000D_).
+ */
+const textOf = (xml: string) =>
+  [...xml.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map((m) => unescape(m[1]).replace(/_x([\da-f]{4})_/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))).join("");
 
 /** The files of a zip: stored (our own exports) or deflated (what Excel saves). */
 function unzip(bytes: Uint8Array) {

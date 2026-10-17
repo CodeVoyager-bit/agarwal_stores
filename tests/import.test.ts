@@ -59,7 +59,7 @@ test("a shop's price list: title rows, section headings, new and changed product
   assert.equal(by("Electric Sparklers 10 cm").fields!.mrp, 60);
   assert.equal(by("Colour Sparklers 15cm").fields!.price, 100, "no offer price: sold at MRP");
   assert.equal(by("laxmi bomb").outcome, "update");
-  assert.match(by("laxmi bomb").message!, /price, stock/);
+  assert.match(by("laxmi bomb").message!, /price 48 → 50, stock 5 → 40/);
   assert.equal(by("Hydro Bomb").outcome, "error");
   assert.match(by("Cheap Bomb").message!, /more than the MRP/);
 
@@ -86,4 +86,25 @@ test("a Description column is the write-up when there's a Name column, and the n
   await applyImport([a], "test");
   // an empty cell keeps the write-up already saved
   assert.equal((await planImport([["Name", "Category", "Price", "Description"], ["Write-up Anar", "Anar", "90", ""]])).rows[0].outcome, "same");
+});
+
+test("import: two products with one name are refused, a shop's own category spelling is kept, a lone ₹ is no price", async () => {
+  await Product.create({ name: "Twin Sparkler", category: "Sparklers", mrp: 60, price: 24, stock: 5 });
+  await Product.create({ name: "twin sparkler", category: "Sparklers", mrp: 300, price: 120, stock: 5 });
+  await Product.create({ name: "Glow Ball", category: "LED Crackers", mrp: 100, price: 50, stock: 5 });
+  const { rows } = await planImport([
+    ["Name", "Category", "MRP", "Price"],
+    ["Twin Sparkler", "Sparklers", "60", "24"],
+    ["Glow Ball", "led crackers", "100", "45"],
+    ["Brand New", "2-in-1 Specials", "90", "=62.999999999999993"],
+    ["Placeholder", "Anar", "₹", "₹"],
+  ]);
+  assert.match(rows[0].message!, /Two products already have this name/);
+  assert.equal(rows[1].fields!.category, "LED Crackers");
+  assert.match(rows[1].message!, /price 50 → 45/);
+  assert.equal(rows[2].outcome, "error", "a formula's text isn't an amount");
+  assert.equal(rows[3].outcome, "error");
+  const formula = await planImport([["Name", "Category", "MRP", "Price"], ["Formula Made", "2-in-1 Specials", "90", "62.999999999999993"]]);
+  assert.equal(formula.rows[0].fields!.price, 63, "Excel's stored formula result is the 63 it shows");
+  assert.equal(formula.rows[0].fields!.category, "2-in-1 Specials", "a new mixed-case category is kept as typed");
 });

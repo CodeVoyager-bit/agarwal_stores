@@ -38,10 +38,11 @@ test("a price list's Manufacturer column fills the maker", async () => {
 });
 
 test("GST inside a price: taxable value, CGST and SGST add back up to the paise", () => {
-  assert.deepEqual(gstSplit(100), { taxable: 8475, cgst: 763, sgst: 762 });
+  assert.deepEqual(gstSplit(100), { taxable: 8474, cgst: 763, sgst: 763 });
   for (const total of [1, 47, 999, 12345]) {
     const t = gstSplit(total);
     assert.equal(t.taxable + t.cgst + t.sgst, total * 100);
+    assert.equal(t.cgst, t.sgst, "both 9%, so both the same amount");
   }
   assert.equal(billTitle({ gstin: "" }), "Bill");
   assert.equal(billTitle({ gstin: "27ABCDE1234F1Z5", gstScheme: "regular" }), "Tax Invoice");

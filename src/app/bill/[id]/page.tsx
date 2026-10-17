@@ -5,7 +5,7 @@ import { PrintButton } from "@/components/print-button";
 import { requireUser } from "@/lib/auth";
 import { connectDB, Order } from "@/lib/db";
 import { inr } from "@/lib/format";
-import { billTitle, GST_RATE, gstSplit, HSN } from "@/lib/legal";
+import { billTitle, GST_RATE, gstSplit, HSN, stateOf } from "@/lib/legal";
 import { issueBill } from "@/lib/orders";
 import { can } from "@/lib/roles";
 
@@ -33,7 +33,9 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
   const { bill } = order;
   const shop = bill.shop ?? {};
   const title = billTitle(shop);
-  const tax = gstSplit(order.total);
+  // the rate the bill was made at, so a later change in GST never rewrites it
+  const rate = bill.rate ?? GST_RATE;
+  const tax = gstSplit(order.total, rate);
 
   return (
     <article className="slip bill">
@@ -58,6 +60,13 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
           <br />
           {order.address.line}
           {order.address.landmark && <>, near {order.address.landmark}</>} – {order.address.pincode}
+          {/* delivered near the shop, so the buyer's State is the shop's (CGST rule 46(e)) */}
+          {shop.gstin && (
+            <>
+              <br />
+              State: {stateOf(shop.gstin)}
+            </>
+          )}
         </p>
         <p className="slip-note">Order #{order.number}</p>
       </section>
@@ -92,11 +101,11 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
                 <td className="num">{rupees(tax.taxable)}</td>
               </tr>
               <tr>
-                <td colSpan={4}>CGST {GST_RATE / 2}%</td>
+                <td colSpan={4}>CGST {rate / 2}%</td>
                 <td className="num">{rupees(tax.cgst)}</td>
               </tr>
               <tr>
-                <td colSpan={4}>SGST {GST_RATE / 2}%</td>
+                <td colSpan={4}>SGST {rate / 2}%</td>
                 <td className="num">{rupees(tax.sgst)}</td>
               </tr>
             </>
