@@ -1,0 +1,89 @@
+// The Inventory page's parts that run in the browser: the price list import and the photo picker.
+// Column names (Name, Price, MRP…) stay English in every language: the import reads them by those names.
+
+export const en = {
+  import: {
+    title: "Import Price List (Excel or CSV)",
+    step1:
+      "Download the current list, or use your own. It needs a <b>Name</b> column and a <b>Price</b> or <b>MRP</b> column; Category, Pack, Stock (replaces it), Add stock (adds to it), On sale, Photo and Description are optional. A row with only a name, like <b>SPARKLERS</b>, starts a category for the rows below it.",
+    step2: "Products are matched by name: a new name is added, an existing one is updated.",
+    step3: "Check the file first. Nothing is saved until you press Save.",
+    download: "Download Current List",
+    choose: "Choose File…",
+    check: "Check File",
+    reading: "Reading…",
+    summary: "<b>{create}</b> new · <b>{update}</b> changes · <b>{same}</b> already the same · <b>{error}</b> problems",
+    skipped: " (rows with problems are skipped)",
+    saveOne: "Save {n} Change",
+    saveMany: "Save {n} Changes",
+    row: "Row",
+    name: "Name",
+    what: "What happens",
+    details: "Details",
+    outcome: { create: "New", update: "Change", error: "Problem", heading: "Section", same: "Same" },
+    stock: " · stock {n}",
+    addStock: " · +{n} stock",
+  },
+  photo: {
+    add: "Add Photo",
+    change: "Change Photo",
+  },
+};
+
+export const hi: typeof en = {
+  import: {
+    title: "प्राइस लिस्ट इम्पोर्ट करें (Excel या CSV)",
+    step1:
+      "अभी की लिस्ट डाउनलोड करें, या अपनी लिस्ट लें। उसमें <b>Name</b> कॉलम और <b>Price</b> या <b>MRP</b> कॉलम होना चाहिए; Category, Pack, Stock (स्टॉक बदल देता है), Add stock (स्टॉक में जोड़ता है), On sale, Photo और Description ज़रूरी नहीं हैं। कॉलम के नाम अंग्रेज़ी में ही रखें। जिस लाइन में सिर्फ़ नाम हो, जैसे <b>SPARKLERS</b>, उससे नीचे की लाइनों की कैटेगरी शुरू होती है।",
+    step2: "प्रोडक्ट नाम से मिलाए जाते हैं: नया नाम जुड़ जाता है, पुराना नाम अपडेट हो जाता है।",
+    step3: "पहले फ़ाइल जाँचें। सेव करें दबाने तक कुछ भी सेव नहीं होता।",
+    download: "लिस्ट डाउनलोड करें",
+    choose: "फ़ाइल चुनें…",
+    check: "फ़ाइल जाँचें",
+    reading: "पढ़ रहे हैं…",
+    summary: "<b>{create}</b> नए · <b>{update}</b> बदलाव · <b>{same}</b> पहले जैसे · <b>{error}</b> समस्याएँ",
+    skipped: " (समस्या वाली लाइनें छोड़ दी जाएँगी)",
+    saveOne: "{n} बदलाव सेव करें",
+    saveMany: "{n} बदलाव सेव करें",
+    row: "लाइन",
+    name: "नाम",
+    what: "क्या होगा",
+    details: "जानकारी",
+    outcome: { create: "नया", update: "बदलाव", error: "समस्या", heading: "सेक्शन", same: "वही" },
+    stock: " · स्टॉक {n}",
+    addStock: " · +{n} स्टॉक",
+  },
+  photo: {
+    add: "फ़ोटो जोड़ें",
+    change: "फ़ोटो बदलें",
+  },
+};
+
+export const mr: typeof en = {
+  import: {
+    title: "किंमत यादी इम्पोर्ट करा (Excel किंवा CSV)",
+    step1:
+      "सध्याची यादी डाउनलोड करा, किंवा तुमची स्वतःची वापरा. त्यात <b>Name</b> कॉलम आणि <b>Price</b> किंवा <b>MRP</b> कॉलम हवा; Category, Pack, Stock (स्टॉक बदलतो), Add stock (स्टॉकमध्ये भर घालतो), On sale, Photo आणि Description ऐच्छिक आहेत. कॉलमची नावे इंग्रजीतच ठेवा. ज्या ओळीत फक्त नाव आहे, जसे <b>SPARKLERS</b>, तिथून खालच्या ओळींची कॅटेगरी सुरू होते.",
+    step2: "प्रॉडक्ट नावाने जुळवले जातात: नवीन नाव जोडले जाते, आधीचे अपडेट होते.",
+    step3: "आधी फाइल तपासा. सेव्ह करा दाबेपर्यंत काहीही सेव्ह होत नाही.",
+    download: "यादी डाउनलोड करा",
+    choose: "फाइल निवडा…",
+    check: "फाइल तपासा",
+    reading: "वाचत आहे…",
+    summary: "<b>{create}</b> नवीन · <b>{update}</b> बदल · <b>{same}</b> आधीसारखेच · <b>{error}</b> अडचणी",
+    skipped: " (अडचण असलेल्या ओळी वगळल्या जातील)",
+    saveOne: "{n} बदल सेव्ह करा",
+    saveMany: "{n} बदल सेव्ह करा",
+    row: "ओळ",
+    name: "नाव",
+    what: "काय होईल",
+    details: "तपशील",
+    outcome: { create: "नवीन", update: "बदल", error: "अडचण", heading: "विभाग", same: "तसेच" },
+    stock: " · स्टॉक {n}",
+    addStock: " · +{n} स्टॉक",
+  },
+  photo: {
+    add: "फोटो जोडा",
+    change: "फोटो बदला",
+  },
+};

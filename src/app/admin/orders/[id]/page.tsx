@@ -8,10 +8,15 @@ import { StatusForm } from "@/components/status-form";
 import { assignAction, noteAction, receiveCashAction } from "@/lib/actions";
 import { requireStaff } from "@/lib/auth";
 import { connectDB, Order, User } from "@/lib/db";
-import { day, inr, STATUS_LABEL, when } from "@/lib/format";
+import { day, inr, when } from "@/lib/format";
+import { fill, translateMessage } from "@/lib/i18n";
+import { getLang, getT } from "@/lib/i18n/server";
 import { can } from "@/lib/roles";
 
-export const metadata: Metadata = { title: "Order · Admin" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: `${t.staff.order.title} · ${t.common.adminTabs.label}` };
+}
 
 export default async function AdminOrder({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -24,45 +29,48 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
   const assignable = order.status === "placed" || order.status === "packed";
   // orders placed before history was kept start with just their placing
   const history = order.history?.length ? order.history : [{ at: order.createdAt, by: order.name, text: "Booked" }];
+  const [t, lang] = await Promise.all([getT(), getLang()]);
+  const s = t.staff.order;
+  const c = t.staff.cols;
 
   return (
     <>
-      <nav className="breadcrumb" aria-label="Breadcrumb">
-        <Link href="/admin">Orders</Link>
+      <nav className="breadcrumb" aria-label={t.staff.breadcrumb}>
+        <Link href="/admin">{t.common.adminTabs.orders}</Link>
         <ChevronRight size={14} aria-hidden="true" />
         <span aria-current="page">#{order.number}</span>
       </nav>
       <div className="head">
         <h1>
-          Order #{order.number} <span className={`pill ${order.status}`}>{STATUS_LABEL[order.status]}</span>
+          {fill(s.heading, { n: order.number })} <span className={`pill ${order.status}`}>{t.common.status[order.status]}</span>
         </h1>
         {/* once it's delivered the packing slip is done with, and the bill is what's printed */}
         {order.status === "delivered" ? (
           <Link href={`/bill/${id}`} className="btn" target="_blank">
-            <ReceiptText size={18} aria-hidden="true" /> View Bill
+            <ReceiptText size={18} aria-hidden="true" /> {s.viewBill}
           </Link>
         ) : (
           <Link href={`/admin/orders/${id}/slip`} className="btn" target="_blank">
-            <Printer size={18} aria-hidden="true" /> Print Slip
+            <Printer size={18} aria-hidden="true" /> {s.printSlip}
           </Link>
         )}
       </div>
       <p className="muted">
-        Booked {when(order.createdAt)} · Deliver by {day(order.deliverBy)}
-        {order.status === "placed" && " · Call the customer to confirm before packing"}
+        {fill(s.booked, { when: when(order.createdAt, lang), day: day(order.deliverBy, lang) })}
+        {order.status === "placed" && s.confirmFirst}
       </p>
 
       <div className="order-layout">
         <div className="stack">
           <section className="panel" aria-labelledby="items">
-            <h2 id="items">Items</h2>
+            <h2 id="items">{c.items}</h2>
             <table className="lines-table">
               <thead>
                 <tr>
-                  <th>Item</th>
-                  <th className="num">Qty</th>
-                  <th className="num">Price</th>
-                  <th className="num">Amount</th>
+                  <th>{c.item}</th>
+                  <th className="num">{c.qty}</th>
+                  <th className="num">{c.price}</th>
+                  <th className="num">{c.amount}</th>
                 </tr>
               </thead>
               <tbody>
@@ -79,7 +87,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
               </tbody>
               <tfoot>
                 <tr>
-                  <th colSpan={3}>Total, pay on delivery</th>
+                  <th colSpan={3}>{s.totalPay}</th>
                   <th className="num">{inr(order.total)}</th>
                 </tr>
               </tfoot>
@@ -87,22 +95,22 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
           </section>
 
           <section className="panel" aria-labelledby="history">
-            <h2 id="history">History</h2>
+            <h2 id="history">{s.history}</h2>
             <ol className="timeline">
               {[...history].reverse().map((h, n) => (
                 <li key={n}>
-                  <strong>{h.text}</strong>
+                  <strong>{translateMessage(h.text ?? "", t.messages)}</strong>
                   <small>
-                    {when(h.at)} · {h.by}
+                    {when(h.at, lang)} · {h.by}
                   </small>
                 </li>
               ))}
             </ol>
-            <ActionForm action={noteAction} submit="Add Note">
+            <ActionForm action={noteAction} submit={s.addNote}>
               <input type="hidden" name="id" value={id} />
               <label>
-                Note for the team
-                <textarea name="note" rows={2} maxLength={500} required placeholder="Customer asked to deliver after 5 pm…" />
+                {s.note}
+                <textarea name="note" rows={2} maxLength={500} required placeholder={s.notePlaceholder} />
               </label>
             </ActionForm>
           </section>
@@ -119,12 +127,12 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
                 <MessageCircle size={14} aria-hidden="true" /> WhatsApp
               </a>
               <a href={map} target="_blank" rel="noreferrer" className="chip-link">
-                <MapPin size={14} aria-hidden="true" /> Map
+                <MapPin size={14} aria-hidden="true" /> {t.common.words.map}
               </a>
             </p>
             <p>
               {order.address.line}
-              {order.address.landmark && <small>Near {order.address.landmark}</small>}
+              {order.address.landmark && <small>{fill(t.staff.near, { place: order.address.landmark })}</small>}
               <small>
                 <strong>{order.address.pincode}</strong>
               </small>
@@ -132,24 +140,24 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
           </section>
 
           <section className="panel" aria-labelledby="status">
-            <h2 id="status">Status</h2>
+            <h2 id="status">{c.status}</h2>
             <StatusForm id={id} status={order.status} />
           </section>
 
           <section className="panel" aria-labelledby="delivery">
-            <h2 id="delivery">Delivery</h2>
-            <p className="muted">{order.assignedName ? `With ${order.assignedName}` : "Not given to anyone yet."}</p>
+            <h2 id="delivery">{s.delivery}</h2>
+            <p className="muted">{order.assignedName ? fill(t.staff.with, { name: order.assignedName }) : s.notGiven}</p>
             {assignable &&
               (team.length ? (
-                <ActionForm action={assignAction} submit={order.assignedName ? "Change" : "Give for Delivery"}>
+                <ActionForm action={assignAction} submit={order.assignedName ? t.common.words.change : s.give}>
                   <input type="hidden" name="id" value={id} />
                   <label>
-                    Delivery person
+                    {s.person}
                     <select key={String(order.assignedTo ?? "")} name="staff" defaultValue={order.assignedTo ? String(order.assignedTo) : ""}>
-                      <option value="">Nobody</option>
-                      {team.map((t) => (
-                        <option key={String(t._id)} value={String(t._id)}>
-                          {t.name || t.phone}
+                      <option value="">{s.nobody}</option>
+                      {team.map((m) => (
+                        <option key={String(m._id)} value={String(m._id)}>
+                          {m.name || m.phone}
                         </option>
                       ))}
                     </select>
@@ -157,20 +165,20 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
                 </ActionForm>
               ) : (
                 <p className="note">
-                  No delivery team yet. {can(user.role, "staff") ? <Link href="/admin/staff">Add someone on the Staff page.</Link> : "Ask the owner to add them."}
+                  {s.noTeam} {can(user.role, "staff") ? <Link href="/admin/staff">{s.addOnStaff}</Link> : s.askOwner}
                 </p>
               ))}
             {order.cash?.collected != null && (
               <p>
-                Collected {inr(order.cash.collected)} by {order.cash.collectedBy}.{" "}
-                {order.cash.receivedAt ? `Counted at shop: ${inr(order.cash.received!)}.` : "Not handed in yet."}
+                {fill(s.collected, { amount: inr(order.cash.collected), name: order.cash.collectedBy ?? "" })}{" "}
+                {order.cash.receivedAt ? fill(s.counted, { amount: inr(order.cash.received!) }) : s.notHanded}
               </p>
             )}
             {order.cash?.collected != null && !order.cash.receivedAt && can(user.role, "cash") && (
-              <ActionForm action={receiveCashAction} submit="Cash Received">
+              <ActionForm action={receiveCashAction} submit={s.cashReceived}>
                 <input type="hidden" name="id" value={id} />
                 <label>
-                  Rupees counted
+                  {s.rupeesCounted}
                   <input name="received" inputMode="numeric" pattern="\d+" required defaultValue={order.cash.collected} autoComplete="off" />
                 </label>
               </ActionForm>

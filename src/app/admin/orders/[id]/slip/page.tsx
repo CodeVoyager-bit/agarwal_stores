@@ -5,8 +5,12 @@ import { PrintButton } from "@/components/print-button";
 import { requireStaff } from "@/lib/auth";
 import { connectDB, Order } from "@/lib/db";
 import { day, inr } from "@/lib/format";
+import { fill } from "@/lib/i18n";
+import { getLang, getT } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Packing Slip" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getT()).staff.slip.title };
+}
 
 /** One A5/A4 page to pack from and hand over with the parcel. */
 export default async function Slip({ params }: { params: Promise<{ id: string }> }) {
@@ -17,6 +21,9 @@ export default async function Slip({ params }: { params: Promise<{ id: string }>
   const order = await Order.findById(id).lean();
   if (!order) notFound();
   const pieces = order.items.reduce((n, i) => n + i.qty!, 0);
+  const [t, lang] = await Promise.all([getT(), getLang()]);
+  const s = t.staff.slip;
+  const c = t.staff.cols;
 
   return (
     <article className="slip">
@@ -25,40 +32,40 @@ export default async function Slip({ params }: { params: Promise<{ id: string }>
         <div className="slip-brand">
           <img src="/icon.svg" alt="" width={44} height={44} />
           <div>
-            <strong className="slip-shop">Agarwal Stores · Crackers</strong>
-            {process.env.SHOP_PHONE && <small>Phone {process.env.SHOP_PHONE}</small>}
+            <strong className="slip-shop">{t.common.meta.title}</strong>
+            {process.env.SHOP_PHONE && <small>{fill(s.phone, { phone: process.env.SHOP_PHONE })}</small>}
           </div>
         </div>
         <div className="slip-number">
-          <strong>Order #{order.number}</strong>
+          <strong>{fill(t.staff.order.heading, { n: order.number })}</strong>
           <small>
-            {day(order.createdAt)} · deliver by {day(order.deliverBy)}
+            {fill(s.dates, { day: day(order.createdAt, lang), by: day(order.deliverBy, lang) })}
           </small>
         </div>
       </header>
       <section>
-        <h2>Deliver to</h2>
+        <h2>{s.deliverTo}</h2>
         <p>
           <strong>{order.name}</strong> · +91 {order.phone}
           <br />
           {order.address.line}
-          {order.address.landmark && <>, near {order.address.landmark}</>} – {order.address.pincode}
+          {order.address.landmark && fill(s.near, { place: order.address.landmark })} – {order.address.pincode}
         </p>
       </section>
       <table>
         <thead>
           <tr>
-            <th>Packed</th>
-            <th>Item</th>
-            <th className="num">Qty</th>
-            <th className="num">Price</th>
-            <th className="num">Amount</th>
+            <th>{s.packed}</th>
+            <th>{c.item}</th>
+            <th className="num">{c.qty}</th>
+            <th className="num">{c.price}</th>
+            <th className="num">{c.amount}</th>
           </tr>
         </thead>
         <tbody>
           {order.items.map((i, n) => (
             <tr key={n}>
-              <td className="tick" aria-label="Packed check box">
+              <td className="tick" aria-label={s.tick}>
                 ☐
               </td>
               <td>
@@ -72,18 +79,18 @@ export default async function Slip({ params }: { params: Promise<{ id: string }>
         </tbody>
         <tfoot>
           <tr>
-            <th colSpan={2}>{pieces} pieces</th>
+            <th colSpan={2}>{fill(s.pieces, { n: pieces })}</th>
             <th colSpan={2} className="num">
-              To collect
+              {s.collect}
             </th>
             <th className="num">{inr(order.total)}</th>
           </tr>
         </tfoot>
       </table>
-      <p className="slip-note">Pay cash or UPI on delivery. Keep crackers away from children, heat and flames.</p>
+      <p className="slip-note">{s.note}</p>
       <footer>
-        <span>Packed by ____________</span>
-        <span>Received by ____________</span>
+        <span>{s.packedBy}</span>
+        <span>{s.receivedBy}</span>
       </footer>
     </article>
   );

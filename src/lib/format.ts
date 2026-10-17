@@ -1,10 +1,12 @@
+import { locale, type Lang } from "./i18n";
+
 export const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
 /** A description as stored: line breaks kept, runs of spaces and the spaces around a break dropped. Form and import alike. */
 export const tidyLines = (text: string) => text.replace(/\r\n?/g, "\n").replace(/[ \t]+/g, " ").replace(/ ?\n ?/g, "\n").trim();
 
-export const day = (d: Date) =>
-  new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Kolkata" }).format(d);
+export const day = (d: Date, lang: Lang = "en") =>
+  new Intl.DateTimeFormat(locale(lang), { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Kolkata" }).format(d);
 
 /** The most of one product in one order. */
 export const MAX_QTY = 500;
@@ -33,8 +35,8 @@ export const STATUS_LABEL: Record<string, string> = {
 export type ShopItem = { id: string; name: string; category: string; unit: string; mrp: number; price: number; stock: number; image: string };
 
 /** "17 Oct, 4:05 pm", India time, for history lines and the audit log. */
-export const when = (d: Date) =>
-  new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }).format(d);
+export const when = (d: Date, lang: Lang = "en") =>
+  new Intl.DateTimeFormat(locale(lang), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }).format(d);
 
 /** What a typed or pasted mobile number means: digits only, any +91 or leading 0 removed, at most ten
  *  (from Agarwal Online). Room is left for a +91 or 0 still being typed in front, one key at a time. */

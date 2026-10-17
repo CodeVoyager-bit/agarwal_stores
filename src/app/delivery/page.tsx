@@ -3,12 +3,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
 import { connectDB, Order } from "@/lib/db";
-import { day, inr, STATUS_LABEL } from "@/lib/format";
+import { day, inr } from "@/lib/format";
+import { fill } from "@/lib/i18n";
+import { getLang, getT } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "My Deliveries" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getT()).delivery.list.title };
+}
 
 export default async function Deliveries() {
   const user = await requireStaff("delivery", "/delivery");
+  const [t, lang] = await Promise.all([getT(), getLang()]);
+  const s = t.delivery.list;
   await connectDB();
   const mine = { assignedTo: user.id };
   const [stops, done, today, carrying] = await Promise.all([
@@ -22,23 +28,23 @@ export default async function Deliveries() {
 
   return (
     <>
-      <h1>Hello{user.name ? `, ${user.name}` : ""}</h1>
+      <h1>{user.name ? fill(s.helloName, { name: user.name }) : s.hello}</h1>
       <div className="stats">
         <div>
           <strong>{stops.length}</strong>
-          <span>stops to make</span>
+          <span>{s.stops}</span>
         </div>
         <div>
           <strong>{today}</strong>
-          <span>delivered in 24 hours</span>
+          <span>{s.today}</span>
         </div>
         <div className={cash ? "alert" : ""}>
           <strong>{inr(cash)}</strong>
-          <span>cash to hand in</span>
+          <span>{s.cash}</span>
         </div>
       </div>
 
-      <h2>Your Stops</h2>
+      <h2>{s.yourStops}</h2>
       {stops.length ? (
         <ul className="stops">
           {stops.map((o) => (
@@ -48,24 +54,24 @@ export default async function Deliveries() {
                   <strong>{o.name}</strong>
                   <small>{o.address.line}</small>
                   <small>
-                    {o.address.pincode} · #{o.number} · by {day(o.deliverBy)}
+                    {o.address.pincode} · #{o.number} · {fill(s.by, { day: day(o.deliverBy, lang) })}
                   </small>
                 </span>
-                <span className={`pill ${o.status}`}>{STATUS_LABEL[o.status]}</span>
-                <strong className="stop-collect">Collect {inr(o.total)} →</strong>
+                <span className={`pill ${o.status}`}>{t.common.status[o.status]}</span>
+                <strong className="stop-collect">{fill(s.collect, { amount: inr(o.total) })}</strong>
               </Link>
               <span className="contact">
-                <a className="chip-link" href={`tel:+91${o.phone}`} aria-label={`Call ${o.name}`}>
-                  <Phone size={14} aria-hidden="true" /> Call
+                <a className="chip-link" href={`tel:+91${o.phone}`} aria-label={fill(s.callName, { name: o.name })}>
+                  <Phone size={14} aria-hidden="true" /> {t.common.words.call}
                 </a>
                 <a
                   className="chip-link"
                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${o.address.line} ${o.address.pincode}`)}`}
                   target="_blank"
                   rel="noreferrer"
-                  aria-label={`Map to ${o.name}’s address`}
+                  aria-label={fill(s.mapTo, { name: o.name })}
                 >
-                  <MapPin size={14} aria-hidden="true" /> Map
+                  <MapPin size={14} aria-hidden="true" /> {t.common.words.map}
                 </a>
               </span>
             </li>
@@ -73,14 +79,14 @@ export default async function Deliveries() {
         </ul>
       ) : (
         <div className="empty panel">
-          <h2>You’re all caught up</h2>
-          <p>Orders the shop gives you show up here.</p>
+          <h2>{s.emptyTitle}</h2>
+          <p>{s.emptyText}</p>
         </div>
       )}
 
       {done.length > 0 && (
         <>
-          <h2>Recently Delivered</h2>
+          <h2>{s.recent}</h2>
           <ul className="items panel">
             {done.map((o) => (
               <li key={String(o._id)}>

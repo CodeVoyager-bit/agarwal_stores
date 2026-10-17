@@ -5,40 +5,48 @@ import { StockImport } from "@/components/stock-import";
 import { saveProductAction } from "@/lib/actions";
 import { requireStaff } from "@/lib/auth";
 import { CATEGORIES, connectDB, Product } from "@/lib/db";
+import { catName, fill } from "@/lib/i18n";
+import type { Dict } from "@/lib/i18n/dict";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Inventory · Admin" };
+export async function generateMetadata(): Promise<Metadata> {
+  const tabs = (await getT()).common.adminTabs;
+  return { title: `${tabs.inventory} · ${tabs.label}` };
+}
+
+type Words = Dict["catalog"]["products"];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 type Editable = { _id?: unknown; name?: string; category?: string; unit?: string | null; mrp?: number; price?: number; stock?: number; image?: string | null; description?: string | null; maker?: string | null; active?: boolean | null };
 
 /** One product's inputs; the same fields add a new product and edit a listed one. */
-function Fields({ p }: { p: Editable }) {
+function Fields({ p, w }: { p: Editable; w: Words }) {
   const whole = { inputMode: "numeric" as const, pattern: "\\d+", required: true, autoComplete: "off" };
   return (
     <>
       {p._id ? <input type="hidden" name="id" value={String(p._id)} /> : null}
       <label className="f-name">
-        <span>Name</span>
+        <span>{w.name}</span>
         <input name="name" required maxLength={120} autoComplete="off" defaultValue={p.name} />
       </label>
       <label>
-        <span>Category</span>
+        <span>{w.category}</span>
         <input name="category" list="categories" required autoComplete="off" defaultValue={p.category} />
       </label>
       <label>
-        <span>Pack</span>
+        <span>{w.pack}</span>
         <input name="unit" maxLength={40} placeholder="10 pcs…" autoComplete="off" defaultValue={p.unit ?? ""} />
       </label>
       <label>
-        <span>MRP ₹</span>
+        <span>{w.mrp}</span>
         <input name="mrp" {...whole} defaultValue={p.mrp} />
       </label>
       <label>
-        <span>Price ₹</span>
+        <span>{w.price}</span>
         <input name="price" {...whole} defaultValue={p.price} />
       </label>
       <label>
-        <span>Stock</span>
+        <span>{w.stock}</span>
         <input name="stock" {...whole} defaultValue={p.stock} />
       </label>
       {/* the stock when the page was drawn: the server applies only the difference typed */}
@@ -48,25 +56,25 @@ function Fields({ p }: { p: Editable }) {
       </div>
       <label className="f-check">
         <input name="active" type="checkbox" defaultChecked={p.active ?? true} />
-        <span>On sale</span>
+        <span>{w.onSale}</span>
       </label>
     </>
   );
 }
 
 /** The maker and the product page's write-up, folded away so the list stays one line per product. */
-function Description({ p }: { p: Editable }) {
-  const summary = [p.maker && `Maker: ${p.maker}`, p.description && `Description: ${p.description}`].filter(Boolean).join(" · ");
+function Description({ p, w }: { p: Editable; w: Words }) {
+  const summary = [p.maker && fill(w.maker, { text: p.maker }), p.description && fill(w.description, { text: p.description })].filter(Boolean).join(" · ");
   return (
     <details className="f-desc">
-      <summary>{summary || "Add the maker and a description"}</summary>
+      <summary>{summary || w.addDetails}</summary>
       <label>
-        <span>Maker’s name and address (shown on the product page, as the law asks)</span>
+        <span>{w.makerLabel}</span>
         <input name="maker" maxLength={200} autoComplete="off" defaultValue={p.maker ?? ""} placeholder="Standard Fireworks, Sivakasi, Tamil Nadu" />
       </label>
       <label>
-        <span>Description (shown on the product page)</span>
-        <textarea name="description" rows={4} maxLength={1000} defaultValue={p.description ?? ""} placeholder="What it does, colours, how long it lasts, how high it goes…" />
+        <span>{w.descLabel}</span>
+        <textarea name="description" rows={4} maxLength={1000} defaultValue={p.description ?? ""} placeholder={w.descHint} />
       </label>
     </details>
   );
@@ -78,6 +86,8 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
   // ?q=a&q=b arrives as a list: only a single search is read
   const q = (typeof params.q === "string" ? params.q : "").trim().slice(0, 60);
   const low = params.low === "1";
+  const t = await getT();
+  const w = t.catalog.products;
   await connectDB();
   const products = await Product.find({
     ...(q && { $or: [{ name: new RegExp(escape(q), "i") }, { category: new RegExp(escape(q), "i") }] }),
@@ -88,37 +98,37 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <h1>Inventory</h1>
+      <h1>{t.common.adminTabs.inventory}</h1>
       <datalist id="categories">
         {CATEGORIES.map((c) => (
-          <option key={c} value={c} />
+          <option key={c} value={c} label={catName(t, c) === c ? undefined : catName(t, c)} />
         ))}
       </datalist>
 
       <StockImport />
 
       <details className="panel add-product">
-        <summary>Add a Product</summary>
-        <ActionForm action={saveProductAction} submit="Add Product" primary className="inv-row" after={<Description p={{}} />}>
-          <Fields p={{}} />
+        <summary>{w.add}</summary>
+        <ActionForm action={saveProductAction} submit={w.addButton} primary className="inv-row" after={<Description p={{}} w={w} />}>
+          <Fields p={{}} w={w} />
         </ActionForm>
       </details>
 
       <form className="filter" role="search">
-        <input type="search" name="q" defaultValue={q} placeholder="Search name or category…" autoComplete="off" aria-label="Search products" />
+        <input type="search" name="q" defaultValue={q} placeholder={w.searchHint} autoComplete="off" aria-label={w.searchLabel} />
         <label className="f-check">
-          <input type="checkbox" name="low" value="1" defaultChecked={low} /> Low stock only
+          <input type="checkbox" name="low" value="1" defaultChecked={low} /> {w.lowOnly}
         </label>
-        <button className="btn">Search</button>
+        <button className="btn">{t.common.words.search}</button>
       </form>
       <p className="muted">
-        {products.length} {products.length === 1 ? "product" : "products"} · edit a row and press Save. Stock 5 or less is marked.
+        {fill(products.length === 1 ? w.countOne : w.countMany, { n: products.length })}
       </p>
 
       <div className="inventory">
         {products.map((p) => (
-          <ActionForm key={String(p._id)} action={saveProductAction} submit="Save" small className={`inv-row${p.stock <= 5 ? " low" : ""}${p.active ? "" : " off"}`} after={<Description p={p} />}>
-            <Fields p={p} />
+          <ActionForm key={String(p._id)} action={saveProductAction} submit={t.common.words.save} small className={`inv-row${p.stock <= 5 ? " low" : ""}${p.active ? "" : " off"}`} after={<Description p={p} w={w} />}>
+            <Fields p={p} w={w} />
           </ActionForm>
         ))}
       </div>

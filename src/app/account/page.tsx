@@ -10,39 +10,48 @@ import { mockOtp, requireUser } from "@/lib/auth";
 import { googleEnabled } from "@/lib/better-auth";
 import { ADDRESS_LABELS, connectDB, MAX_ADDRESSES, Order, User } from "@/lib/db";
 import { day } from "@/lib/format";
-import { ROLE_LABEL } from "@/lib/roles";
+import { fill } from "@/lib/i18n";
+import { rich } from "@/lib/i18n/rich";
+import { getLang, getT } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Your Account · Agarwal Stores" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: `${(await getT()).auth.account.title} · Agarwal Stores` };
+}
 
-function AddressFields({ address, phone }: { address?: { label: string; line: string; landmark: string; pincode: string; phone: string }; phone: string }) {
+async function AddressFields({ address, phone }: { address?: { label: string; line: string; landmark: string; pincode: string; phone: string }; phone: string }) {
+  const t = await getT();
+  const a = t.auth.account;
   return (
     <>
       <label>
-        Save as
+        {a.saveAs}
+        {/* stored in English, shown in the reader's language */}
         <select name="label" defaultValue={address?.label ?? "Home"}>
           {ADDRESS_LABELS.map((l) => (
-            <option key={l}>{l}</option>
+            <option key={l} value={l}>
+              {a.labels[l] ?? l}
+            </option>
           ))}
         </select>
       </label>
       <label>
-        Full address
-        <textarea name="line" rows={3} required minLength={10} maxLength={300} autoComplete="street-address" placeholder="House no., street, area…" defaultValue={address?.line} />
+        {a.fullAddress}
+        <textarea name="line" rows={3} required minLength={10} maxLength={300} autoComplete="street-address" placeholder={a.addressPlaceholder} defaultValue={address?.line} />
       </label>
       <div className="two">
         <label>
           <span>
-            Landmark <small>(optional)</small>
+            {a.landmark} <small>{t.common.words.optional}</small>
           </span>
-          <input name="landmark" maxLength={120} autoComplete="off" placeholder="Near temple, school…" defaultValue={address?.landmark} />
+          <input name="landmark" maxLength={120} autoComplete="off" placeholder={a.landmarkPlaceholder} defaultValue={address?.landmark} />
         </label>
         <label>
-          Pincode
+          {a.pincode}
           <input name="pincode" required inputMode="numeric" pattern="\d{6}" maxLength={6} autoComplete="postal-code" placeholder="226001" defaultValue={address?.pincode} />
         </label>
       </div>
       {/* anyone's number at this address; the same one can be on several addresses */}
-      <PhoneField label="Mobile number for delivery" initial={address?.phone || phone} />
+      <PhoneField label={a.deliveryMobile} initial={address?.phone || phone} />
     </>
   );
 }
@@ -60,51 +69,53 @@ export default async function Account({ searchParams }: { searchParams: Promise<
   ]);
   const hasPassword = logins.some((l) => l.providerId === "credential");
   const hasGoogle = logins.some((l) => l.providerId === "google");
-  const hint = mockOtp() ? `Test mode: the code is ${process.env.MOCK_OTP_CODE || "123456"}` : undefined;
+  const [t, lang] = await Promise.all([getT(), getLang()]);
+  const a = t.auth.account;
+  const hint = mockOtp() ? fill(t.auth.login.testCode, { code: process.env.MOCK_OTP_CODE || "123456" }) : undefined;
   const verified = (
     <span className="tag create">
-      <BadgeCheck size={14} aria-hidden="true" /> Verified
+      <BadgeCheck size={14} aria-hidden="true" /> {a.verified}
     </span>
   );
 
   return (
     <>
       <div className="head">
-        <h1>Your Account</h1>
-        {user.role !== "customer" && <span className="pill delivered">{ROLE_LABEL[user.role]}</span>}
+        <h1>{a.title}</h1>
+        {user.role !== "customer" && <span className="pill delivered">{a.roles[user.role]}</span>}
       </div>
-      {google === "linked" && <p className="success">Google is connected. You can use it to log in next time.</p>}
-      {google === "failed" && <p className="error">Google wasn’t connected. Please try again.</p>}
-      {google === "password" && <p className="error">Google wasn’t connected: your password wasn’t right.</p>}
+      {google === "linked" && <p className="success">{a.googleLinked}</p>}
+      {google === "failed" && <p className="error">{a.googleFailed}</p>}
+      {google === "password" && <p className="error">{a.googlePassword}</p>}
 
       <div className="account-grid">
         <section className="panel stack" aria-labelledby="profile">
           <h2 id="profile">
-            <UserRound size={20} aria-hidden="true" /> Profile
+            <UserRound size={20} aria-hidden="true" /> {a.profile}
           </h2>
           <dl className="rows">
             <div>
-              <dt>Name</dt>
-              <dd>{user.name || "Not set"}</dd>
+              <dt>{a.name}</dt>
+              <dd>{user.name || a.notSet}</dd>
             </div>
             <div>
-              <dt>Customer since</dt>
-              <dd>{record?.createdAt ? day(record.createdAt) : "—"}</dd>
+              <dt>{a.since}</dt>
+              <dd>{record?.createdAt ? day(record.createdAt, lang) : "—"}</dd>
             </div>
             <div>
-              <dt>Orders</dt>
+              <dt>{a.orders}</dt>
               <dd>
                 <Link href="/orders">
-                  <Package size={14} aria-hidden="true" /> {orders} {orders === 1 ? "order" : "orders"} →
+                  <Package size={14} aria-hidden="true" /> {fill(orders === 1 ? a.orderOne : a.orderMany, { n: orders })} →
                 </Link>
               </dd>
             </div>
           </dl>
           <details className="edit" open={!user.name}>
-            <summary>{user.name ? "Change name" : "Add your name"}</summary>
-            <ActionForm action={saveNameAction} submit="Save Name">
+            <summary>{user.name ? a.changeName : a.addName}</summary>
+            <ActionForm action={saveNameAction} submit={a.saveName}>
               <label>
-                Your name
+                {t.auth.login.yourName}
                 <input name="name" autoComplete="name" required minLength={2} maxLength={80} defaultValue={user.name} />
               </label>
             </ActionForm>
@@ -113,19 +124,19 @@ export default async function Account({ searchParams }: { searchParams: Promise<
 
         <section className="panel stack" aria-labelledby="mobile">
           <h2 id="mobile">
-            <Smartphone size={20} aria-hidden="true" /> Mobile Number
+            <Smartphone size={20} aria-hidden="true" /> {a.mobile}
           </h2>
           {user.phone ? (
             <p className="who">
               <span>+91 {user.phone}</span> {record?.phoneVerified !== false && verified}
             </p>
           ) : (
-            <p className="muted">No number yet. We need one to call you about delivery.</p>
+            <p className="muted">{a.noNumber}</p>
           )}
           {user.phone ? (
             <details className="edit">
-              <summary>Change number</summary>
-              <AddPhone hint={hint} title="Change Number" />
+              <summary>{a.changeNumber}</summary>
+              <AddPhone hint={hint} title={t.auth.phone.changeNumber} />
             </details>
           ) : (
             <AddPhone hint={hint} />
@@ -134,64 +145,64 @@ export default async function Account({ searchParams }: { searchParams: Promise<
 
         <section className="panel stack" aria-labelledby="email">
           <h2 id="email">
-            <Mail size={20} aria-hidden="true" /> Email
+            <Mail size={20} aria-hidden="true" /> {t.auth.fields.email}
           </h2>
           {user.email ? (
             <p className="who">
               <span>{user.email}</span> {user.emailVerified && verified}
             </p>
           ) : (
-            <p className="muted">No email yet.</p>
+            <p className="muted">{a.noEmail}</p>
           )}
           <details className="edit" open={!user.email}>
-            <summary>{user.email ? "Change email" : "Add an email to log in with"}</summary>
+            <summary>{user.email ? a.changeEmail : a.addEmail}</summary>
             <EmailChange current={user.email} hint={hint} />
           </details>
         </section>
 
         <section className="panel stack" aria-labelledby="login">
           <h2 id="login">
-            <KeyRound size={20} aria-hidden="true" /> Logging In
+            <KeyRound size={20} aria-hidden="true" /> {a.login}
           </h2>
           <dl className="rows">
             <div>
-              <dt>Password</dt>
-              <dd>{hasPassword ? "Set" : "Not set yet"}</dd>
+              <dt>{t.auth.login.password}</dt>
+              <dd>{hasPassword ? a.set : a.notSetYet}</dd>
             </div>
             {googleEnabled() && (
               <div>
                 <dt>Google</dt>
-                <dd>{hasGoogle ? "Connected" : "Not connected"}</dd>
+                <dd>{hasGoogle ? a.connected : a.notConnected}</dd>
               </div>
             )}
           </dl>
           <details className="edit" open={!hasPassword}>
-            <summary>{hasPassword ? "Change password" : "Set a password"}</summary>
-          <ActionForm action={passwordAction} submit={hasPassword ? "Change Password" : "Set Password"}>
+            <summary>{hasPassword ? a.changePassword : a.setPassword}</summary>
+          <ActionForm action={passwordAction} submit={hasPassword ? a.changePasswordButton : a.setPasswordButton}>
             {hasPassword && (
-              <PasswordInput name="current" autoComplete="current-password" label="Current password" />
+              <PasswordInput name="current" autoComplete="current-password" label={a.current} />
             )}
-            <PasswordInput name="password" autoComplete="new-password" label="New password (8+ characters)" />
-            <PasswordInput name="confirm" autoComplete="new-password" label="Type it again" />
+            <PasswordInput name="password" autoComplete="new-password" label={a.newPassword} />
+            <PasswordInput name="confirm" autoComplete="new-password" label={t.auth.login.again} />
           </ActionForm>
           </details>
           {googleEnabled() && !hasGoogle && (
             <form action={linkGoogleAction} className="fields-plain">
-              {hasPassword && <PasswordInput name="current" autoComplete="current-password" label="Your password, to connect Google" />}
+              {hasPassword && <PasswordInput name="current" autoComplete="current-password" label={a.passwordForGoogle} />}
               <button className="btn google">
-                <GoogleMark /> Connect Google
+                <GoogleMark /> {a.connectGoogle}
               </button>
             </form>
           )}
           {hasGoogle && (
             <details className="edit">
-              <summary>Disconnect Google</summary>
+              <summary>{a.disconnectGoogle}</summary>
               {hasPassword ? (
-                <ActionForm action={unlinkGoogleAction} submit="Disconnect Google">
-                  <PasswordInput name="current" autoComplete="current-password" label="Your password" />
+                <ActionForm action={unlinkGoogleAction} submit={a.disconnectGoogle}>
+                  <PasswordInput name="current" autoComplete="current-password" label={a.yourPassword} />
                 </ActionForm>
               ) : (
-                <p className="note">Set a password first, so you can still log in without Google.</p>
+                <p className="note">{a.passwordFirst}</p>
               )}
             </details>
           )}
@@ -199,51 +210,51 @@ export default async function Account({ searchParams }: { searchParams: Promise<
 
         <section className="panel stack" aria-labelledby="address">
           <h2 id="address">
-            <MapPin size={20} aria-hidden="true" /> Delivery Addresses
+            <MapPin size={20} aria-hidden="true" /> {a.addresses}
           </h2>
           {user.addresses.length ? (
             <ul className="address-book">
-              {user.addresses.map((a, n) => (
-                <li key={a.id}>
+              {user.addresses.map((ad, n) => (
+                <li key={ad.id}>
                   <p className="address-head">
-                    <strong>{a.label}</strong>
-                    {n === 0 && <span className="tag create">Default</span>}
+                    <strong>{a.labels[ad.label] ?? ad.label}</strong>
+                    {n === 0 && <span className="tag create">{a.default}</span>}
                   </p>
                   <p>
-                    {a.line}
-                    {a.landmark && <small>Near {a.landmark}</small>}
+                    {ad.line}
+                    {ad.landmark && <small>{fill(a.near, { place: ad.landmark })}</small>}
                     <small>
-                      <strong>{a.pincode}</strong>
+                      <strong>{ad.pincode}</strong>
                     </small>
-                    {a.phone && <small>Call +91 {a.phone}</small>}
+                    {ad.phone && <small>{fill(a.call, { phone: ad.phone })}</small>}
                   </p>
                   <div className="address-actions">
                     <details className="edit">
-                      <summary>Edit</summary>
-                      <ActionForm action={editAddressAction} submit="Save Address">
-                        <input type="hidden" name="id" value={a.id} />
-                        <AddressFields address={a} phone={user.phone} />
+                      <summary>{t.common.words.edit}</summary>
+                      <ActionForm action={editAddressAction} submit={a.saveAddress}>
+                        <input type="hidden" name="id" value={ad.id} />
+                        <AddressFields address={ad} phone={user.phone} />
                       </ActionForm>
                     </details>
                     {n > 0 && (
-                      <ActionForm action={defaultAddressAction} submit="Make Default" className="inline-form">
-                        <input type="hidden" name="id" value={a.id} />
+                      <ActionForm action={defaultAddressAction} submit={a.makeDefault} className="inline-form">
+                        <input type="hidden" name="id" value={ad.id} />
                       </ActionForm>
                     )}
-                    <ActionForm action={removeAddressAction} submit="Remove" className="inline-form" confirm={`Remove the ${a.label} address?`}>
-                      <input type="hidden" name="id" value={a.id} />
+                    <ActionForm action={removeAddressAction} submit={t.common.words.remove} className="inline-form" confirm={fill(a.removeConfirm, { label: a.labels[ad.label] ?? ad.label })}>
+                      <input type="hidden" name="id" value={ad.id} />
                     </ActionForm>
                   </div>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="muted">No addresses yet. One you type at checkout is saved here too.</p>
+            <p className="muted">{a.noAddresses}</p>
           )}
           {user.addresses.length < MAX_ADDRESSES && (
             <details className="edit" open={!user.addresses.length}>
-              <summary>Add an address</summary>
-              <ActionForm action={addAddressAction} submit="Save Address">
+              <summary>{a.addAddress}</summary>
+              <ActionForm action={addAddressAction} submit={a.saveAddress}>
                 <AddressFields phone={user.phone} />
               </ActionForm>
             </details>
@@ -252,13 +263,13 @@ export default async function Account({ searchParams }: { searchParams: Promise<
 
         <section className="panel stack" aria-labelledby="out">
           <h2 id="out">
-            <LogOut size={20} aria-hidden="true" /> Log Out
+            <LogOut size={20} aria-hidden="true" /> {t.common.header.logOut}
           </h2>
           <form action={logoutAction}>
-            <button className="btn">Log Out</button>
+            <button className="btn">{t.common.header.logOut}</button>
           </form>
           <form action={logoutEverywhereAction}>
-            <button className="btn quiet">Log out on all phones and computers</button>
+            <button className="btn quiet">{a.logOutAll}</button>
           </form>
         </section>
 
@@ -266,15 +277,12 @@ export default async function Account({ searchParams }: { searchParams: Promise<
         {user.role === "customer" && (
           <section className="panel stack" aria-labelledby="delete">
             <h2 id="delete">
-              <Trash2 size={20} aria-hidden="true" /> Delete Account
+              <Trash2 size={20} aria-hidden="true" /> {a.delete}
             </h2>
-            <p className="muted">
-              Deletes your login, addresses and Google link for good, once no booking is on its way. Past bookings stay in the shop’s GST records,
-              without your name, number and street address (a bill of ₹50,000 or more before GST keeps the name and address). This can’t be undone. See our <Link href="/privacy#rights">Privacy Policy</Link>.
-            </p>
-            <ActionForm action={deleteAccountAction} submit="Delete My Account">
+            <p className="muted">{rich(a.deleteNote, { privacy: (s) => <Link href="/privacy#rights">{s}</Link> })}</p>
+            <ActionForm action={deleteAccountAction} submit={a.deleteButton}>
               <label>
-                Type DELETE to confirm
+                {a.typeDelete}
                 <input name="confirm" required autoComplete="off" autoCapitalize="characters" />
               </label>
             </ActionForm>

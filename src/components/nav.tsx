@@ -4,31 +4,34 @@ import { Bike, LayoutDashboard, Package, ShoppingBag, Store, UserRound, type Luc
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { can, type Permission, type Role } from "@/lib/roles";
+import { fill } from "@/lib/i18n";
 import { useCart } from "./cart";
+import { useT } from "./i18n";
 
 /** Inline in the header on wide screens, a tab bar along the bottom on phones (globals.css). */
 export function SiteNav({ role }: { role: Role | null }) {
   const path = usePathname();
   const cart = useCart();
+  const t = useT().common.nav;
   const count = Object.values(cart ?? {}).reduce((a, b) => a + b, 0);
   const tabs: { href: string; label: string; Icon: LucideIcon; badge?: number }[] = [
-    { href: "/", label: "Shop", Icon: Store },
-    role ? { href: "/orders", label: "Orders", Icon: Package } : { href: "/login", label: "Log In", Icon: UserRound },
-    { href: "/cart", label: "Cart", Icon: ShoppingBag, badge: count },
-    ...(role && can(role, "delivery") ? [{ href: "/delivery", label: "Deliveries", Icon: Bike }] : []),
-    ...(role && can(role, "orders") ? [{ href: "/admin", label: "Admin", Icon: LayoutDashboard }] : []),
-    ...(role ? [{ href: "/account", label: "Account", Icon: UserRound }] : []),
+    { href: "/", label: t.shop, Icon: Store },
+    role ? { href: "/orders", label: t.orders, Icon: Package } : { href: "/login", label: t.logIn, Icon: UserRound },
+    { href: "/cart", label: t.cart, Icon: ShoppingBag, badge: count },
+    ...(role && can(role, "delivery") ? [{ href: "/delivery", label: t.deliveries, Icon: Bike }] : []),
+    ...(role && can(role, "orders") ? [{ href: "/admin", label: t.admin, Icon: LayoutDashboard }] : []),
+    ...(role ? [{ href: "/account", label: t.account, Icon: UserRound }] : []),
   ];
   const current = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
   return (
-    <nav className="site-nav" aria-label="Main">
+    <nav className="site-nav" aria-label={t.main}>
       {tabs.map(({ href, label, Icon, badge }) => (
         <Link key={href} href={href} aria-current={current(href) ? "page" : undefined}>
           <span className="tab-icon">
             <Icon size={22} strokeWidth={1.75} aria-hidden="true" />
             {badge ? (
-              <span key={badge} className="badge" aria-label={`${badge} in cart`}>
+              <span key={badge} className="badge" aria-label={fill(t.inCart, { n: badge })}>
                 {badge}
               </span>
             ) : null}
@@ -40,25 +43,26 @@ export function SiteNav({ role }: { role: Role | null }) {
   );
 }
 
-const ADMIN_TABS: { href: string; label: string; permission: Permission }[] = [
-  { href: "/admin", label: "Orders", permission: "orders" },
-  { href: "/admin/products", label: "Inventory", permission: "catalog" },
-  { href: "/admin/customers", label: "Customers", permission: "customers" },
-  { href: "/admin/reports", label: "Sales", permission: "reports" },
-  { href: "/admin/cash", label: "Cash", permission: "cash" },
-  { href: "/admin/staff", label: "Staff", permission: "staff" },
-  { href: "/admin/audit", label: "Audit Log", permission: "audit" },
-  { href: "/admin/shop", label: "Shop Details", permission: "shop" },
+const ADMIN_TABS: { href: string; label: keyof ReturnType<typeof useT>["common"]["adminTabs"]; permission: Permission }[] = [
+  { href: "/admin", label: "orders", permission: "orders" },
+  { href: "/admin/products", label: "inventory", permission: "catalog" },
+  { href: "/admin/customers", label: "customers", permission: "customers" },
+  { href: "/admin/reports", label: "sales", permission: "reports" },
+  { href: "/admin/cash", label: "cash", permission: "cash" },
+  { href: "/admin/staff", label: "staff", permission: "staff" },
+  { href: "/admin/audit", label: "audit", permission: "audit" },
+  { href: "/admin/shop", label: "shop", permission: "shop" },
 ];
 
 export function AdminTabs({ role }: { role: Role }) {
   const path = usePathname();
+  const t = useT().common.adminTabs;
   const current = (href: string) => (href === "/admin" ? path === "/admin" || path.startsWith("/admin/orders") : path.startsWith(href));
   return (
-    <nav className="admin-tabs" aria-label="Admin">
-      {ADMIN_TABS.filter((t) => can(role, t.permission)).map((t) => (
-        <Link key={t.href} href={t.href} aria-current={current(t.href) ? "page" : undefined}>
-          {t.label}
+    <nav className="admin-tabs" aria-label={t.label}>
+      {ADMIN_TABS.filter((tab) => can(role, tab.permission)).map((tab) => (
+        <Link key={tab.href} href={tab.href} aria-current={current(tab.href) ? "page" : undefined}>
+          {t[tab.label]}
         </Link>
       ))}
     </nav>

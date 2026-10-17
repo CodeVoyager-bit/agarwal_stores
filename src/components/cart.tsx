@@ -3,6 +3,8 @@
 import { Minus, Plus } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { MAX_QTY } from "@/lib/format";
+import { fill } from "@/lib/i18n";
+import { useT } from "./i18n";
 
 /** product id → quantity, kept in this browser until the order is placed. */
 type Cart = Record<string, number>;
@@ -131,6 +133,7 @@ function flyToCart(from: HTMLElement) {
 
 export function Stepper({ id, name, max }: { id: string; name: string; max: number }) {
   const cart = useCart();
+  const t = useT();
   const qty = cart?.[id] ?? 0;
   // Add turns into the stepper and back, so the button that had focus goes away: focus moves to its
   // stand-in (+ after Add, Add after the last −), or a keyboard user would land back at the top
@@ -153,9 +156,9 @@ export function Stepper({ id, name, max }: { id: string; name: string; max: numb
           refocus.current = "plus";
           setQty(id, 1);
         }}
-        aria-label={`Add ${name}`}
+        aria-label={fill(t.shop.stepper.addName, { name })}
       >
-        <Plus size={16} strokeWidth={2.25} aria-hidden="true" /> Add
+        <Plus size={16} strokeWidth={2.25} aria-hidden="true" /> {t.shop.stepper.add}
       </button>
     );
   return (
@@ -166,7 +169,7 @@ export function Stepper({ id, name, max }: { id: string; name: string; max: numb
           if (qty === 1) refocus.current = "add";
           setQty(id, qty - 1);
         }}
-        aria-label={`One less ${name}, ${qty} in cart`}
+        aria-label={fill(t.shop.stepper.less, { name, n: qty })}
       >
         <Minus size={18} strokeWidth={2.25} aria-hidden="true" />
       </button>
@@ -182,7 +185,7 @@ export function Stepper({ id, name, max }: { id: string; name: string; max: numb
           setQty(id, qty + 1);
         }}
         disabled={qty >= Math.min(max, MAX_QTY)}
-        aria-label={`One more ${name}, ${qty} in cart`}
+        aria-label={fill(t.shop.stepper.more, { name, n: qty })}
       >
         <Plus size={18} strokeWidth={2.25} aria-hidden="true" />
       </button>

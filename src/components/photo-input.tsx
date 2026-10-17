@@ -2,11 +2,13 @@
 
 import { Camera } from "lucide-react";
 import { useState } from "react";
+import { useT } from "@/components/i18n";
 
 const LONGEST_SIDE = 900;
 
 /** Picks a photo (the phone offers the camera) and shrinks it here, so a 5 MB photo goes up as ~150 KB. */
 export function PhotoInput({ current }: { current?: string | null }) {
+  const w = useT().catalogUi.photo;
   const [preview, setPreview] = useState(current ?? "");
 
   async function shrink(input: HTMLInputElement) {
@@ -39,7 +41,7 @@ export function PhotoInput({ current }: { current?: string | null }) {
   return (
     <label className="photo-pick">
       {preview ? <img src={preview} alt="" width={36} height={36} referrerPolicy="no-referrer" /> : <Camera size={18} aria-hidden="true" />}
-      <span>{preview ? "Change Photo" : "Add Photo"}</span>
+      <span>{preview ? w.change : w.add}</span>
       <input type="file" name="photo" accept="image/*" className="sr-only" onChange={(e) => shrink(e.currentTarget)} />
     </label>
   );

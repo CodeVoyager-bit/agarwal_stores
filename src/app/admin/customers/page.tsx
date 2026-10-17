@@ -4,9 +4,14 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
 import { connectDB, Order } from "@/lib/db";
 import { day, inr } from "@/lib/format";
+import { fill } from "@/lib/i18n";
+import { getLang, getT } from "@/lib/i18n/server";
 import { OPEN } from "@/lib/orders";
 
-export const metadata: Metadata = { title: "Customers · Admin" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: `${t.common.adminTabs.customers} · ${t.common.adminTabs.label}` };
+}
 
 type Customer = { _id: unknown; name: string; phone: string; pincode: string; line: string; orders: number; open: number; spent: number; last: Date };
 
@@ -35,48 +40,51 @@ export default async function Customers({ searchParams }: { searchParams: Promis
   ]);
   const customers = q ? all.filter((c) => [c.name, c.phone, c.pincode, c.line].some((v) => v?.toLowerCase().includes(q))) : all;
   const repeat = all.filter((c) => c.orders > 1).length;
+  const [t, lang] = await Promise.all([getT(), getLang()]);
+  const s = t.staff.customers;
+  const col = t.staff.cols;
 
   return (
     <>
-      <h1>Customers</h1>
+      <h1>{t.common.adminTabs.customers}</h1>
       <div className="stats">
         <div>
           <strong>{all.length}</strong>
-          <span>have ordered</span>
+          <span>{s.have}</span>
         </div>
         <div>
           <strong>{repeat}</strong>
-          <span>ordered more than once</span>
+          <span>{s.repeat}</span>
         </div>
         <div>
           <strong>{inr(all.reduce((n, c) => n + c.spent, 0))}</strong>
-          <span>booked, not cancelled</span>
+          <span>{t.staff.orders.booked}</span>
         </div>
         <div>
           <strong>{all.length ? inr(Math.round(all.reduce((n, c) => n + c.spent, 0) / all.length)) : "₹0"}</strong>
-          <span>average per customer</span>
+          <span>{s.average}</span>
         </div>
       </div>
       <form className="filter" role="search">
-        <input type="search" name="q" defaultValue={q} placeholder="Name, phone, pincode or area…" aria-label="Search customers" autoComplete="off" />
-        <button className="btn">Search</button>
+        <input type="search" name="q" defaultValue={q} placeholder={s.search} aria-label={s.searchLabel} autoComplete="off" />
+        <button className="btn">{t.common.words.search}</button>
       </form>
-      <p className="muted">{customers.length === 1 ? "1 customer" : `${customers.length} customers`}</p>
+      <p className="muted">{customers.length === 1 ? s.one : fill(s.many, { n: customers.length })}</p>
       {customers.length > 0 && (
         <table className="table">
           <thead>
             <tr>
-              <th>Customer</th>
-              <th>Address</th>
-              <th className="num">Orders</th>
-              <th className="num">Spent</th>
-              <th>Last order</th>
+              <th>{col.customer}</th>
+              <th>{col.address}</th>
+              <th className="num">{s.orders}</th>
+              <th className="num">{s.spent}</th>
+              <th>{s.last}</th>
             </tr>
           </thead>
           <tbody>
             {customers.map((c) => (
               <tr key={String(c._id)}>
-                <td data-label="Customer">
+                <td data-label={col.customer}>
                   <strong>{c.name}</strong>
                   <span className="contact">
                     <a href={`tel:+91${c.phone}`} className="chip-link">
@@ -87,20 +95,20 @@ export default async function Customers({ searchParams }: { searchParams: Promis
                     </a>
                   </span>
                 </td>
-                <td data-label="Address">
+                <td data-label={col.address}>
                   {c.line}
                   <small>
                     <strong>{c.pincode}</strong>
                   </small>
                 </td>
-                <td data-label="Orders" className="num">
+                <td data-label={s.orders} className="num">
                   <Link href={`/admin?status=all&customer=${String(c._id)}`}>{c.orders}</Link>
-                  {c.open > 0 && <small>{c.open} to deliver</small>}
+                  {c.open > 0 && <small>{fill(s.toDeliver, { n: c.open })}</small>}
                 </td>
-                <td data-label="Spent" className="num">
+                <td data-label={s.spent} className="num">
                   <strong>{inr(c.spent)}</strong>
                 </td>
-                <td data-label="Last order">{day(c.last)}</td>
+                <td data-label={s.last}>{day(c.last, lang)}</td>
               </tr>
             ))}
           </tbody>

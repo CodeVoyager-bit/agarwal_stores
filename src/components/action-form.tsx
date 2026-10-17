@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import type { Result } from "@/lib/actions";
+import { useMsg, useT } from "./i18n";
 
 /** A staff form that shows what happened (or what to fix) under its button instead of an error page. */
 export function ActionForm({
@@ -26,6 +27,8 @@ export function ActionForm({
   after?: React.ReactNode;
 }) {
   const [state, dispatch, pending] = useActionState(action, null);
+  const t = useT();
+  const tr = useMsg();
   return (
     <form
       action={dispatch}
@@ -41,17 +44,17 @@ export function ActionForm({
       {children}
       {state?.error && (
         <p role="alert" className="error">
-          {state.error}
+          {tr(state.error)}
         </p>
       )}
       {state?.ok && (
         <p role="status" className="ok">
-          {state.ok}
+          {tr(state.ok)}
         </p>
       )}
       {/* disabled while saving: a second click would send the same change twice */}
       <button className={`btn${primary ? " primary" : ""}${small ? " small" : ""}`} disabled={pending}>
-        {pending ? "Saving…" : submit}
+        {pending ? t.common.words.saving : submit}
       </button>
       {after}
     </form>

@@ -7,9 +7,13 @@ import { ActionForm } from "@/components/action-form";
 import { completeDeliveryAction, deliveryFailedAction, startDeliveryAction } from "@/lib/actions";
 import { requireStaff } from "@/lib/auth";
 import { connectDB, Order } from "@/lib/db";
-import { day, inr, STATUS_LABEL } from "@/lib/format";
+import { day, inr } from "@/lib/format";
+import { fill } from "@/lib/i18n";
+import { getLang, getT } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Delivery" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getT()).delivery.stop.title };
+}
 
 export default async function DeliveryStop({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,36 +22,38 @@ export default async function DeliveryStop({ params }: { params: Promise<{ id: s
   await connectDB();
   const o = await Order.findOne({ _id: id, assignedTo: user.id }).lean();
   if (!o) notFound();
+  const [t, lang] = await Promise.all([getT(), getLang()]);
+  const s = t.delivery.stop;
 
   return (
     <>
-      <nav className="breadcrumb" aria-label="Breadcrumb">
-        <Link href="/delivery">My Deliveries</Link>
+      <nav className="breadcrumb" aria-label={s.breadcrumb}>
+        <Link href="/delivery">{t.delivery.list.title}</Link>
         <ChevronRight size={14} aria-hidden="true" />
         <span aria-current="page">#{o.number}</span>
       </nav>
       <h1>
-        {o.name} <span className={`pill ${o.status}`}>{STATUS_LABEL[o.status]}</span>
+        {o.name} <span className={`pill ${o.status}`}>{t.common.status[o.status]}</span>
       </h1>
       <div className="order-layout">
         <section className="panel stack">
           <p>
             {o.address.line}
-            {o.address.landmark && <small>Near {o.address.landmark}</small>}
+            {o.address.landmark && <small>{fill(s.near, { place: o.address.landmark })}</small>}
             <small>
-              <strong>{o.address.pincode}</strong> · deliver by {day(o.deliverBy)}
+              <strong>{o.address.pincode}</strong> · {fill(s.deliverBy, { day: day(o.deliverBy, lang) })}
             </small>
           </p>
           <p className="contact">
             <a className="btn" href={`tel:+91${o.phone}`}>
-              <Phone size={18} aria-hidden="true" /> Call {o.phone}
+              <Phone size={18} aria-hidden="true" /> {fill(s.callPhone, { phone: o.phone })}
             </a>
             <a className="btn" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${o.address.line} ${o.address.pincode}`)}`} target="_blank" rel="noreferrer">
-              <MapPin size={18} aria-hidden="true" /> Open Map
+              <MapPin size={18} aria-hidden="true" /> {s.openMap}
             </a>
           </p>
           {/* so the customer's "is everything there?" is answered before the code */}
-          <h2>In the Parcel</h2>
+          <h2>{s.parcel}</h2>
           <ul className="items">
             {o.items.map((i, n) => (
               <li key={n}>
@@ -57,58 +63,58 @@ export default async function DeliveryStop({ params }: { params: Promise<{ id: s
               </li>
             ))}
           </ul>
-          <p className="collect">Collect {inr(o.total)} (cash or UPI)</p>
+          <p className="collect">{fill(s.collect, { amount: inr(o.total) })}</p>
         </section>
 
         <section className="panel stack">
           {(o.status === "placed" || o.status === "packed") && (
             <>
-              <h2>Ready to Go?</h2>
-              <p className="muted">Starting sends the customer their handover code.</p>
-              <ActionForm action={startDeliveryAction} submit="Start Delivery" primary>
+              <h2>{s.ready}</h2>
+              <p className="muted">{s.startNote}</p>
+              <ActionForm action={startDeliveryAction} submit={s.start} primary>
                 <input type="hidden" name="id" value={id} />
               </ActionForm>
             </>
           )}
           {o.status === "out_for_delivery" && (
             <>
-              <h2>Hand It Over</h2>
-              <ActionForm action={completeDeliveryAction} submit="Verify Code & Mark Delivered" primary>
+              <h2>{s.handOver}</h2>
+              <ActionForm action={completeDeliveryAction} submit={s.verify} primary>
                 <input type="hidden" name="id" value={id} />
                 <label>
-                  Customer’s handover code
+                  {s.code}
                   <input name="code" className="otp" inputMode="numeric" autoComplete="off" spellCheck={false} pattern="\d{6}" maxLength={6} required />
                 </label>
-                <p className="note">The customer sees this code on their My Orders page (and gets it by WhatsApp/SMS).</p>
+                <p className="note">{s.codeNote}</p>
                 <label>
-                  Rupees paid
+                  {s.paid}
                   <input name="collected" inputMode="numeric" pattern="\d+" required defaultValue={o.total} autoComplete="off" />
                 </label>
                 <fieldset className="paid-by">
-                  <legend>Paid by</legend>
+                  <legend>{s.paidBy}</legend>
                   <label className="f-check">
-                    <input type="radio" name="method" value="cash" defaultChecked /> Cash
+                    <input type="radio" name="method" value="cash" defaultChecked /> {s.cash}
                   </label>
                   <label className="f-check">
-                    <input type="radio" name="method" value="upi" /> UPI to the shop
+                    <input type="radio" name="method" value="upi" /> {s.upi}
                   </label>
                 </fieldset>
                 <label className="f-check">
-                  <input type="checkbox" required /> I handed over the full order
+                  <input type="checkbox" required /> {s.full}
                 </label>
               </ActionForm>
-              <h2>Couldn’t Deliver?</h2>
-              <ActionForm action={deliveryFailedAction} submit="Record Missed Delivery">
+              <h2>{s.missed}</h2>
+              <ActionForm action={deliveryFailedAction} submit={s.recordMissed}>
                 <input type="hidden" name="id" value={id} />
                 <label>
-                  What happened
-                  <textarea name="reason" rows={2} minLength={5} maxLength={300} required placeholder="Nobody home, phone switched off…" />
+                  {s.whatHappened}
+                  <textarea name="reason" rows={2} minLength={5} maxLength={300} required placeholder={s.reasonPlaceholder} />
                 </label>
               </ActionForm>
             </>
           )}
-          {o.status === "delivered" && <p className="success">{o.cash?.method === "upi" ? "Delivered and paid by UPI." : `Delivered. Hand ${inr(o.cash?.collected ?? o.total)} in at the shop.`}</p>}
-          {o.status === "cancelled" && <p className="error">The shop cancelled this order. Bring it back.</p>}
+          {o.status === "delivered" && <p className="success">{o.cash?.method === "upi" ? s.deliveredUpi : fill(s.deliveredCash, { amount: inr(o.cash?.collected ?? o.total) })}</p>}
+          {o.status === "cancelled" && <p className="error">{s.cancelled}</p>}
         </section>
       </div>
     </>

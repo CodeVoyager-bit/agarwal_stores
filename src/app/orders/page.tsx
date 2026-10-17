@@ -4,9 +4,14 @@ import Link from "next/link";
 import { logoutAction } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
 import { connectDB, Order } from "@/lib/db";
-import { day, inr, STATUS_LABEL } from "@/lib/format";
+import { day, inr } from "@/lib/format";
+import { fill } from "@/lib/i18n";
+import { rich } from "@/lib/i18n/rich";
+import { getLang, getT } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "My Orders · Agarwal Stores" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: `${(await getT()).orders.mine.title} · Agarwal Stores` };
+}
 
 const STEPS = ["placed", "packed", "out_for_delivery", "delivered"];
 
@@ -27,14 +32,16 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const orders = await Order.find({ user: user.id }).select("+handoverCode").sort({ createdAt: -1 }).lean();
   // only for an order of theirs: a typed-in number shows nothing
   const placedOrder = typeof placed === "string" ? orders.find((o) => o.number === Number(placed)) : undefined;
+  const [t, lang] = await Promise.all([getT(), getLang()]);
+  const m = t.orders.mine;
 
   return (
     <>
       <div className="head">
-        <h1>My Orders</h1>
+        <h1>{m.title}</h1>
         <form action={logoutAction}>
           <button className="btn quiet">
-            <LogOut size={16} aria-hidden="true" /> Log Out
+            <LogOut size={16} aria-hidden="true" /> {t.common.header.logOut}
           </button>
         </form>
       </div>
@@ -46,7 +53,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
             <Sparks count={8} />
           </span>
           <p>
-            <strong>Order #{placed} is booked.</strong> We’ll call +91&nbsp;{placedOrder.phone} to confirm it before we deliver.
+            {rich(fill(m.booked, { n: placedOrder.number, phone: placedOrder.phone }), { b: (s) => <strong>{s}</strong> })}
           </p>
         </div>
       )}
@@ -58,10 +65,10 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
               <li key={String(o._id)} className="panel order">
                 <div className="order-head">
                   <div>
-                    <h2>Order #{o.number}</h2>
+                    <h2>{fill(m.order, { n: o.number })}</h2>
                     <p className="muted">
-                      Booked {day(o.createdAt)}
-                      {step >= 0 && step < 3 && ` · Arrives by ${day(o.deliverBy)}`}
+                      {fill(m.bookedOn, { date: day(o.createdAt, lang) })}
+                      {step >= 0 && step < 3 && ` · ${fill(m.arrivesBy, { date: day(o.deliverBy, lang) })}`}
                     </p>
                   </div>
                   <strong className="order-amount">{inr(o.total)}</strong>
@@ -69,20 +76,20 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
 
                 {o.status === "out_for_delivery" && o.handoverCode && (
                   <div className="handover" role="status">
-                    <span>Show this code to the delivery person when your crackers arrive</span>
-                    <strong className="otp-code" aria-label={`Handover code ${o.handoverCode.split("").join(" ")}`}>
+                    <span>{m.handover}</span>
+                    <strong className="otp-code" aria-label={fill(m.handoverLabel, { code: o.handoverCode.split("").join(" ") })}>
                       {o.handoverCode}
                     </strong>
                   </div>
                 )}
 
                 {o.status === "cancelled" ? (
-                  <p className="pill cancelled">Cancelled</p>
+                  <p className="pill cancelled">{t.common.status.cancelled}</p>
                 ) : (
-                  <ol className="track" aria-label="Order progress">
+                  <ol className="track" aria-label={m.progress}>
                     {STEPS.map((s, n) => (
                       <li key={s} className={n <= step ? "done" : ""} aria-current={n === step ? "step" : undefined}>
-                        {STATUS_LABEL[s]}
+                        {t.common.status[s]}
                       </li>
                     ))}
                   </ol>
@@ -102,15 +109,15 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                   <MapPin size={16} aria-hidden="true" />
                   <span>
                     {o.address.line}
-                    {o.address.landmark && `, near ${o.address.landmark}`} – {o.address.pincode} · +91&nbsp;{o.phone}
+                    {o.address.landmark && `, ${fill(m.near, { place: o.address.landmark })}`} – {o.address.pincode} · +91&nbsp;{o.phone}
                   </span>
                 </p>
                 {o.status === "delivered" ? (
                   <Link href={`/bill/${o._id}`} className="link">
-                    View bill
+                    {m.viewBill}
                   </Link>
                 ) : (
-                  o.status !== "cancelled" && <p className="muted">Pay cash or UPI when it arrives.</p>
+                  o.status !== "cancelled" && <p className="muted">{m.pay}</p>
                 )}
               </li>
             );
@@ -119,10 +126,10 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
       ) : (
         <div className="empty panel">
           <Package size={36} strokeWidth={1.5} aria-hidden="true" />
-          <h2>No Orders Yet</h2>
-          <p className="muted">Your Diwali order will show up here.</p>
+          <h2>{m.empty}</h2>
+          <p className="muted">{m.emptyText}</p>
           <Link href="/" className="btn primary">
-            Browse Crackers
+            {m.browse}
           </Link>
         </div>
       )}

@@ -5,13 +5,17 @@ import { PrintButton } from "@/components/print-button";
 import { requireUser } from "@/lib/auth";
 import { connectDB, Order } from "@/lib/db";
 import { inr } from "@/lib/format";
+import { fill, locale, type Lang } from "@/lib/i18n";
+import { getLang, getT } from "@/lib/i18n/server";
 import { billTitle, GST_RATE, gstSplit, HSN, stateOf } from "@/lib/legal";
 import { issueBill } from "@/lib/orders";
 import { can } from "@/lib/roles";
 
-export const metadata: Metadata = { title: "Bill · Agarwal Stores" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: `${(await getT()).orders.bill.titles.Bill} · Agarwal Stores` };
+}
 
-const date = (d: Date) => new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }).format(d);
+const date = (d: Date, lang: Lang) => new Intl.DateTimeFormat(locale(lang), { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }).format(d);
 const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /**
@@ -36,6 +40,8 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
   // the rate the bill was made at, so a later change in GST never rewrites it
   const rate = bill.rate ?? GST_RATE;
   const tax = gstSplit(order.total, rate);
+  const [t, lang] = await Promise.all([getT(), getLang()]);
+  const b = t.orders.bill;
 
   return (
     <article className="slip bill">
@@ -45,39 +51,39 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
           <strong className="slip-shop">{shop.legalName}</strong>
           <span>{shop.address}</span>
           {shop.gstin && <span>GSTIN {shop.gstin}</span>}
-          {process.env.SHOP_PHONE && <span>Phone +91 {process.env.SHOP_PHONE}</span>}
+          {process.env.SHOP_PHONE && <span>{fill(b.phone, { phone: process.env.SHOP_PHONE })}</span>}
         </div>
         <div className="slip-number">
-          <strong>{title}</strong>
-          <span>No. {bill.number}</span>
-          <span>{date(bill.at!)}</span>
+          <strong>{b.titles[title] ?? title}</strong>
+          <span>{fill(b.number, { n: bill.number ?? "" })}</span>
+          <span>{date(bill.at!, lang)}</span>
         </div>
       </header>
       <section>
-        <h2>Billed to</h2>
+        <h2>{b.billedTo}</h2>
         <p>
           <strong>{order.name}</strong>
           <br />
           {order.address.line}
-          {order.address.landmark && <>, near {order.address.landmark}</>} – {order.address.pincode}
+          {order.address.landmark && <>, {fill(b.near, { place: order.address.landmark })}</>} – {order.address.pincode}
           {/* delivered near the shop, so the buyer's State is the shop's (CGST rule 46(e)) */}
           {shop.gstin && (
             <>
               <br />
-              State: {stateOf(shop.gstin)}
+              {fill(b.state, { state: stateOf(shop.gstin) })}
             </>
           )}
         </p>
-        <p className="slip-note">Order #{order.number}</p>
+        <p className="slip-note">{fill(b.order, { n: order.number })}</p>
       </section>
       <table>
         <thead>
           <tr>
-            <th>Item</th>
+            <th>{b.item}</th>
             <th>HSN</th>
-            <th className="num">Qty</th>
-            <th className="num">Rate</th>
-            <th className="num">Amount</th>
+            <th className="num">{b.qty}</th>
+            <th className="num">{b.rate}</th>
+            <th className="num">{b.amount}</th>
           </tr>
         </thead>
         <tbody>
@@ -97,7 +103,7 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
           {title === "Tax Invoice" && (
             <>
               <tr>
-                <td colSpan={4}>Taxable value</td>
+                <td colSpan={4}>{b.taxable}</td>
                 <td className="num">{rupees(tax.taxable)}</td>
               </tr>
               <tr>
@@ -111,22 +117,20 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
             </>
           )}
           <tr>
-            <th colSpan={4}>Total{title === "Tax Invoice" && " (including GST)"}</th>
+            <th colSpan={4}>{title === "Tax Invoice" ? b.totalGst : b.total}</th>
             <th className="num">{inr(order.total)}</th>
           </tr>
         </tfoot>
       </table>
-      <p>
-        Paid {inr(order.cash?.collected ?? order.total)} {order.cash?.method === "upi" ? "by UPI" : "in cash"} on delivery.
-      </p>
-      {title === "Tax Invoice" && <p className="slip-note">Tax payable on reverse charge: No.</p>}
-      {title === "Bill of Supply" && <p className="slip-note">Composition taxable person, not eligible to collect tax on supplies.</p>}
+      <p>{fill(order.cash?.method === "upi" ? b.paidUpi : b.paidCash, { amount: inr(order.cash?.collected ?? order.total) })}</p>
+      {title === "Tax Invoice" && <p className="slip-note">{b.reverseCharge}</p>}
+      {title === "Bill of Supply" && <p className="slip-note">{b.composition}</p>}
       <footer>
-        <span className="slip-note">A computer-made bill.</span>
+        <span className="slip-note">{b.computer}</span>
         <span>
-          For {shop.legalName}
+          {fill(b.for, { shop: shop.legalName ?? "" })}
           <br />
-          Authorised signatory
+          {b.signatory}
         </span>
       </footer>
     </article>

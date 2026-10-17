@@ -6,21 +6,22 @@ import { StatusForm } from "@/components/status-form";
 import { requireStaff } from "@/lib/auth";
 import { connectDB, Order, Product, type OrderStatus } from "@/lib/db";
 import { day, inr, STATUS_LABEL } from "@/lib/format";
+import { fill } from "@/lib/i18n";
+import { getLang, getT } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Orders · Admin" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: `${t.common.adminTabs.orders} · ${t.common.adminTabs.label}` };
+}
 
 const OPEN: OrderStatus[] = ["placed", "packed", "out_for_delivery"];
-const TABS = { open: "To Deliver", ...STATUS_LABEL, all: "All" } as Record<string, string>;
-const pieces = (items: { qty?: number | null }[]) => {
-  const n = items.reduce((sum, i) => sum + (i.qty ?? 0), 0);
-  return n === 1 ? "1 pc" : `${n} pcs`;
-};
+const TABS = ["open", ...Object.keys(STATUS_LABEL), "all"];
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export default async function AdminOrders({ searchParams }: { searchParams: Promise<{ status?: string; q?: string; customer?: string }> }) {
   await requireStaff("orders", "/admin");
   const params = await searchParams;
-  const status = params.status && params.status in TABS ? params.status : "open";
+  const status = params.status && TABS.includes(params.status) ? params.status : "open";
   // ?q=a&q=b arrives as a list: only a single search is read
   const q = (typeof params.q === "string" ? params.q : "").trim().slice(0, 60);
 
@@ -43,60 +44,68 @@ export default async function AdminOrders({ searchParams }: { searchParams: Prom
   ]);
   const count = (s: string) => (s === "open" ? (OPEN as string[]) : s === "all" ? Object.keys(STATUS_LABEL) : [s]).reduce((n, k) => n + (byStatus.find((b) => b._id === k)?.count ?? 0), 0);
   const sales = byStatus.filter((b) => b._id !== "cancelled").reduce((n, b) => n + b.value, 0);
+  const [t, lang] = await Promise.all([getT(), getLang()]);
+  const s = t.staff.orders;
+  const c = t.staff.cols;
+  const tab = (key: string) => (key === "open" ? s.tabOpen : key === "all" ? s.tabAll : t.common.status[key]);
+  const pieces = (items: { qty?: number | null }[]) => {
+    const n = items.reduce((sum, i) => sum + (i.qty ?? 0), 0);
+    return n === 1 ? s.pcOne : fill(s.pcMany, { n });
+  };
 
   return (
     <>
-      <h1>Orders</h1>
+      <h1>{t.common.adminTabs.orders}</h1>
       <div className="stats">
         <div>
           <Package size={20} aria-hidden="true" />
           <strong>{count("open")}</strong>
-          <span>to deliver</span>
+          <span>{s.toDeliver}</span>
         </div>
         <div className={overdue ? "alert" : ""}>
           <Clock size={20} aria-hidden="true" />
           <strong>{overdue}</strong>
-          <span>past delivery date</span>
+          <span>{s.overdue}</span>
         </div>
         <div>
           <IndianRupee size={20} aria-hidden="true" />
           <strong>{inr(sales)}</strong>
-          <span>booked, not cancelled</span>
+          <span>{s.booked}</span>
         </div>
         <Link href="/admin/products?low=1" className={lowStock ? "alert" : ""}>
           <TriangleAlert size={20} aria-hidden="true" />
           <strong>{lowStock}</strong>
-          <span>low on stock →</span>
+          <span>{s.lowStock}</span>
         </Link>
       </div>
 
-      <nav className="chips" aria-label="Order status">
-        {Object.entries(TABS).map(([key, label]) => (
+      <nav className="chips" aria-label={t.staffUi.statusForm.label}>
+        {TABS.map((key) => (
           <Link key={key} href={`/admin?status=${key}${q ? `&q=${encodeURIComponent(q)}` : ""}`} aria-current={key === status ? "page" : undefined}>
-            {label} <small>{count(key)}</small>
+            {tab(key)} <small>{count(key)}</small>
           </Link>
         ))}
       </nav>
       <form className="filter" role="search">
         <input type="hidden" name="status" value={status} />
-        <input type="search" name="q" defaultValue={q} placeholder="Name, phone, pincode or order #…" aria-label="Search orders" autoComplete="off" />
-        <button className="btn">Search</button>
+        <input type="search" name="q" defaultValue={q} placeholder={s.search} aria-label={s.searchLabel} autoComplete="off" />
+        <button className="btn">{t.common.words.search}</button>
       </form>
       <p className="muted">
-        {orders.length} {orders.length === 1 ? "order" : "orders"}
+        {orders.length === 1 ? s.one : fill(s.many, { n: orders.length })}
       </p>
 
       {orders.length > 0 && (
         <table className="table">
           <thead>
             <tr>
-              <th>Order</th>
-              <th>Customer</th>
-              <th>Address</th>
-              <th>Items</th>
-              <th>Total</th>
-              <th>Deliver by</th>
-              <th>Status</th>
+              <th>{c.order}</th>
+              <th>{c.customer}</th>
+              <th>{c.address}</th>
+              <th>{c.items}</th>
+              <th>{c.total}</th>
+              <th>{s.deliverBy}</th>
+              <th>{c.status}</th>
             </tr>
           </thead>
           <tbody>
@@ -104,13 +113,13 @@ export default async function AdminOrders({ searchParams }: { searchParams: Prom
               const late = OPEN.includes(o.status) && o.deliverBy < now;
               return (
                 <tr key={String(o._id)}>
-                  <td data-label="Order">
+                  <td data-label={c.order}>
                     <Link href={`/admin/orders/${o._id}`} className="order-link">
                       #{o.number}
                     </Link>
-                    <small>{day(o.createdAt)}</small>
+                    <small>{day(o.createdAt, lang)}</small>
                   </td>
-                  <td data-label="Customer">
+                  <td data-label={c.customer}>
                     {o.name}
                     <span className="contact">
                       <a href={`tel:+91${o.phone}`} className="chip-link">
@@ -121,17 +130,17 @@ export default async function AdminOrders({ searchParams }: { searchParams: Prom
                       </a>
                     </span>
                   </td>
-                  <td data-label="Address">
+                  <td data-label={c.address}>
                     {o.address.line}
-                    {o.address.landmark && <small>Near {o.address.landmark}</small>}
+                    {o.address.landmark && <small>{fill(t.staff.near, { place: o.address.landmark })}</small>}
                     <small>
                       <strong>{o.address.pincode}</strong>
                     </small>
                   </td>
-                  <td data-label="Items">
+                  <td data-label={c.items}>
                     <details>
                       <summary>
-                        {pieces(o.items)}, {o.items.length} {o.items.length === 1 ? "product" : "products"}
+                        {pieces(o.items)}, {o.items.length === 1 ? s.productOne : fill(s.productMany, { n: o.items.length })}
                       </summary>
                       <ul>
                         {o.items.map((i, n) => (
@@ -142,16 +151,16 @@ export default async function AdminOrders({ searchParams }: { searchParams: Prom
                       </ul>
                     </details>
                   </td>
-                  <td data-label="Total" className="num">
+                  <td data-label={c.total} className="num">
                     <strong>{inr(o.total)}</strong>
                   </td>
-                  <td data-label="Deliver by" className={late ? "late" : ""}>
-                    {day(o.deliverBy)}
-                    {late && <small>Late</small>}
+                  <td data-label={s.deliverBy} className={late ? "late" : ""}>
+                    {day(o.deliverBy, lang)}
+                    {late && <small>{s.late}</small>}
                   </td>
-                  <td data-label="Status">
+                  <td data-label={c.status}>
                     <StatusForm id={String(o._id)} status={o.status} />
-                    {o.assignedName && <small>With {o.assignedName}</small>}
+                    {o.assignedName && <small>{fill(t.staff.with, { name: o.assignedName })}</small>}
                   </td>
                 </tr>
               );

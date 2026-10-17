@@ -2,32 +2,34 @@ import { IndianRupee, PhoneCall, Truck } from "lucide-react";
 import { Catalog } from "@/components/catalog";
 import { Rangoli } from "@/components/rangoli";
 import { categoriesOf, shopItems } from "@/lib/db";
+import { getLang, getT } from "@/lib/i18n/server";
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ q?: string; c?: string; deleted?: string }> }) {
-  const [items, params] = await Promise.all([shopItems(), searchParams]);
+  const [items, params, t, lang] = await Promise.all([shopItems(), searchParams, getT(), getLang()]);
+  const h = t.common.home;
   return (
     <>
       {params.deleted !== undefined && (
         <p className="success" role="status">
-          Your account is deleted, with your name, number and addresses.
+          {h.deleted}
         </p>
       )}
       <section className="hero">
         <div className="hero-text">
-          <p className="eyebrow" lang="hi">
-            शुभ दीपावली
+          <p className="eyebrow" lang={lang === "mr" ? "mr" : "hi"}>
+            {h.greeting}
           </p>
-          <h1>Diwali Crackers, Delivered to Your Door</h1>
-          <p className="lead">Pick your crackers here. We bring them home in 3–4 days.</p>
+          <h1>{h.title}</h1>
+          <p className="lead">{h.lead}</p>
           <ul className="promises">
             <li>
-              <Truck size={18} aria-hidden="true" /> Delivery in 3–4 days
+              <Truck size={18} aria-hidden="true" /> {h.days}
             </li>
             <li>
-              <IndianRupee size={18} aria-hidden="true" /> Pay cash or UPI on delivery
+              <IndianRupee size={18} aria-hidden="true" /> {h.pay}
             </li>
             <li>
-              <PhoneCall size={18} aria-hidden="true" /> We call before we come
+              <PhoneCall size={18} aria-hidden="true" /> {h.call}
             </li>
           </ul>
         </div>

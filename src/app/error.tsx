@@ -1,13 +1,16 @@
 "use client";
 
+import { useT } from "@/components/i18n";
+
 /** A page that failed (often the database for a moment). Try Again fetches it afresh. */
 export default function Error({ retry }: { error: Error; retry: () => void }) {
+  const t = useT().common.error;
   return (
     <div className="narrow">
-      <h1>Something Went Wrong</h1>
-      <p className="muted">Please try again. If it keeps happening, call the shop.</p>
+      <h1>{t.title}</h1>
+      <p className="muted">{t.text}</p>
       <button className="btn primary" onClick={() => retry()}>
-        Try Again
+        {t.retry}
       </button>
     </div>
   );

@@ -6,11 +6,14 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import { placeOrderAction } from "@/lib/actions";
 import { inr, type ShopItem } from "@/lib/format";
+import { fill } from "@/lib/i18n";
+import { rich } from "@/lib/i18n/rich";
 import { goesWith } from "@/lib/pairs";
 import { bookingKey, clearCart, pruneCart, setQty, Stepper, useCart } from "./cart";
 import { ProductCard } from "./catalog";
 import { PhoneField } from "./login-form";
 import { ProductArt } from "./category";
+import { useMsg, useT } from "./i18n";
 
 type Address = { id: string; label: string; line: string; landmark: string; pincode: string; phone: string };
 type Customer = { phone: string; name: string; addresses: Address[] };
@@ -25,6 +28,9 @@ const fingerprint = (lines: { id: string; qty: number }[]) =>
 export function CartView({ items, customer, deliveryDays, popular }: { items: ShopItem[]; customer: Customer | null; deliveryDays: number; popular: string[] }) {
   const cart = useCart();
   const router = useRouter();
+  const t = useT();
+  const tr = useMsg();
+  const w = t.shop.cart;
   // products taken off sale since they were added leave the cart, and its count
   useEffect(() => {
     if (cart) pruneCart(new Set(items.map((i) => i.id)));
@@ -57,10 +63,10 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
     return (
       <div className="empty panel">
         <ShoppingBag size={36} strokeWidth={1.5} aria-hidden="true" />
-        <h2>Your Cart Is Empty</h2>
-        <p className="muted">Sparklers, chakri, rockets and gift boxes are waiting.</p>
+        <h2>{w.empty}</h2>
+        <p className="muted">{w.emptyText}</p>
         <Link href="/" className="btn primary">
-          Browse Crackers
+          {w.browse}
         </Link>
       </div>
     );
@@ -75,26 +81,26 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
               <div className="line-name">
                 <strong>{l.name}</strong>
                 <small>
-                  {l.unit} · {inr(l.price)} each
+                  {l.unit} · {fill(w.each, { price: inr(l.price) })}
                 </small>
                 {l.qty > l.stock && (
                   <small className="error" role="alert">
                     {l.stock ? (
                       <>
-                        Only {l.stock} left.{" "}
+                        {fill(w.onlyLeft, { n: l.stock })}{" "}
                         <button type="button" className="link" onClick={() => setQty(l.id, l.stock)}>
-                          Change to {l.stock}
+                          {fill(w.changeTo, { n: l.stock })}
                         </button>
                       </>
                     ) : (
-                      "Out of stock. Please remove it."
+                      w.gone
                     )}
                   </small>
                 )}
               </div>
               <div className="line-qty">
                 <Stepper id={l.id} name={l.name} max={l.stock} />
-                <button type="button" className="icon-btn" onClick={() => setQty(l.id, 0)} aria-label={`Remove ${l.name}`}>
+                <button type="button" className="icon-btn" onClick={() => setQty(l.id, 0)} aria-label={fill(w.remove, { name: l.name })}>
                   <Trash2 size={18} aria-hidden="true" />
                 </button>
               </div>
@@ -105,7 +111,7 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
         {extras.length > 0 && (
           <section aria-labelledby="extras">
             <div className="shelf-head">
-              <h2 id="extras">Add These Too</h2>
+              <h2 id="extras">{w.extras}</h2>
             </div>
             <ul className="grid compact">
               {extras.map((m, n) => (
@@ -117,63 +123,63 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
       </div>
 
       <div className="summary panel">
-        <h2>Order Summary</h2>
+        <h2>{w.summary}</h2>
         <dl className="rows">
           <div>
-            <dt>{pieces === 1 ? "1 item" : `${pieces} items`}</dt>
+            <dt>{pieces === 1 ? t.shop.item : fill(t.shop.items, { n: pieces })}</dt>
             <dd>{inr(total + saved)}</dd>
           </div>
           {saved > 0 && (
             <div className="saved">
-              <dt>You save</dt>
+              <dt>{t.shop.youSave}</dt>
               <dd>−{inr(saved)}</dd>
             </div>
           )}
           <div className="grand">
-            <dt>Total</dt>
+            <dt>{w.total}</dt>
             <dd>{inr(total)}</dd>
           </div>
         </dl>
         <ul className="assurances">
           <li>
-            <Truck size={18} aria-hidden="true" /> At your door in 3–{deliveryDays} days
+            <Truck size={18} aria-hidden="true" /> {fill(t.shop.assure.door, { days: deliveryDays })}
           </li>
           <li>
-            <IndianRupee size={18} aria-hidden="true" /> Pay cash or UPI when it arrives
+            <IndianRupee size={18} aria-hidden="true" /> {t.shop.assure.pay}
           </li>
         </ul>
 
         {customer ? (
           <form action={action} className="fields" onReset={keepTyped}>
-            <h3>Delivery Details</h3>
+            <h3>{w.details}</h3>
             <input type="hidden" name="cart" value={JSON.stringify(lines.map((l) => ({ id: l.id, qty: l.qty })))} />
             {/* a changed cart is a new booking: the id carries what's in it, so a retry finds only the same cart */}
             <input type="hidden" name="key" value={key && `${key}-${fingerprint(lines)}`} />
             {/* what the customer sees; the server refuses the booking if prices moved since (lib/orders.ts) */}
             <input type="hidden" name="total" value={total} />
             <label>
-              Name
+              {w.name}
               <input name="name" required minLength={2} maxLength={80} autoComplete="name" defaultValue={customer.name} />
             </label>
             {customer.addresses.length > 0 && (
               <fieldset className="deliver-to">
-                <legend>Deliver to</legend>
+                <legend>{w.deliverTo}</legend>
                 {[...customer.addresses, { id: "new" } as const].map((a) => (
                   <label key={a.id} className="address-option">
                     <input type="radio" name="addressId" value={a.id} checked={deliverTo === a.id} onChange={() => setDeliverTo(a.id)} />
                     {!("line" in a) ? (
                       <span>
-                        <strong>A new address</strong>
-                        <small>Saved to your address book with the order</small>
+                        <strong>{w.newAddress}</strong>
+                        <small>{w.newAddressNote}</small>
                       </span>
                     ) : (
                       <span>
-                        <strong>{a.label}</strong>
+                        <strong>{w.labels[a.label] ?? a.label}</strong>
                         <small>
                           {a.line}
-                          {a.landmark && `, near ${a.landmark}`} – {a.pincode}
+                          {a.landmark && fill(w.near, { landmark: a.landmark })} – {a.pincode}
                         </small>
-                        {a.phone && <small>Call +91 {a.phone}</small>}
+                        {a.phone && <small>{fill(w.phone, { phone: a.phone })}</small>}
                       </span>
                     )}
                   </label>
@@ -184,64 +190,70 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
               <>
                 <input type="hidden" name="addressId" value="new" />
                 <label>
-                  Full Address
-                  <textarea name="line" required minLength={10} maxLength={300} rows={3} autoComplete="street-address" placeholder="House no., street, area…" />
+                  {w.fullAddress}
+                  <textarea name="line" required minLength={10} maxLength={300} rows={3} autoComplete="street-address" placeholder={w.addressHint} />
                 </label>
                 <div className="two">
                   <label>
                     <span>
-                      Landmark <small>(optional)</small>
+                      {w.landmark} <small>{t.common.words.optional}</small>
                     </span>
-                    <input name="landmark" maxLength={120} autoComplete="off" placeholder="Near temple, school…" />
+                    <input name="landmark" maxLength={120} autoComplete="off" placeholder={w.landmarkHint} />
                   </label>
                   <label>
-                    Pincode
+                    {w.pincode}
                     <input name="pincode" required inputMode="numeric" pattern="\d{6}" maxLength={6} autoComplete="postal-code" placeholder="226001" />
                   </label>
                 </div>
-                <PhoneField label="Mobile number for delivery" initial={customer.phone} />
-                <p className="note">The delivery person calls this number. It can be anyone’s at this address.</p>
+                <PhoneField label={w.mobile} initial={customer.phone} />
+                <p className="note">{w.mobileNote}</p>
                 <label>
-                  Save as
+                  {w.saveAs}
+                  {/* stored in English; shown in the reader's language */}
                   <select name="label" defaultValue={customer.addresses.length ? "Other" : "Home"}>
-                    <option>Home</option>
-                    <option>Work</option>
-                    <option>Other</option>
+                    {["Home", "Work", "Other"].map((l) => (
+                      <option key={l} value={l}>
+                        {w.labels[l]}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </>
             )}
             {/* a saved address from before numbers were kept */}
-            {chosen && !chosen.phone && <PhoneField key={chosen.id} label="Mobile number for delivery" />}
+            {chosen && !chosen.phone && <PhoneField key={chosen.id} label={w.mobile} />}
             <label className="f-check agree">
               <input type="checkbox" name="agree" value="yes" required />
               <span>
-                I’m 18 or older and agree to the{" "}
-                <Link href="/terms" target="_blank">
-                  Terms of Sale
-                </Link>{" "}
-                and{" "}
-                <Link href="/privacy" target="_blank">
-                  Privacy Policy
-                </Link>
-                .
+                {rich(w.agree, {
+                  terms: (s) => (
+                    <Link href="/terms" target="_blank">
+                      {s}
+                    </Link>
+                  ),
+                  privacy: (s) => (
+                    <Link href="/privacy" target="_blank">
+                      {s}
+                    </Link>
+                  ),
+                })}
               </span>
             </label>
-            <p className="note">This is a booking. We call you to confirm it, and you pay at the door when it arrives.</p>
+            <p className="note">{w.bookingNote}</p>
             {state?.error && (
               <p role="alert" className="error">
-                {state.error}
+                {tr(state.error)}
               </p>
             )}
             <button className="btn primary big" disabled={pending || short.length > 0 || !!state?.number}>
-              {pending ? "Booking…" : `Book Order · ${inr(total)}`}
+              {pending ? w.booking : fill(w.book, { total: inr(total) })}
             </button>
           </form>
         ) : (
           <div className="fields">
-            <p className="muted">Log in or sign up to book: mobile, email or Google.</p>
+            <p className="muted">{w.loginNote}</p>
             <Link href="/login?next=/cart" className="btn primary big">
-              Log In to Book
+              {w.logIn}
             </Link>
           </div>
         )}

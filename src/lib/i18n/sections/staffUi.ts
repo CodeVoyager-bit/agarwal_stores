@@ -1,0 +1,25 @@
+// Words in the client parts of the staff pages (the status picker). Save, Saving… and Print are in common.words.
+
+export const en = {
+  statusForm: {
+    label: "Order status",
+    confirmCancel: "Cancel this order? Its stock goes back on the shelf and it can't be reopened.",
+    confirmDeliver: "Mark it delivered by the shop? The full amount goes on the Cash page as collected by you.",
+  },
+};
+
+export const hi: typeof en = {
+  statusForm: {
+    label: "ऑर्डर का स्टेटस",
+    confirmCancel: "यह ऑर्डर रद्द करें? इसका स्टॉक वापस शेल्फ़ पर चला जाएगा और इसे दोबारा खोला नहीं जा सकेगा।",
+    confirmDeliver: "दुकान की ओर से डिलीवर हुआ मानें? पूरी रकम ‘नकद’ पेज पर आपके नाम से ली गई दिखेगी।",
+  },
+};
+
+export const mr: typeof en = {
+  statusForm: {
+    label: "ऑर्डरचा स्टेटस",
+    confirmCancel: "ही ऑर्डर रद्द करायची? तिचा स्टॉक परत शेल्फवर जाईल आणि ती पुन्हा उघडता येणार नाही.",
+    confirmDeliver: "दुकानाने डिलिव्हर केली असे नोंदवायचे? पूर्ण रक्कम ‘रोख’ पानावर तुम्ही घेतली अशी दिसेल.",
+  },
+};

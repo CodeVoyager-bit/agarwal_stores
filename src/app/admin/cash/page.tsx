@@ -5,8 +5,13 @@ import { receiveCashAction } from "@/lib/actions";
 import { requireStaff } from "@/lib/auth";
 import { connectDB, Order } from "@/lib/db";
 import { inr, when } from "@/lib/format";
+import { fill } from "@/lib/i18n";
+import { getLang, getT } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Cash · Admin" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: `${t.common.adminTabs.cash} · ${t.common.adminTabs.label}` };
+}
 
 export default async function Cash() {
   await requireStaff("cash", "/admin/cash");
@@ -22,32 +27,35 @@ export default async function Cash() {
   // who is carrying how much cash
   const byPerson = new Map<string, number>();
   for (const o of waiting.filter((o) => !upi(o))) byPerson.set(o.cash!.collectedBy ?? "?", (byPerson.get(o.cash!.collectedBy ?? "?") ?? 0) + o.cash!.collected!);
+  const [t, lang] = await Promise.all([getT(), getLang()]);
+  const s = t.staff.cash;
+  const c = t.staff.cols;
 
   return (
     <>
-      <h1>Cash</h1>
-      <p className="muted">Count in the cash the delivery team brings back, and check each UPI payment reached the shop’s account.</p>
+      <h1>{t.common.adminTabs.cash}</h1>
+      <p className="muted">{s.intro}</p>
       <div className="stats">
         <div className={waiting.some((o) => !upi(o)) ? "alert" : ""}>
           <strong>{inr(sum(waiting.filter((o) => !upi(o))))}</strong>
-          <span>cash with the delivery team</span>
+          <span>{s.withTeam}</span>
         </div>
         <div className={waiting.some(upi) ? "alert" : ""}>
           <strong>{inr(sum(waiting.filter(upi)))}</strong>
-          <span>UPI to check in the account</span>
+          <span>{s.upiCheck}</span>
         </div>
         <div>
           <strong>{inr(counted.filter((o) => !upi(o)).reduce((n, o) => n + o.cash!.received!, 0))}</strong>
-          <span>cash counted at shop (last 100)</span>
+          <span>{s.countedTotal}</span>
         </div>
         <div className={short.length ? "alert" : ""}>
           <strong>{short.length}</strong>
-          <span>handovers with a difference</span>
+          <span>{s.diff}</span>
         </div>
       </div>
 
       {byPerson.size > 0 && (
-        <ul className="chips" aria-label="Cash each person holds">
+        <ul className="chips" aria-label={s.perPerson}>
           {[...byPerson].map(([person, total]) => (
             <li key={person} className="chip-static">
               {person}: <strong>{inr(total)}</strong>
@@ -56,38 +64,38 @@ export default async function Cash() {
         </ul>
       )}
 
-      <h2>To Count or Check</h2>
+      <h2>{s.toCount}</h2>
       {waiting.length ? (
         <table className="table">
           <thead>
             <tr>
-              <th>Order</th>
-              <th>Collected by</th>
-              <th className="num">Amount</th>
-              <th>Count it</th>
+              <th>{c.order}</th>
+              <th>{s.collectedBy}</th>
+              <th className="num">{c.amount}</th>
+              <th>{s.countIt}</th>
             </tr>
           </thead>
           <tbody>
             {waiting.map((o) => (
               <tr key={String(o._id)}>
-                <td data-label="Order">
+                <td data-label={c.order}>
                   <Link href={`/admin/orders/${o._id}`}>#{o.number}</Link>
                   <small>{o.name}</small>
                 </td>
-                <td data-label="Collected by">
+                <td data-label={s.collectedBy}>
                   {o.cash!.collectedBy}
                   <small>
                     {upi(o) ? "UPI · " : ""}
-                    {when(o.cash!.collectedAt!)}
+                    {when(o.cash!.collectedAt!, lang)}
                   </small>
                 </td>
-                <td data-label="Amount" className="num">
+                <td data-label={c.amount} className="num">
                   <strong>{inr(o.cash!.collected!)}</strong>
                 </td>
-                <td data-label="Count it">
-                  <ActionForm action={receiveCashAction} submit={upi(o) ? "Seen in Account" : "Received"} className="inline-form">
+                <td data-label={s.countIt}>
+                  <ActionForm action={receiveCashAction} submit={upi(o) ? s.seen : s.receive} className="inline-form">
                     <input type="hidden" name="id" value={String(o._id)} />
-                    <input name="received" inputMode="numeric" pattern="\d+" required defaultValue={o.cash!.collected!} aria-label={`Rupees received for order ${o.number}`} autoComplete="off" />
+                    <input name="received" inputMode="numeric" pattern="\d+" required defaultValue={o.cash!.collected!} aria-label={fill(s.receivedFor, { n: o.number })} autoComplete="off" />
                   </ActionForm>
                 </td>
               </tr>
@@ -95,19 +103,19 @@ export default async function Cash() {
           </tbody>
         </table>
       ) : (
-        <p className="empty panel">Nothing waiting. All cash is counted and every UPI payment checked.</p>
+        <p className="empty panel">{s.empty}</p>
       )}
 
       {counted.length > 0 && (
         <>
-          <h2>Counted</h2>
+          <h2>{s.counted}</h2>
           <table className="table">
             <thead>
               <tr>
-                <th>Order</th>
-                <th className="num">Collected</th>
-                <th className="num">Received</th>
-                <th>Counted by</th>
+                <th>{c.order}</th>
+                <th className="num">{s.collected}</th>
+                <th className="num">{s.received}</th>
+                <th>{s.countedBy}</th>
               </tr>
             </thead>
             <tbody>
@@ -115,20 +123,20 @@ export default async function Cash() {
                 const diff = o.cash!.collected! - o.cash!.received!;
                 return (
                   <tr key={String(o._id)}>
-                    <td data-label="Order">
+                    <td data-label={c.order}>
                       <Link href={`/admin/orders/${o._id}`}>#{o.number}</Link>
                     </td>
-                    <td data-label="Collected" className="num">
+                    <td data-label={s.collected} className="num">
                       {inr(o.cash!.collected!)}
                       <small>{o.cash!.collectedBy}</small>
                     </td>
-                    <td data-label="Received" className={diff ? "num late" : "num"}>
+                    <td data-label={s.received} className={diff ? "num late" : "num"}>
                       {inr(o.cash!.received!)}
-                      {diff !== 0 && <small>{diff > 0 ? `${inr(diff)} short` : `${inr(-diff)} extra`}</small>}
+                      {diff !== 0 && <small>{diff > 0 ? fill(s.short, { amount: inr(diff) }) : fill(s.extra, { amount: inr(-diff) })}</small>}
                     </td>
-                    <td data-label="Counted by">
+                    <td data-label={s.countedBy}>
                       {o.cash!.receivedBy}
-                      <small>{when(o.cash!.receivedAt!)}</small>
+                      <small>{when(o.cash!.receivedAt!, lang)}</small>
                     </td>
                   </tr>
                 );

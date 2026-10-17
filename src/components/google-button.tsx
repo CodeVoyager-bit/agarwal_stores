@@ -1,16 +1,20 @@
 import { googleAction } from "@/lib/actions";
+import type { ClientDict } from "@/lib/i18n/dict";
+import { useT } from "./i18n";
 
-/** "Continue with Google", shown only when Google sign-in is set up. A plain form, so it works before JavaScript loads. */
+/** "Continue with Google", shown only when Google sign-in is set up. A plain form, so it works before JavaScript loads.
+ *  Drawn inside the client login form (it reads its words with useT). */
 export function GoogleButton({ next, divider = true }: { next: string; divider?: boolean }) {
+  const g = useT().auth.google;
   return (
     <form action={googleAction} className="google-signin">
       <input type="hidden" name="next" value={next} />
       <button className="btn big google">
-        <GoogleMark /> Continue with Google
+        <GoogleMark /> {g.button}
       </button>
       {divider && (
         <p className="divider">
-          <span>or</span>
+          <span>{g.or}</span>
         </p>
       )}
     </form>
@@ -29,11 +33,10 @@ export function GoogleMark() {
   );
 }
 
-/** What went wrong when Google sends someone back with ?error=. */
-export function googleProblem(code: string | undefined) {
+/** What went wrong when Google sends someone back with ?error=, in the reader's words (t from getT or useT). */
+export function googleProblem(code: string | undefined, t: ClientDict) {
   if (!code) return null;
-  if (code === "account_not_linked")
-    return "There's already an account with this email. Continue with that email below once (a code confirms it's yours), then Google logs in to the same account next time.";
-  if (code === "access_denied") return "Google sign-in was cancelled.";
-  return "Google sign-in didn't finish. Please try again.";
+  if (code === "account_not_linked") return t.auth.google.notLinked;
+  if (code === "access_denied") return t.auth.google.cancelled;
+  return t.auth.google.failed;
 }

@@ -1,43 +1,56 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Rows } from "@/components/legal-rows";
-import { shopDetails, TERMS_UPDATED, TERMS_VERSION } from "@/lib/legal";
+import { fill, locale } from "@/lib/i18n";
+import { rich } from "@/lib/i18n/rich";
+import { getLang, getT } from "@/lib/i18n/server";
+import { shopDetails, TERMS_VERSION } from "@/lib/legal";
 import { DELIVERY_DAYS } from "@/lib/orders";
 
-export const metadata: Metadata = {
-  title: "Terms of Sale · Agarwal Stores",
-  description: "How booking, delivery, payment, cancellation and refunds work at Agarwal Stores, and how to complain.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: t.legal.terms.meta.title, description: t.legal.terms.meta.description };
+}
 
-const SECTIONS = [
-  ["who", "Who we are"],
-  ["booking", "Booking, not online sale"],
-  ["who-can-book", "Who can book"],
-  ["crackers", "Our crackers"],
-  ["prices", "Prices and payment"],
-  ["delivery", "Delivery"],
-  ["cancel", "Cancellation"],
-  ["refunds", "Returns and refunds"],
-  ["safety", "Safety and local rules"],
-  ["account", "Your account"],
-  ["contact", "Complaints and grievance officer"],
-  ["law", "Law and changes"],
-];
+const tags = {
+  b: (s: string) => <strong>{s}</strong>,
+  privacy: (s: string) => <Link href="/privacy">{s}</Link>,
+  tel: (s: string) => <a href="tel:1915">{s}</a>,
+  helpline: (s: string) => (
+    <a href="https://consumerhelpline.gov.in" target="_blank" rel="noopener noreferrer">
+      {s}
+    </a>
+  ),
+  edaakhil: (s: string) => (
+    <a href="https://edaakhil.nic.in" target="_blank" rel="noopener noreferrer">
+      {s}
+    </a>
+  ),
+};
+const list = (items: string[]) => (
+  <ul>
+    {items.map((x) => (
+      <li key={x}>{rich(x, tags)}</li>
+    ))}
+  </ul>
+);
 
 export default async function TermsPage() {
-  const shop = await shopDetails();
+  const [shop, lang, t] = await Promise.all([shopDetails(), getLang(), getT()]);
+  const l = t.legal;
+  const s = l.terms;
   const phone = process.env.SHOP_PHONE;
   const call = phone && <a href={`tel:+91${phone}`}>+91 {phone}</a>;
   const mail = shop.email && <a href={`mailto:${shop.email}`}>{shop.email}</a>;
+  const date = new Intl.DateTimeFormat(locale(lang), { dateStyle: "long", timeZone: "UTC" }).format(new Date(TERMS_VERSION));
   return (
     <article className="legal">
-      <h1>Terms of Sale</h1>
-      <p className="muted">
-        Last updated {TERMS_UPDATED} · Version {TERMS_VERSION}
-      </p>
-      <nav aria-label="On this page" className="legal-toc">
+      <h1>{s.title}</h1>
+      {l.note && <p className="muted">{l.note}</p>}
+      <p className="muted">{fill(l.updated, { date, version: TERMS_VERSION })}</p>
+      <nav aria-label={l.toc} className="legal-toc">
         <ol>
-          {SECTIONS.map(([id, title]) => (
+          {Object.entries(s.h).map(([id, title]) => (
             <li key={id}>
               <a href={`#${id}`}>{title}</a>
             </li>
@@ -46,157 +59,86 @@ export default async function TermsPage() {
       </nav>
 
       <section id="who">
-        <h2>Who we are</h2>
-        <p>This website is run by our shop. When you book here, you are dealing with:</p>
+        <h2>{s.h.who}</h2>
+        <p>{s.who}</p>
         <Rows
           rows={[
-            ["Name", shop.legalName],
-            ["Address", shop.address],
-            ["GSTIN", shop.gstin],
-            ["Fireworks licence", shop.licence],
-            ["Phone", call],
-            ["Email", mail],
+            [l.rows.legalName, shop.legalName],
+            [l.rows.address, shop.address],
+            [l.rows.gstin, shop.gstin],
+            [l.rows.licence, shop.licence],
+            [l.rows.phone, call],
+            [l.rows.email, mail],
           ]}
         />
       </section>
 
       <section id="booking">
-        <h2>Booking, not online sale</h2>
-        <p>
-          The Supreme Court of India has stopped the online sale of crackers. So this website only takes <strong>bookings</strong>. A booking is a
-          request, not a sale, and no money is taken online.
-        </p>
-        <ul>
-          <li>After you book, we call you on the number you gave to confirm the items and the address.</li>
-          <li>The sale happens at your door, from our licensed shop, when you receive the crackers and pay.</li>
-          <li>If we can’t reach you, or can’t confirm the booking, we cancel it. Nothing is owed by either side.</li>
-        </ul>
+        <h2>{s.h.booking}</h2>
+        <p>{rich(s.booking.text, tags)}</p>
+        {list(s.booking.list)}
       </section>
 
       <section id="who-can-book">
-        <h2>Who can book</h2>
-        <ul>
-          <li>You must be 18 or older. We don’t take bookings from children, and an adult must receive the delivery.</li>
-          <li>It must be legal to buy and burst crackers where you live. Some cities and states ban them, fully or at times.</li>
-          <li>We may refuse or cancel a booking we can’t lawfully or safely fill, for example an unusually large quantity.</li>
-        </ul>
+        <h2>{s.h["who-can-book"]}</h2>
+        {list(s.whoCanBook)}
       </section>
 
       <section id="crackers">
-        <h2>Our crackers</h2>
-        <p>
-          We sell only crackers that may lawfully be sold, made by licensed makers: green crackers that carry the CSIR‑NEERI green logo and QR
-          code, without barium salts, as the Supreme Court requires. Pictures are for guidance; the box you get may look a little different.
-        </p>
+        <h2>{s.h.crackers}</h2>
+        <p>{s.crackers}</p>
       </section>
 
       <section id="prices">
-        <h2>Prices and payment</h2>
-        <ul>
-          <li>Prices are in Indian rupees and include GST. The MRP printed on the box is shown next to our price.</li>
-          <li>The price you pay is the one shown when you booked. If it has to change, we tell you on the confirmation call first.</li>
-          <li>You pay at the door, in cash or by UPI, only after you receive the crackers.</li>
-          <li>After delivery, your bill is on My Orders, to view or print.</li>
-          <li>
-            <strong>We never ask for advance payment, a UPI request, card details or a code on a call.</strong> Anyone who does is not us. Please
-            tell us.
-          </li>
-        </ul>
+        <h2>{s.h.prices}</h2>
+        {list(s.prices)}
       </section>
 
       <section id="delivery">
-        <h2>Delivery</h2>
-        <ul>
-          <li>Our own staff deliver, only in the area around our shop. If your address is outside it, we call you and cancel the booking.</li>
-          <li>Delivery usually takes 3–{DELIVERY_DAYS} days after we confirm. Around Diwali it may take longer; we’ll tell you on the call.</li>
-          <li>An adult must receive it. When it leaves the shop, you get a 6‑digit code on My Orders; read it out to the delivery person.</li>
-          <li>Delivery is free.</li>
-        </ul>
+        <h2>{s.h.delivery}</h2>
+        {list(s.delivery.map((x) => fill(x, { days: DELIVERY_DAYS })))}
       </section>
 
       <section id="cancel">
-        <h2>Cancellation</h2>
-        <ul>
-          <li>
-            You can cancel at any time before you receive the crackers: call us, or refuse them at the door and the delivery person takes them back;
-            we then cancel the booking. There is no charge.
-          </li>
-          <li>We may cancel if an item runs out, the address is outside our area, we can’t reach you, or the booking breaks these terms. We call to tell you why.</li>
-          <li>As nothing is paid before delivery, there is nothing to refund for a cancelled booking.</li>
-        </ul>
+        <h2>{s.h.cancel}</h2>
+        {list(s.cancel)}
       </section>
 
       <section id="refunds">
-        <h2>Returns and refunds</h2>
-        <ul>
-          <li>Check your crackers at the door. If anything is missing, damaged, wet or not what you booked, don’t take it: you don’t pay for it.</li>
-          <li>
-            If you find a fault after delivery, tell us within 2 days, and keep the item unused. We replace it, or refund what you paid for it in
-            cash or by UPI within 7 days.
-          </li>
-          <li>For safety, we can’t take back crackers that are fine because you changed your mind. They can’t be stored or sold again once they’ve left us.</li>
-        </ul>
+        <h2>{s.h.refunds}</h2>
+        {list(s.refunds)}
       </section>
 
       <section id="safety">
-        <h2>Safety and local rules</h2>
-        <ul>
-          <li>Follow the instructions on each box. Burst crackers outdoors, away from people, animals, vehicles and anything that can catch fire.</li>
-          <li>Keep a bucket of water or sand nearby. Children may only use crackers with an adult watching.</li>
-          <li>
-            Burst crackers only at the times the Supreme Court, your state and your local police allow (on Diwali night, usually 8 pm to 10 pm), and
-            never near hospitals, schools, courts or places of worship.
-          </li>
-          <li>Store them in a cool, dry place, away from flames and children.</li>
-        </ul>
-        <p>
-          We are not responsible for harm caused by misuse, or by not following the instructions or the law. Nothing in these terms takes away your
-          rights under the Consumer Protection Act, 2019.
-        </p>
+        <h2>{s.h.safety}</h2>
+        {list(s.safety.list)}
+        <p>{s.safety.text}</p>
       </section>
 
       <section id="account">
-        <h2>Your account</h2>
-        <p>
-          Keep your password to yourself; you are responsible for bookings made from your account. Once no booking is on its way, you can delete
-          your account on your Account page. Give a delivery number and address you’re allowed to use. How we handle your details is in our <Link href="/privacy">Privacy Policy</Link>.
-        </p>
+        <h2>{s.h.account}</h2>
+        <p>{rich(s.account, tags)}</p>
       </section>
 
       <section id="contact">
-        <h2>Complaints and grievance officer</h2>
-        <p>For anything about a booking, call us first. For a complaint, write to our grievance officer:</p>
+        <h2>{s.h.contact}</h2>
+        <p>{s.contact.intro}</p>
         <Rows
           rows={[
-            ["Grievance officer", shop.grievanceOfficer],
-            ["Phone", call],
-            ["Email", mail],
-            ["Address", `${shop.legalName}, ${shop.address}`],
+            [l.rows.grievanceOfficer, shop.grievanceOfficer],
+            [l.rows.phone, call],
+            [l.rows.email, mail],
+            [l.rows.address, `${shop.legalName}, ${shop.address}`],
           ]}
         />
-        <p>We acknowledge a complaint within 48 hours and settle it within one month.</p>
-        <p>
-          If you’re not satisfied, you can contact the National Consumer Helpline on <a href="tel:1915">1915</a> or at{" "}
-          <a href="https://consumerhelpline.gov.in" target="_blank" rel="noopener noreferrer">
-            consumerhelpline.gov.in
-          </a>
-          , or file a complaint with a consumer commission at{" "}
-          <a href="https://edaakhil.nic.in" target="_blank" rel="noopener noreferrer">
-            edaakhil.nic.in
-          </a>
-          .
-        </p>
+        <p>{s.contact.promise}</p>
+        <p>{rich(s.contact.helpline, tags)}</p>
       </section>
 
       <section id="law">
-        <h2>Law and changes</h2>
-        <p>
-          These terms are governed by the laws of India. Disputes go to the courts at {shop.courts}, without taking away your right to go to a
-          consumer commission near you.
-        </p>
-        <p>
-          We may update these terms. The version on top shows which ones apply; each booking keeps the version it was made under.
-        </p>
+        <h2>{s.h.law}</h2>
+        <p>{fill(s.law.courts, { courts: shop.courts })}</p>
+        <p>{s.law.changes}</p>
       </section>
     </article>
   );

@@ -4,30 +4,34 @@ import { ArrowRight, Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { inr, type ShopItem } from "@/lib/format";
+import { catName, fill } from "@/lib/i18n";
 import { pruneCart, Stepper, useCart } from "./cart";
 import { CategoryIcon, ProductArt } from "./category";
+import { useT } from "./i18n";
 
-/** Words people type for each shelf that its products' names may not have ("anar" finds Flower Pots). */
+/** Words people type for each shelf that its products' names may not have ("anar" finds Flower Pots), in Latin and Devanagari. */
 const ALSO_CALLED: Record<string, string> = {
-  Sparklers: "phuljhadi phooljhadi fuljhadi sparkler",
-  Chakri: "chakkar chakra spinner wheel",
-  Anar: "flower pot flowerpot fountain",
-  Rockets: "rocket",
-  Bombs: "bomb patakha pataka sutli",
-  "Sky Shots": "aerial shot cake",
-  "Kids Special": "kids children",
-  "Gift Boxes": "gift box combo",
+  Sparklers: "phuljhadi phooljhadi fuljhadi sparkler फुलझड़ी फुलझडी फुलबाजी",
+  Chakri: "chakkar chakra spinner wheel चकरी चक्री चक्कर",
+  Anar: "flower pot flowerpot fountain अनार भुईनळा",
+  Rockets: "rocket रॉकेट",
+  Bombs: "bomb patakha pataka sutli बम बॉम्ब पटाखा फटाका सुतली",
+  "Sky Shots": "aerial shot cake आसमानी आकाशी शॉट्स",
+  "Kids Special": "kids children बच्चों के लिए लहान मुलांसाठी",
+  "Gift Boxes": "gift box combo गिफ्ट गिफ़्ट बॉक्स",
 };
 
 export function Catalog({ items, categories, initialQuery, initialCategory }: { items: ShopItem[]; categories: string[]; initialQuery: string; initialCategory: string }) {
   const cart = useCart();
+  const t = useT();
   const [q, setQ] = useState(initialQuery);
   const [category, setCategory] = useState(categories.includes(initialCategory) ? initialCategory : "");
-  const query = q.trim().toLowerCase();
+  // NFC: a dotted letter like ड़ typed as one character or two still matches
+  const query = q.trim().toLowerCase().normalize();
   // every word typed must be in the name, the shelf, or what people call that shelf
   const words = query.split(/\s+/).filter(Boolean);
   const shown = items.filter((i) => {
-    const text = `${i.name} ${i.category} ${ALSO_CALLED[i.category] ?? ""}`.toLowerCase();
+    const text = `${i.name} ${i.category} ${catName(t, i.category)} ${ALSO_CALLED[i.category] ?? ""}`.toLowerCase().normalize();
     return (!category || i.category === category) && words.every((w) => text.includes(w));
   });
   useEffect(() => {
@@ -52,8 +56,8 @@ export function Catalog({ items, categories, initialQuery, initialCategory }: { 
           <input
             type="search"
             name="q"
-            placeholder="Search crackers, e.g. anar…"
-            aria-label="Search crackers"
+            placeholder={t.common.search.placeholder}
+            aria-label={t.common.search.label}
             autoComplete="off"
             value={q}
             onChange={(e) => {
@@ -62,7 +66,7 @@ export function Catalog({ items, categories, initialQuery, initialCategory }: { 
             }}
           />
         </label>
-        <div className="chips" role="group" aria-label="Category">
+        <div className="chips" role="group" aria-label={t.shop.catalog.category}>
           {["", ...categories].map((c) => (
             <button
               type="button"
@@ -74,7 +78,7 @@ export function Catalog({ items, categories, initialQuery, initialCategory }: { 
               }}
             >
               {c && <CategoryIcon category={c} size={16} />}
-              {c || "All"}
+              {c ? catName(t, c) : t.shop.catalog.all}
             </button>
           ))}
         </div>
@@ -90,9 +94,9 @@ export function Catalog({ items, categories, initialQuery, initialCategory }: { 
                 <span className="shelf-icon">
                   <CategoryIcon category={c} size={20} />
                 </span>
-                {c}
+                {catName(t, c)}
               </h2>
-              <span className="muted">{list.length === 1 ? "1 item" : `${list.length} items`}</span>
+              <span className="muted">{list.length === 1 ? t.shop.item : fill(t.shop.items, { n: list.length })}</span>
             </div>
             <ul className="grid">
               {list.map((i, n) => (
@@ -104,18 +108,18 @@ export function Catalog({ items, categories, initialQuery, initialCategory }: { 
 
       {!shown.length && (
         <div className="empty">
-          <p>{items.length ? "Nothing matches your search. Try another name or pick All." : "The catalog is being stocked. Please check back soon."}</p>
+          <p>{items.length ? t.shop.catalog.noMatch : t.shop.catalog.stocking}</p>
         </div>
       )}
 
       {count > 0 && (
         <Link href="/cart" className="cartbar">
           <span>
-            <small>{count === 1 ? "1 item" : `${count} items`}</small>
+            <small>{count === 1 ? t.shop.item : fill(t.shop.items, { n: count })}</small>
             <strong>{inr(total)}</strong>
           </span>
           <span className="cartbar-cta">
-            View Cart <ArrowRight size={18} aria-hidden="true" />
+            {t.shop.catalog.viewCart} <ArrowRight size={18} aria-hidden="true" />
           </span>
         </Link>
       )}
@@ -125,12 +129,13 @@ export function Catalog({ items, categories, initialQuery, initialCategory }: { 
 
 /** One product on a shelf. The whole card opens its page (the name's link covers it); Add sits above. */
 export function ProductCard({ item: i, n }: { item: ShopItem; n: number }) {
+  const t = useT();
   const off = Math.round((1 - i.price / i.mrp) * 100);
   return (
     <li className={i.stock > 0 ? "card" : "card sold-out"} style={{ "--i": String(Math.min(n, 6)) } as React.CSSProperties}>
       <div className="card-art">
         <ProductArt category={i.category} image={i.image} />
-        {off > 0 && <span className="off">{off}% Off</span>}
+        {off > 0 && <span className="off">{fill(t.shop.off, { n: off })}</span>}
       </div>
       <div className="card-body">
         <h3>
@@ -148,7 +153,7 @@ export function ProductCard({ item: i, n }: { item: ShopItem; n: number }) {
             </s>
           )}
         </p>
-        {i.stock > 0 ? <Stepper id={i.id} name={i.name} max={i.stock} /> : <p className="oos">Out of Stock</p>}
+        {i.stock > 0 ? <Stepper id={i.id} name={i.name} max={i.stock} /> : <p className="oos">{t.shop.outOfStock}</p>}
       </div>
     </li>
   );
