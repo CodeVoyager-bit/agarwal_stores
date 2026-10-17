@@ -24,8 +24,14 @@ export const currentUser = cache(async () => {
   const found = await (await getAuth()).api.getSession({ headers: await headers() });
   if (!found) return null;
   await connectDB();
-  const user = await User.findById(found.user.id).lean();
+  let user = await User.findById(found.user.id).lean();
   if (!user) return null;
+  // the single address from before the address book becomes its first entry, once
+  if (user.address && !user.addresses?.length) {
+    const { line, landmark, pincode } = user.address;
+    user = (await User.findByIdAndUpdate(user._id, { addresses: [{ label: "Home", line, landmark, pincode }], $unset: { address: 1 } }, { returnDocument: "after" }).lean())!;
+  }
+  const addresses = (user.addresses ?? []).map((a) => ({ id: String(a._id), label: a.label ?? "Home", line: a.line, landmark: a.landmark ?? "", pincode: a.pincode }));
   return {
     id: String(user._id),
     /** "" for someone who joined with Google and hasn't added a number yet */
@@ -33,7 +39,9 @@ export const currentUser = cache(async () => {
     email: isPlaceholderEmail(user.email) ? "" : user.email!,
     emailVerified: Boolean(user.emailVerified),
     name: user.name === "Customer" ? "" : (user.name ?? ""),
-    address: user.address ? { line: user.address.line, landmark: user.address.landmark, pincode: user.address.pincode } : null,
+    addresses,
+    /** the default: first in the book */
+    address: addresses[0] ?? null,
     role: (user.phone && ownerPhones().includes(user.phone) ? "owner" : (user.role ?? "customer")) as Role,
   };
 });

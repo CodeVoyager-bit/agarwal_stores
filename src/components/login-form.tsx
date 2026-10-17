@@ -7,7 +7,7 @@ import { tenDigitMobile } from "@/lib/format";
 import { GoogleButton } from "./google-button";
 
 /** A password box with a show/hide toggle, so people can check what they typed (from Agarwal Online). */
-function PasswordInput({ name, autoComplete, label }: { name: string; autoComplete: "current-password" | "new-password"; label: string }) {
+export function PasswordInput({ name, autoComplete, label }: { name: string; autoComplete: "current-password" | "new-password"; label: string }) {
   const [shown, setShown] = useState(false);
   return (
     <label>

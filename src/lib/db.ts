@@ -52,6 +52,17 @@ const addressSchema = new Schema(
   { _id: false },
 );
 
+export const ADDRESS_LABELS = ["Home", "Work", "Other"] as const;
+export const MAX_ADDRESSES = 10;
+
+/** One saved delivery address; the first in the list is the default. */
+const bookAddressSchema = new Schema({
+  label: { type: String, enum: ADDRESS_LABELS, default: "Home" },
+  line: { type: String, required: true, trim: true, maxlength: 300 },
+  landmark: { type: String, trim: true, default: "", maxlength: 120 },
+  pincode: { type: String, required: true, match: /^\d{6}$/ },
+});
+
 const userSchema = new Schema(
   {
     // shared with better-auth (lib/better-auth.ts), which also writes email, emailVerified, phoneVerified
@@ -63,6 +74,8 @@ const userSchema = new Schema(
     emailVerified: Boolean,
     image: String,
     name: { type: String, trim: true, default: "" },
+    addresses: { type: [bookAddressSchema], default: undefined },
+    /** the one address kept before the address book; moved into `addresses` on the next visit */
     address: { type: addressSchema, required: false },
     role: { type: String, enum: ROLES, default: "customer", index: true },
   },

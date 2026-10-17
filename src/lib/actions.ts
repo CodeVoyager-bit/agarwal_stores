@@ -8,8 +8,8 @@ import { headers } from "next/headers";
 import { allowStaff, clientIp, currentUser, overLimit, ownerPhones, safeNext, tenDigits, validPhone, who } from "./auth";
 import { getAuth, googleEnabled } from "./better-auth";
 import { isPlaceholderEmail, placeholderEmail } from "./email";
-import { audit, connectDB, ORDER_STATUSES, Photo, Product, User, type OrderStatus } from "./db";
-import { addNote, assignDelivery, checkDetails, completeDelivery, deliveryFailed, OrderError, placeOrder, receiveCash, setOrderStatus, startDelivery } from "./orders";
+import { ADDRESS_LABELS, audit, connectDB, MAX_ADDRESSES, ORDER_STATUSES, Photo, Product, User, type OrderStatus } from "./db";
+import { addNote, assignDelivery, checkDetails, completeDelivery, deliveryFailed, OrderError, saveToBook, placeOrder, receiveCash, setOrderStatus, startDelivery } from "./orders";
 import { ROLE_LABEL, ROLES, type Role } from "./roles";
 import { applyImport, planImport, readSheet, type PlanRow } from "./stock-import";
 
@@ -179,14 +179,54 @@ export async function saveNameAction(_: Result, form: FormData): Promise<Result>
   });
 }
 
-export async function saveAddressAction(_: Result, form: FormData): Promise<Result> {
+/** The address fields of a form, checked; the label is one of Home, Work, Other. */
+function addressFrom(form: FormData) {
+  const address = { line: text(form, "line"), landmark: text(form, "landmark"), pincode: text(form, "pincode") };
+  const problem = checkDetails({ name: "ok", ...address });
+  if (problem) throw new OrderError(problem);
+  const label = ADDRESS_LABELS.includes(text(form, "label") as never) ? text(form, "label") : "Home";
+  return { ...address, label };
+}
+
+export async function addAddressAction(_: Result, form: FormData): Promise<Result> {
   return attempt(async () => {
     const user = await me();
-    const address = { line: text(form, "line"), landmark: text(form, "landmark"), pincode: text(form, "pincode") };
-    const problem = checkDetails({ name: user.name || "ok", ...address });
-    if (problem) throw new OrderError(problem);
-    await User.updateOne({ _id: user.id }, { address });
-    return "Address saved. Checkout fills it in for you.";
+    if (!(await saveToBook(user.id, addressFrom(form)))) throw new OrderError(`You can keep up to ${MAX_ADDRESSES} addresses. Remove one first.`);
+    return "Address saved.";
+  });
+}
+
+export async function editAddressAction(_: Result, form: FormData): Promise<Result> {
+  return attempt(async () => {
+    const user = await me();
+    const { line, landmark, pincode, label } = addressFrom(form);
+    const { matchedCount } = await User.updateOne(
+      { _id: user.id, "addresses._id": text(form, "id") },
+      { $set: { "addresses.$.line": line, "addresses.$.landmark": landmark, "addresses.$.pincode": pincode, "addresses.$.label": label } },
+    );
+    if (!matchedCount) throw new OrderError("That address is gone. Refresh the page.");
+    return "Address saved.";
+  });
+}
+
+export async function removeAddressAction(_: Result, form: FormData): Promise<Result> {
+  return attempt(async () => {
+    const user = await me();
+    await User.updateOne({ _id: user.id }, { $pull: { addresses: { _id: text(form, "id") } } });
+    return "Address removed.";
+  });
+}
+
+/** The default is the first address: moving one to the front makes it the default. */
+export async function defaultAddressAction(_: Result, form: FormData): Promise<Result> {
+  return attempt(async () => {
+    const user = await me();
+    const record = await User.findById(user.id).select("addresses");
+    const pick = record?.addresses?.find((a) => String(a._id) === text(form, "id"));
+    if (!record || !pick) throw new OrderError("That address is gone. Refresh the page.");
+    record.set("addresses", [pick, ...record.addresses!.filter((a) => a !== pick)]);
+    await record.save();
+    return "Default address changed.";
   });
 }
 
@@ -278,7 +318,12 @@ export async function placeOrderAction(_: CheckoutState, form: FormData): Promis
   } catch {
     return { error: "Your cart could not be read. Please refresh the page." };
   }
-  const details = { name: text(form, "name"), line: text(form, "line"), landmark: text(form, "landmark"), pincode: text(form, "pincode") };
+  // a saved address from the book, or a new one typed in (saved to the book when the order goes through)
+  const saved = user.addresses.find((a) => a.id === text(form, "addressId"));
+  if (text(form, "addressId") && text(form, "addressId") !== "new" && !saved) return { error: "That address is gone. Pick another, or add a new one." };
+  const details = saved
+    ? { name: text(form, "name"), line: saved.line, landmark: saved.landmark, pincode: saved.pincode }
+    : { name: text(form, "name"), line: text(form, "line"), landmark: text(form, "landmark"), pincode: text(form, "pincode"), label: text(form, "label") };
   try {
     const order = await placeOrder(user, lines.map((l) => ({ id: String(l?.id), qty: Number(l?.qty) })), details);
     revalidatePath("/", "layout");

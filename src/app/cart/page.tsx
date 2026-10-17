@@ -11,7 +11,7 @@ export default async function CartPage() {
   return (
     <>
       <h1>Your Cart</h1>
-      <CartView items={items} customer={user && { phone: user.phone, name: user.name, address: user.address }} deliveryDays={DELIVERY_DAYS} codeHint={mockOtp() ? `Test mode: the code is ${process.env.MOCK_OTP_CODE || "123456"}` : undefined} />
+      <CartView items={items} customer={user && { phone: user.phone, name: user.name, addresses: user.addresses }} deliveryDays={DELIVERY_DAYS} codeHint={mockOtp() ? `Test mode: the code is ${process.env.MOCK_OTP_CODE || "123456"}` : undefined} />
     </>
   );
 }

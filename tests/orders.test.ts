@@ -7,7 +7,7 @@ import mongoose from "mongoose";
 process.env.MONGODB_URI = process.env.TEST_MONGODB_URI ?? "mongodb://127.0.0.1:27017/agarwal_fatake_test";
 process.env.MOCK_OTP = "true";
 const { Audit, connectDB, Order, Product, User } = await import("../src/lib/db");
-const { assignDelivery, completeDelivery, deliveryFailed, OrderError, placeOrder, receiveCash, setOrderStatus, startDelivery } = await import("../src/lib/orders");
+const { assignDelivery, completeDelivery, deliveryFailed, OrderError, placeOrder, receiveCash, saveToBook, setOrderStatus, startDelivery } = await import("../src/lib/orders");
 
 await connectDB();
 await mongoose.connection.dropDatabase();
@@ -102,4 +102,20 @@ test("delivery: five wrong codes lock it; a missed delivery goes back to packed"
   const back = (await Order.findById(id).lean())!;
   assert.equal(back.status, "packed");
   assert.match(back.history.at(-1)!.text!, /Nobody home/);
+});
+
+test("address book: a new checkout address is saved once, any capitals; at most 10", async () => {
+  const customer = await User.create({ phone: "9876500007" });
+  const who = { id: String(customer._id), phone: customer.phone! };
+  const p = await Product.create({ name: "Pencil", category: "Kids Special", mrp: 40, price: 20, stock: 50 });
+  await placeOrder(who, [{ id: String(p._id), qty: 1 }], { ...details, label: "Work" });
+  await placeOrder(who, [{ id: String(p._id), qty: 1 }], { ...details, line: details.line.toUpperCase() });
+  let book = (await User.findById(customer._id).lean())!.addresses!;
+  assert.equal(book.length, 1);
+  assert.equal(book[0].label, "Work");
+  assert.equal(await saveToBook(who.id, { line: "Flat 2, (Old) Market Rd.", landmark: "", pincode: "226002" }), true);
+  for (let i = 0; i < 12; i++) await saveToBook(who.id, { line: `House ${i}, Some Long Street`, landmark: "", pincode: "226003" });
+  book = (await User.findById(customer._id).lean())!.addresses!;
+  assert.equal(book.length, 10);
+  assert.equal(await saveToBook(who.id, { line: "One more house, far away", landmark: "", pincode: "226004" }), false);
 });

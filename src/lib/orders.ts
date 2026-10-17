@@ -1,6 +1,6 @@
 import { randomInt, timingSafeEqual } from "node:crypto";
 import { isValidObjectId, type Types } from "mongoose";
-import { audit, connectDB, Counter, Order, Product, User, type OrderStatus } from "./db";
+import { ADDRESS_LABELS, audit, connectDB, Counter, MAX_ADDRESSES, Order, Product, User, type OrderStatus } from "./db";
 import { STATUS_LABEL } from "./format";
 import { mockOtp, sendCode } from "./sms";
 
@@ -10,7 +10,7 @@ export const DELIVERY_DAYS = 4;
 export class OrderError extends Error {}
 
 type Line = { id: string; qty: number };
-type Details = { name: string; line: string; landmark: string; pincode: string };
+type Details = { name: string; line: string; landmark: string; pincode: string; label?: string };
 
 export function checkDetails(d: Details) {
   if (d.name.length < 2 || d.name.length > 80) return "Enter your name.";
@@ -68,13 +68,31 @@ export async function placeOrder(user: { id: string; phone: string }, lines: Lin
       deliverBy: new Date(Date.now() + DELIVERY_DAYS * 86_400_000),
       history: [{ by: `${details.name} · ${user.phone}`, text: "Order placed" }],
     });
-    // remembered for the next order
-    await User.updateOne({ _id: user.id }, { name: details.name, address });
+    // remembered for next time: the name, and a new address joins the address book
+    await User.updateOne({ _id: user.id }, { name: details.name });
+    await saveToBook(user.id, { ...address, label: details.label });
     return order;
   } catch (error) {
     await Promise.all(taken.map((t) => Product.updateOne({ _id: t.id }, { $inc: { stock: t.qty } })));
     throw error;
   }
+}
+
+const sameAddress = (line: string, pincode: string) => ({ $elemMatch: { line: new RegExp(`^${line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"), pincode } });
+
+/**
+ * Adds an address to the person's book unless it is already there (same address and pincode, any
+ * capitals). The first one becomes the default. Returns false when the book is full.
+ */
+export async function saveToBook(userId: string, a: { line: string; landmark: string; pincode: string; label?: string }) {
+  await connectDB();
+  if (await User.exists({ _id: userId, addresses: sameAddress(a.line, a.pincode) })) return true;
+  const label = ADDRESS_LABELS.includes(a.label as never) ? a.label : "Home";
+  const { modifiedCount } = await User.updateOne(
+    { _id: userId, [`addresses.${MAX_ADDRESSES - 1}`]: { $exists: false } },
+    { $push: { addresses: { label, line: a.line, landmark: a.landmark, pincode: a.pincode } } },
+  );
+  return modifiedCount > 0;
 }
 
 const OPEN: OrderStatus[] = ["placed", "packed", "out_for_delivery"];

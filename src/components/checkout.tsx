@@ -3,19 +3,22 @@
 import { IndianRupee, ShoppingBag, Trash2, Truck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { placeOrderAction } from "@/lib/actions";
 import { inr, type ShopItem } from "@/lib/format";
 import { clearCart, setQty, Stepper, useCart } from "./cart";
 import { AddPhone } from "./login-form";
 import { ProductArt } from "./category";
 
-type Customer = { phone: string; name: string; address: { line: string; landmark: string; pincode: string } | null };
+type Address = { id: string; label: string; line: string; landmark: string; pincode: string };
+type Customer = { phone: string; name: string; addresses: Address[] };
 
 export function CartView({ items, customer, deliveryDays, codeHint }: { items: ShopItem[]; customer: Customer | null; deliveryDays: number; codeHint?: string }) {
   const cart = useCart();
   const router = useRouter();
   const [state, action, pending] = useActionState(placeOrderAction, null);
+  // the default (first saved) address, or a new one when there are none
+  const [deliverTo, setDeliverTo] = useState(customer?.addresses[0]?.id ?? "new");
 
   useEffect(() => {
     if (state?.number) {
@@ -112,22 +115,59 @@ export function CartView({ items, customer, deliveryDays, codeHint }: { items: S
               Mobile
               <input value={`+91 ${customer.phone}`} readOnly aria-readonly="true" className="readonly" />
             </label>
-            <label>
-              Full Address
-              <textarea name="line" required minLength={10} maxLength={300} rows={3} autoComplete="street-address" placeholder="House no., street, area…" defaultValue={customer.address?.line} />
-            </label>
-            <div className="two">
-              <label>
-                <span>
-                  Landmark <small>(optional)</small>
-                </span>
-                <input name="landmark" maxLength={120} autoComplete="off" placeholder="Near temple, school…" defaultValue={customer.address?.landmark} />
-              </label>
-              <label>
-                Pincode
-                <input name="pincode" required inputMode="numeric" pattern="\d{6}" maxLength={6} autoComplete="postal-code" placeholder="226001" defaultValue={customer.address?.pincode} />
-              </label>
-            </div>
+            {customer.addresses.length > 0 && (
+              <fieldset className="deliver-to">
+                <legend>Deliver to</legend>
+                {[...customer.addresses, { id: "new" } as const].map((a) => (
+                  <label key={a.id} className="address-option">
+                    <input type="radio" name="addressId" value={a.id} checked={deliverTo === a.id} onChange={() => setDeliverTo(a.id)} />
+                    {!("line" in a) ? (
+                      <span>
+                        <strong>A new address</strong>
+                        <small>Saved to your address book with the order</small>
+                      </span>
+                    ) : (
+                      <span>
+                        <strong>{a.label}</strong>
+                        <small>
+                          {a.line}
+                          {a.landmark && `, near ${a.landmark}`} – {a.pincode}
+                        </small>
+                      </span>
+                    )}
+                  </label>
+                ))}
+              </fieldset>
+            )}
+            {deliverTo === "new" && (
+              <>
+                <input type="hidden" name="addressId" value="new" />
+                <label>
+                  Full Address
+                  <textarea name="line" required minLength={10} maxLength={300} rows={3} autoComplete="street-address" placeholder="House no., street, area…" />
+                </label>
+                <div className="two">
+                  <label>
+                    <span>
+                      Landmark <small>(optional)</small>
+                    </span>
+                    <input name="landmark" maxLength={120} autoComplete="off" placeholder="Near temple, school…" />
+                  </label>
+                  <label>
+                    Pincode
+                    <input name="pincode" required inputMode="numeric" pattern="\d{6}" maxLength={6} autoComplete="postal-code" placeholder="226001" />
+                  </label>
+                </div>
+                <label>
+                  Save as
+                  <select name="label" defaultValue={customer.addresses.length ? "Other" : "Home"}>
+                    <option>Home</option>
+                    <option>Work</option>
+                    <option>Other</option>
+                  </select>
+                </label>
+              </>
+            )}
             {state?.error && (
               <p role="alert" className="error">
                 {state.error}

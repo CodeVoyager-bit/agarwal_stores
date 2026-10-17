@@ -4,15 +4,46 @@ import mongoose from "mongoose";
 import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
 import { GoogleMark } from "@/components/google-button";
-import { AddPhone, EmailChange } from "@/components/login-form";
-import { linkGoogleAction, logoutAction, logoutEverywhereAction, passwordAction, saveAddressAction, saveNameAction } from "@/lib/actions";
+import { AddPhone, EmailChange, PasswordInput } from "@/components/login-form";
+import { addAddressAction, defaultAddressAction, editAddressAction, linkGoogleAction, logoutAction, logoutEverywhereAction, passwordAction, removeAddressAction, saveNameAction } from "@/lib/actions";
 import { mockOtp, requireUser } from "@/lib/auth";
 import { googleEnabled } from "@/lib/better-auth";
-import { connectDB, Order, User } from "@/lib/db";
+import { ADDRESS_LABELS, connectDB, MAX_ADDRESSES, Order, User } from "@/lib/db";
 import { day } from "@/lib/format";
 import { ROLE_LABEL } from "@/lib/roles";
 
 export const metadata: Metadata = { title: "Your Account · Agarwal Stores" };
+
+function AddressFields({ address }: { address?: { label: string; line: string; landmark: string; pincode: string } }) {
+  return (
+    <>
+      <label>
+        Save as
+        <select name="label" defaultValue={address?.label ?? "Home"}>
+          {ADDRESS_LABELS.map((l) => (
+            <option key={l}>{l}</option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Full address
+        <textarea name="line" rows={3} required minLength={10} maxLength={300} autoComplete="street-address" placeholder="House no., street, area…" defaultValue={address?.line} />
+      </label>
+      <div className="two">
+        <label>
+          <span>
+            Landmark <small>(optional)</small>
+          </span>
+          <input name="landmark" maxLength={120} autoComplete="off" placeholder="Near temple, school…" defaultValue={address?.landmark} />
+        </label>
+        <label>
+          Pincode
+          <input name="pincode" required inputMode="numeric" pattern="\d{6}" maxLength={6} autoComplete="postal-code" placeholder="226001" defaultValue={address?.pincode} />
+        </label>
+      </div>
+    </>
+  );
+}
 
 /** Everything about the logged-in person in one place, each part changeable where it sits. */
 export default async function Account({ searchParams }: { searchParams: Promise<{ google?: string }> }) {
@@ -135,19 +166,10 @@ export default async function Account({ searchParams }: { searchParams: Promise<
             <summary>{hasPassword ? "Change password" : "Set a password"}</summary>
           <ActionForm action={passwordAction} submit={hasPassword ? "Change Password" : "Set Password"}>
             {hasPassword && (
-              <label>
-                Current password
-                <input name="current" type="password" autoComplete="current-password" required maxLength={128} />
-              </label>
+              <PasswordInput name="current" autoComplete="current-password" label="Current password" />
             )}
-            <label>
-              New password (8+ characters)
-              <input name="password" type="password" autoComplete="new-password" required minLength={8} maxLength={128} />
-            </label>
-            <label>
-              Type it again
-              <input name="confirm" type="password" autoComplete="new-password" required minLength={8} maxLength={128} />
-            </label>
+            <PasswordInput name="password" autoComplete="new-password" label="New password (8+ characters)" />
+            <PasswordInput name="confirm" autoComplete="new-password" label="Type it again" />
           </ActionForm>
           </details>
           {googleEnabled() && !hasGoogle && (
@@ -161,40 +183,54 @@ export default async function Account({ searchParams }: { searchParams: Promise<
 
         <section className="panel stack" aria-labelledby="address">
           <h2 id="address">
-            <MapPin size={20} aria-hidden="true" /> Delivery Address
+            <MapPin size={20} aria-hidden="true" /> Delivery Addresses
           </h2>
-          {user.address ? (
-            <p>
-              {user.address.line}
-              {user.address.landmark && <small>Near {user.address.landmark}</small>}
-              <small>
-                <strong>{user.address.pincode}</strong>
-              </small>
-            </p>
+          {user.addresses.length ? (
+            <ul className="address-book">
+              {user.addresses.map((a, n) => (
+                <li key={a.id}>
+                  <p className="address-head">
+                    <strong>{a.label}</strong>
+                    {n === 0 && <span className="tag create">Default</span>}
+                  </p>
+                  <p>
+                    {a.line}
+                    {a.landmark && <small>Near {a.landmark}</small>}
+                    <small>
+                      <strong>{a.pincode}</strong>
+                    </small>
+                  </p>
+                  <div className="address-actions">
+                    <details className="edit">
+                      <summary>Edit</summary>
+                      <ActionForm action={editAddressAction} submit="Save Address">
+                        <input type="hidden" name="id" value={a.id} />
+                        <AddressFields address={a} />
+                      </ActionForm>
+                    </details>
+                    {n > 0 && (
+                      <ActionForm action={defaultAddressAction} submit="Make Default" className="inline-form">
+                        <input type="hidden" name="id" value={a.id} />
+                      </ActionForm>
+                    )}
+                    <ActionForm action={removeAddressAction} submit="Remove" className="inline-form" confirm={`Remove the ${a.label} address?`}>
+                      <input type="hidden" name="id" value={a.id} />
+                    </ActionForm>
+                  </div>
+                </li>
+              ))}
+            </ul>
           ) : (
-            <p className="muted">No address yet. Checkout fills it in for you once it’s saved.</p>
+            <p className="muted">No addresses yet. One you type at checkout is saved here too.</p>
           )}
-          <details className="edit" open={!user.address}>
-            <summary>{user.address ? "Change address" : "Add an address"}</summary>
-          <ActionForm action={saveAddressAction} submit="Save Address">
-            <label>
-              Full address
-              <textarea name="line" rows={3} required minLength={10} maxLength={300} autoComplete="street-address" placeholder="House no., street, area…" defaultValue={user.address?.line} />
-            </label>
-            <div className="two">
-              <label>
-                <span>
-                  Landmark <small>(optional)</small>
-                </span>
-                <input name="landmark" maxLength={120} autoComplete="off" placeholder="Near temple, school…" defaultValue={user.address?.landmark} />
-              </label>
-              <label>
-                Pincode
-                <input name="pincode" required inputMode="numeric" pattern="\d{6}" maxLength={6} autoComplete="postal-code" placeholder="226001" defaultValue={user.address?.pincode} />
-              </label>
-            </div>
-          </ActionForm>
-          </details>
+          {user.addresses.length < MAX_ADDRESSES && (
+            <details className="edit" open={!user.addresses.length}>
+              <summary>Add an address</summary>
+              <ActionForm action={addAddressAction} submit="Save Address">
+                <AddressFields />
+              </ActionForm>
+            </details>
+          )}
         </section>
 
         <section className="panel stack" aria-labelledby="out">
