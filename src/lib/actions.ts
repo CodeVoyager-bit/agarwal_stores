@@ -6,10 +6,10 @@ import { hashPassword } from "better-auth/crypto";
 import mongoose from "mongoose";
 import { headers } from "next/headers";
 import { allowStaff, clientIp, currentUser, overLimit, ownerPhones, safeNext, tenDigits, validPhone, who } from "./auth";
-import { getAuth } from "./better-auth";
+import { getAuth, googleEnabled } from "./better-auth";
 import { isPlaceholderEmail, placeholderEmail } from "./email";
 import { audit, connectDB, ORDER_STATUSES, Photo, Product, User, type OrderStatus } from "./db";
-import { addNote, assignDelivery, completeDelivery, deliveryFailed, OrderError, placeOrder, receiveCash, setOrderStatus, startDelivery } from "./orders";
+import { addNote, assignDelivery, checkDetails, completeDelivery, deliveryFailed, OrderError, placeOrder, receiveCash, setOrderStatus, startDelivery } from "./orders";
 import { ROLE_LABEL, ROLES, type Role } from "./roles";
 import { applyImport, planImport, readSheet, type PlanRow } from "./stock-import";
 
@@ -32,7 +32,7 @@ const hasPassword = async (userId: unknown) =>
  * to an email) and then sets a password. "forgot" sends the code to someone who has a password.
  */
 export type LoginStep = {
-  step?: "password" | "code";
+  step?: "password" | "code" | "google";
   by: "phone" | "email";
   id?: string;
   name?: string;
@@ -67,6 +67,9 @@ export async function loginStepAction(_: LoginStep, form: FormData): Promise<Log
     const user = await User.findOne(by === "phone" ? { phone: id } : { email: id }).lean();
     const name = user?.name && user.name !== "Customer" ? user.name : undefined;
     if (intent === "identify" && user && (await hasPassword(user._id))) return { ...at, step: "password", name };
+    // made with Google and no password yet: Google already knows it's them, so no code is needed
+    if (intent === "identify" && user && googleEnabled() && (await mongoose.connection.collection("authAccounts").findOne({ userId: user._id, providerId: "google" })))
+      return { ...at, step: "google", name };
     const problem = await sendCodeTo(by, id);
     if (problem) return intent === "forgot" ? { ...at, step: "password", name, error: problem } : { by, error: problem };
     return { ...at, step: "code", name, isNew: !user, ok: intent === "forgot" ? "Code sent." : undefined };
@@ -156,6 +159,105 @@ export async function addPhoneAction(_: LoginState, form: FormData): Promise<Log
   }
   revalidatePath("/", "layout");
   return { phone, ok: "Number added." };
+}
+
+// ---- Account page ----
+
+async function me() {
+  const user = await currentUser();
+  if (!user) throw new OrderError("Please log in again.");
+  return user;
+}
+
+export async function saveNameAction(_: Result, form: FormData): Promise<Result> {
+  return attempt(async () => {
+    const user = await me();
+    const name = text(form, "name").slice(0, 80);
+    if (name.length < 2) throw new OrderError("Enter your name.");
+    await User.updateOne({ _id: user.id }, { name });
+    return "Name saved.";
+  });
+}
+
+export async function saveAddressAction(_: Result, form: FormData): Promise<Result> {
+  return attempt(async () => {
+    const user = await me();
+    const address = { line: text(form, "line"), landmark: text(form, "landmark"), pincode: text(form, "pincode") };
+    const problem = checkDetails({ name: user.name || "ok", ...address });
+    if (problem) throw new OrderError(problem);
+    await User.updateOne({ _id: user.id }, { address });
+    return "Address saved. Checkout fills it in for you.";
+  });
+}
+
+/** A new or changed password. With one already set, the current password is checked first. */
+export async function passwordAction(_: Result, form: FormData): Promise<Result> {
+  return attempt(async () => {
+    await me();
+    const current = String(form.get("current") ?? "");
+    const password = String(form.get("password") ?? "");
+    if (password.length < 8 || password.length > 128) throw new OrderError("Choose a password of at least 8 characters.");
+    if (password !== String(form.get("confirm") ?? "")) throw new OrderError("The two passwords don't match.");
+    const api = await authApi();
+    try {
+      if (current) await api.changePassword({ body: { currentPassword: current, newPassword: password, revokeOtherSessions: true }, headers: await headerList() });
+      else await api.setPassword({ body: { newPassword: password }, headers: await headerList() });
+    } catch {
+      throw new OrderError(current ? "Your current password isn't right." : "Couldn't set the password. Log out and back in, then try again.");
+    }
+    return current ? "Password changed. Other devices are logged out." : "Password set. You can log in with it now.";
+  });
+}
+
+export type EmailChangeState = { email?: string; error?: string; ok?: string } | null;
+
+/** Step 1 of adding or changing the email: a code goes to the new address (free). */
+export async function requestEmailChangeAction(_: EmailChangeState, form: FormData): Promise<EmailChangeState> {
+  const user = await currentUser();
+  if (!user) return { error: "Please log in again." };
+  const email = text(form, "email").toLowerCase();
+  if (!looksLikeEmail(email)) return { error: "Enter the email address." };
+  if (email === user.email) return { error: "That's already your email." };
+  await connectDB();
+  if (await User.exists({ email })) return { error: "That email is on another account. Log in with it instead, or use a different one." };
+  if (await overLimit(`code:${email}`, 3, 10 * 60_000)) return { error: "Too many codes asked for. Please wait 10 minutes." };
+  try {
+    await (await authApi()).requestEmailChangeEmailOTP({ body: { newEmail: email }, headers: await headerList() });
+  } catch (error) {
+    return { error: authMessage(error, "Couldn't send the code. Log out and back in, then try again.") };
+  }
+  return { email };
+}
+
+/** Step 2: the code makes it the account's email (verified, so it can be used to log in). */
+export async function confirmEmailChangeAction(_: EmailChangeState, form: FormData): Promise<EmailChangeState> {
+  const email = text(form, "email").toLowerCase();
+  const code = text(form, "code").replace(/\D/g, "");
+  if (code.length !== 6) return { email, error: "Enter the 6‑digit code." };
+  try {
+    await (await authApi()).changeEmailEmailOTP({ body: { newEmail: email, otp: code }, headers: await headerList() });
+  } catch {
+    return { email, error: "That code is not right, or it has expired. Check it, or start again." };
+  }
+  revalidatePath("/", "layout");
+  return { email, ok: "Email saved. You can log in with it now." };
+}
+
+/** Connects Google to the logged-in account, so it can be used to log in next time. */
+export async function linkGoogleAction() {
+  const { url } = await (await authApi()).linkSocialAccount({
+    body: { provider: "google", callbackURL: "/account?google=linked", errorCallbackURL: "/account?google=failed", disableRedirect: true },
+    headers: await headerList(),
+  });
+  redirect(url);
+}
+
+/** Logs out here and on every other phone or computer. */
+export async function logoutEverywhereAction() {
+  const api = await authApi();
+  await api.revokeSessions({ headers: await headerList() }).catch(() => undefined);
+  await api.signOut({ headers: await headerList() }).catch(() => undefined);
+  redirect("/");
 }
 
 export async function logoutAction() {

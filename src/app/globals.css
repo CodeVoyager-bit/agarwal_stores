@@ -581,6 +581,21 @@ ul.chips { list-style: none; margin: 0 0 12px; }
 .logout-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1.5px solid rgb(122 16 34 / 0.25); background: rgb(255 255 255 / 0.35); color: var(--maroon); font: inherit; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background-color 150ms var(--ease); }
 .logout-btn:hover { background: #fff; }
 
+/* ---- account ---- */
+/* two flowing columns, so a tall card never leaves a gap beside it */
+.account-grid { columns: 2 340px; column-gap: 16px; margin-top: 8px; }
+.account-grid > .panel { break-inside: avoid; margin-bottom: 16px; }
+.account-grid h2 { display: flex; align-items: center; gap: 10px; font-size: 1.25rem; }
+.account-grid h2 svg { color: #e65100; }
+.account-grid .rows dd a { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+.account-grid .tag { display: inline-flex; align-items: center; gap: 4px; font-family: system-ui, sans-serif; }
+.edit > summary { cursor: pointer; color: var(--red); font-weight: 700; list-style: none; width: fit-content; }
+.edit > summary::-webkit-details-marker { display: none; }
+.edit > summary::after { content: " ▾"; font-size: 0.8em; }
+.edit[open] > summary { margin-bottom: 12px; }
+.edit[open] > summary::after { content: " ▴"; }
+.edit .fields { padding-top: 0; border-top: 0; }
+
 /* ---- loading: a spinning chakri, and a saffron bar across the top while a link loads ---- */
 .page-loading { display: grid; justify-items: center; gap: 12px; padding: 90px 16px; color: var(--muted); }
 .page-loading p { margin: 0; font-weight: 600; }

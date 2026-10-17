@@ -5,7 +5,9 @@ import { nextCookies } from "better-auth/next-js";
 import { emailOTP, phoneNumber } from "better-auth/plugins";
 import mongoose from "mongoose";
 import { connectDB } from "./db";
-import { codeMail, placeholderEmail, sendEmail } from "./email";
+import { appOrigin, codeMail, placeholderEmail, sendEmail } from "./email";
+
+export { appOrigin };
 import { mockOtp, sendCode } from "./sms";
 
 /**
@@ -13,13 +15,6 @@ import { mockOtp, sendCode } from "./sms";
  * Online sets it up: users share the app's own "users" collection; passwords, sessions and codes
  * live in auth* collections beside it.
  */
-
-/** The site's own address, for links in emails and Google's return trip. */
-export function appOrigin() {
-  if (process.env.APP_ORIGIN) return process.env.APP_ORIGIN.replace(/\/$/, "");
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-  return "http://127.0.0.1:3000";
-}
 
 export const googleEnabled = () => Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
@@ -67,7 +62,9 @@ function build() {
     // Google signs in to the account that already has its email instead of making a second one. better-auth
     // joins them only when that account's email is verified (requireLocalEmailVerified, the default), so
     // nobody can claim someone else's email first; emails here are always verified by their code.
-    account: { modelName: "authAccounts", accountLinking: { enabled: true } },
+    // Connecting Google from the Account page works whatever email the account holds (a phone account has
+    // a placeholder one): the person is already logged in, so they have proved it is theirs.
+    account: { modelName: "authAccounts", accountLinking: { enabled: true, allowDifferentEmails: true } },
     session: { modelName: "authSessions", expiresIn: 60 * 24 * 60 * 60, updateAge: 24 * 60 * 60 },
     verification: { modelName: "authVerifications", storeIdentifier: "hashed" },
     rateLimit: {
@@ -135,8 +132,10 @@ function build() {
         expiresIn: 10 * 60,
         allowedAttempts: 5,
         ...(mockOtp() && { generateOTP: () => process.env.MOCK_OTP_CODE || "123456" }),
-        sendVerificationOTP: async ({ email, otp }) => {
-          await sendEmail({ to: email, ...codeMail(otp) });
+        // the Account page adds or changes an email with a code sent to the new address
+        changeEmail: { enabled: true },
+        sendVerificationOTP: async ({ email, otp, type }) => {
+          await sendEmail({ to: email, ...codeMail(otp, type) });
         },
       }),
       // lets server actions set the login cookie

@@ -16,18 +16,18 @@ npm run seed           # 24 sample crackers, only into an empty catalog
 npm run dev            # http://127.0.0.1:3000
 ```
 
-Logins run on better-auth, set up as in Agarwal Online:
+Logins run on better-auth, set up as in Agarwal Online. One Log In page does everything:
 
-- **Log in** with mobile number or email, and a password, which costs nothing. Or **Continue with Google** once
-  `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are set (redirect URI `<APP_ORIGIN>/api/auth/callback/google`).
-- **Create an account** with a mobile number: one WhatsApp/SMS code checks it. An email is optional and gets a
-  confirmation link.
-- **Forgot password**: a free link by email, or a code by SMS. Google accounts add their mobile number once at checkout.
-- In development no SMS goes out (the code is `MOCK_OTP_CODE`, 123456), and with no mailbox set
-  (or `EMAIL_TO_LOG=true`) emails are printed in the server log.
+1. Enter a **mobile number or email** (separate tabs, so each gets the right keyboard).
+2. Someone with a password types it. Anyone new, or without a password yet, gets a **6-digit code**
+   (WhatsApp/SMS to a number, a free email to an email), then sets a password (and a name if new).
+3. **Forgot password?** sends the same code. An account made with **Google** is offered Continue with Google
+   instead of a code, and can set a password on the Account page after logging in.
 
-`npm test` checks orders, stock, deliveries, cash and the price-list import against **local** MongoDB
-(throwaway `agarwal_fatake_*test` databases, never the one in `.env`).
+Google (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, redirect URI `<APP_ORIGIN>/api/auth/callback/google`) signs in
+to the account that already has that email, never a second one: emails are always verified by their code.
+In development no SMS goes out (the code is `MOCK_OTP_CODE`, 123456), and with no mailbox set (or
+`EMAIL_TO_LOG=true`) emails are printed in the server log.
 
 ## Roles
 
@@ -48,7 +48,8 @@ Owners set roles on `/admin/staff`; the person then taps **Forgot password?** on
 | --- | --- | --- |
 | `/` | everyone | catalog, search, categories, add to cart |
 | `/cart` | everyone | cart; after login, address + place order |
-| `/login`, `/signup`, `/reset` | everyone | log in (mobile, email, Google); create an account; forgot password |
+| `/login` | everyone | log in, sign up and forgot password in one flow (mobile, email or Google) |
+| `/account` | logged in | name, mobile, email, password, Google, delivery address, log out everywhere |
 | `/orders` | customer | their orders and status |
 | `/admin` | admin | all orders, search, status, who is delivering |
 | `/admin/orders/[id]` | admin | one order: items, history, notes, give for delivery, cash; printable packing slip |

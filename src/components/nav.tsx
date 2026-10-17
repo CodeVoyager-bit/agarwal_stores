@@ -17,6 +17,7 @@ export function SiteNav({ role }: { role: Role | null }) {
     { href: "/cart", label: "Cart", Icon: ShoppingBag, badge: count },
     ...(role && can(role, "delivery") ? [{ href: "/delivery", label: "Deliveries", Icon: Bike }] : []),
     ...(role && can(role, "orders") ? [{ href: "/admin", label: "Admin", Icon: LayoutDashboard }] : []),
+    ...(role ? [{ href: "/account", label: "Account", Icon: UserRound }] : []),
   ];
   const current = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 

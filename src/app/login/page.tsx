@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { GoogleButton, googleProblem } from "@/components/google-button";
+import { googleProblem } from "@/components/google-button";
 import { LoginFlow } from "@/components/login-form";
 import { currentUser, mockOtp, safeNext } from "@/lib/auth";
 import { googleEnabled } from "@/lib/better-auth";
@@ -22,8 +22,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           {problem}
         </p>
       )}
-      {googleEnabled() && <GoogleButton next={next} />}
-      <LoginFlow next={next} hint={mockOtp() ? `Test mode: the code is ${process.env.MOCK_OTP_CODE || "123456"}` : undefined} />
+      <LoginFlow next={next} google={googleEnabled()} hint={mockOtp() ? `Test mode: the code is ${process.env.MOCK_OTP_CODE || "123456"}` : undefined} />
     </div>
   );
 }
