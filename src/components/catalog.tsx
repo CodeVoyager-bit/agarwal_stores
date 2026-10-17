@@ -75,27 +75,8 @@ export function Catalog({ items, categories, initialQuery, initialCategory }: { 
               <span className="muted">{list.length === 1 ? "1 item" : `${list.length} items`}</span>
             </div>
             <ul className="grid">
-              {list.map((i) => (
-                <li key={i.id} className={i.stock > 0 ? "card" : "card sold-out"}>
-                  <div className="card-art">
-                    <ProductArt category={i.category} image={i.image} />
-                    {i.mrp > i.price && <span className="off">{Math.round((1 - i.price / i.mrp) * 100)}% Off</span>}
-                  </div>
-                  <div className="card-body">
-                    <h3>{i.name}</h3>
-                    <p className="unit">{i.unit}</p>
-                    <p className="price">
-                      <strong>{inr(i.price)}</strong>
-                      {i.mrp > i.price && (
-                        <s>
-                          <span className="sr-only">MRP </span>
-                          {inr(i.mrp)}
-                        </s>
-                      )}
-                    </p>
-                    {i.stock > 0 ? <Stepper id={i.id} name={i.name} max={i.stock} /> : <p className="oos">Out of Stock</p>}
-                  </div>
-                </li>
+              {list.map((i, n) => (
+                <ProductCard key={i.id} item={i} n={n} />
               ))}
             </ul>
           </section>
@@ -119,5 +100,35 @@ export function Catalog({ items, categories, initialQuery, initialCategory }: { 
         </Link>
       )}
     </>
+  );
+}
+
+/** One product on a shelf. The whole card opens its page (the name's link covers it); Add sits above. */
+export function ProductCard({ item: i, n }: { item: ShopItem; n: number }) {
+  return (
+    <li className={i.stock > 0 ? "card" : "card sold-out"} style={{ "--i": String(Math.min(n, 6)) } as React.CSSProperties}>
+      <div className="card-art">
+        <ProductArt category={i.category} image={i.image} />
+        {i.mrp > i.price && <span className="off">{Math.round((1 - i.price / i.mrp) * 100)}% Off</span>}
+      </div>
+      <div className="card-body">
+        <h3>
+          <Link href={`/product/${i.id}`} className="card-link">
+            {i.name}
+          </Link>
+        </h3>
+        <p className="unit">{i.unit}</p>
+        <p className="price">
+          <strong>{inr(i.price)}</strong>
+          {i.mrp > i.price && (
+            <s>
+              <span className="sr-only">MRP </span>
+              {inr(i.mrp)}
+            </s>
+          )}
+        </p>
+        {i.stock > 0 ? <Stepper id={i.id} name={i.name} max={i.stock} /> : <p className="oos">Out of Stock</p>}
+      </div>
+    </li>
   );
 }

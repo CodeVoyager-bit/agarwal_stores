@@ -10,6 +10,15 @@ export const metadata: Metadata = { title: "My Orders · Agarwal Stores" };
 
 const STEPS = ["placed", "packed", "out_for_delivery", "delivered"];
 
+/** One round of sparks, evenly spread (globals.css .burst). */
+const Sparks = ({ count }: { count: number }) => (
+  <span className="burst">
+    {Array.from({ length: count }, (_, n) => (
+      <i key={n} style={{ "--a": `${(360 / count) * n}deg` } as React.CSSProperties} />
+    ))}
+  </span>
+);
+
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ placed?: string }> }) {
   const user = await requireUser("/orders");
   const { placed } = await searchParams;
@@ -29,7 +38,11 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
       </div>
       {typeof placed === "string" && /^\d+$/.test(placed) && (
         <div className="success" role="status">
-          <CircleCheck size={22} aria-hidden="true" />
+          <span className="firework" aria-hidden="true">
+            <CircleCheck size={22} />
+            <Sparks count={12} />
+            <Sparks count={8} />
+          </span>
           <p>
             <strong>Order #{placed} is placed.</strong> We’ll call +91&nbsp;{orders.find((o) => o.number === Number(placed))?.phone} before we deliver.
           </p>

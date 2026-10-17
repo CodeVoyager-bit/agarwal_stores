@@ -230,6 +230,40 @@ input[type="checkbox"] { width: 20px; min-height: 20px; height: 20px; accent-col
 /* room to scroll the last products out from under the cart bar */
 main:has(.cartbar) { padding-bottom: 88px; }
 
+/* the whole card opens its product page: the name's link stretches over it, Add stays on top */
+.card { position: relative; }
+.card-link { color: inherit; text-decoration: none; }
+.card-link::after { content: ""; position: absolute; inset: 0; z-index: 1; }
+.card-link:focus-visible { outline: none; }
+.card:has(.card-link:focus-visible) { outline: 3px solid var(--maroon); outline-offset: 2px; }
+.card .add, .card .stepper, .card .oos { position: relative; z-index: 2; }
+
+/* ---- product page ---- */
+.crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 14px; color: var(--muted); font-size: 0.9rem; }
+.crumbs a { color: var(--red); font-weight: 700; text-decoration: none; }
+.crumbs a:hover { text-decoration: underline; }
+.product { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+.product .card-art { border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
+.product.sold-out .art { filter: grayscale(1); opacity: 0.55; }
+.product-info { display: grid; gap: 10px; }
+.product-info h1 { margin: 0; overflow-wrap: anywhere; }
+.product-info > .muted { margin: 0; }
+.product-cat { justify-self: start; display: inline-flex; align-items: center; gap: 6px; color: var(--red); font-weight: 700; text-decoration: none; }
+.product .price { margin: 4px 0 0; flex-wrap: wrap; }
+.product .price strong { font-size: 2.1rem; }
+.save { color: #1b5e20; font-weight: 700; font-size: 0.9rem; }
+.stock { margin: 0; color: #1b5e20; font-weight: 700; font-size: 0.92rem; }
+.stock.low { color: var(--danger); }
+.product .add, .product .stepper { min-height: 52px; font-size: 1.05rem; }
+.product .stepper button { height: 52px; }
+.safety { margin-top: 16px; }
+.safety h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 1.15rem; }
+.safety svg { color: #1b5e20; }
+.safety ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; line-height: 1.5; }
+@media (max-width: 760px) {
+  .product { grid-template-columns: 1fr; gap: 16px; padding: 14px; }
+}
+
 /* ---- cart & checkout ---- */
 .checkout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr); gap: 24px; align-items: start; }
 .lines { list-style: none; margin: 0; padding: 4px 20px; }
@@ -632,8 +666,28 @@ ul.chips { list-style: none; margin: 0 0 12px; }
 @keyframes nav-trickle { from { scale: 0 1; } 6% { scale: 0.35 1; } to { scale: 0.92 1; } }
 a[data-pending] { cursor: progress; opacity: 0.72; transition: opacity 0.15s 0.12s; }
 
+/* a product's picture on its way to the cart (cart.tsx moves it) */
+.flying { position: fixed; z-index: 40; margin: 0; pointer-events: none; overflow: hidden; box-shadow: var(--shadow-3); }
+/* sparks out of one point, like a cracker going off: the cart catching an item, an order placed */
+/* out fast, then they hang in the air a moment and fade (opacity has its own 70% stop) */
+@keyframes spark { from { transform: rotate(var(--a)) translateY(0) scale(1); opacity: 1; } 70% { opacity: 1; } to { transform: rotate(var(--a)) translateY(calc(var(--r, 26px) * -1)) scale(0.5); opacity: 0; } }
+.burst { position: absolute; z-index: 41; width: 0; height: 0; pointer-events: none; }
+.burst i { position: absolute; left: -2px; top: -6px; width: 4px; height: 12px; border-radius: 4px; background: var(--saffron); animation: spark 800ms var(--ease) var(--d, 0ms) both; }
+.burst i:nth-child(4n + 2) { background: var(--red); }
+.burst i:nth-child(4n + 3) { background: #ffc233; }
+.burst i:nth-child(4n) { background: #2e7d32; }
+/* order placed: the tick pops, two rounds of sparks go off around it */
+.firework { position: relative; display: inline-grid; place-items: center; flex: none; }
+.firework svg { animation: pop 480ms var(--spring) 150ms backwards; }
+.firework .burst { left: 50%; top: 50%; --r: 38px; --d: 250ms; }
+.firework .burst + .burst { --r: 24px; --d: 520ms; }
+/* 404: the cracker wobbles once and doesn't go off */
+@keyframes dud { 25% { transform: rotate(-14deg); } 50% { transform: rotate(10deg); } 75% { transform: rotate(-5deg); } }
+.lost .login-icon svg { animation: dud 700ms var(--ease) 350ms; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+  .burst { display: none; }
   /* no trickle: the bar just stands part-way while the page loads */
   .nav-progress[data-state="loading"] { scale: 0.6 1; }
 }
