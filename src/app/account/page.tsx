@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
 import { GoogleMark } from "@/components/google-button";
-import { AddPhone, EmailChange, PasswordInput } from "@/components/login-form";
+import { AddPhone, EmailChange, PasswordInput, PhoneField } from "@/components/login-form";
 import { addAddressAction, defaultAddressAction, editAddressAction, linkGoogleAction, logoutAction, logoutEverywhereAction, passwordAction, removeAddressAction, saveNameAction } from "@/lib/actions";
 import { mockOtp, requireUser } from "@/lib/auth";
 import { googleEnabled } from "@/lib/better-auth";
@@ -14,7 +14,7 @@ import { ROLE_LABEL } from "@/lib/roles";
 
 export const metadata: Metadata = { title: "Your Account · Agarwal Stores" };
 
-function AddressFields({ address }: { address?: { label: string; line: string; landmark: string; pincode: string } }) {
+function AddressFields({ address, phone }: { address?: { label: string; line: string; landmark: string; pincode: string; phone: string }; phone: string }) {
   return (
     <>
       <label>
@@ -41,6 +41,8 @@ function AddressFields({ address }: { address?: { label: string; line: string; l
           <input name="pincode" required inputMode="numeric" pattern="\d{6}" maxLength={6} autoComplete="postal-code" placeholder="226001" defaultValue={address?.pincode} />
         </label>
       </div>
+      {/* anyone's number at this address; the same one can be on several addresses */}
+      <PhoneField label="Mobile number for delivery" initial={address?.phone || phone} />
     </>
   );
 }
@@ -199,13 +201,14 @@ export default async function Account({ searchParams }: { searchParams: Promise<
                     <small>
                       <strong>{a.pincode}</strong>
                     </small>
+                    {a.phone && <small>Call +91 {a.phone}</small>}
                   </p>
                   <div className="address-actions">
                     <details className="edit">
                       <summary>Edit</summary>
                       <ActionForm action={editAddressAction} submit="Save Address">
                         <input type="hidden" name="id" value={a.id} />
-                        <AddressFields address={a} />
+                        <AddressFields address={a} phone={user.phone} />
                       </ActionForm>
                     </details>
                     {n > 0 && (
@@ -227,7 +230,7 @@ export default async function Account({ searchParams }: { searchParams: Promise<
             <details className="edit" open={!user.addresses.length}>
               <summary>Add an address</summary>
               <ActionForm action={addAddressAction} submit="Save Address">
-                <AddressFields />
+                <AddressFields phone={user.phone} />
               </ActionForm>
             </details>
           )}

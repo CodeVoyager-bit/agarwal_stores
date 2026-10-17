@@ -31,7 +31,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         <div className="success" role="status">
           <CircleCheck size={22} aria-hidden="true" />
           <p>
-            <strong>Order #{placed} is placed.</strong> We’ll call +91&nbsp;{user.phone} before we deliver.
+            <strong>Order #{placed} is placed.</strong> We’ll call +91&nbsp;{orders.find((o) => o.number === Number(placed))?.phone} before we deliver.
           </p>
         </div>
       )}
@@ -87,7 +87,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                   <MapPin size={16} aria-hidden="true" />
                   <span>
                     {o.address.line}
-                    {o.address.landmark && `, near ${o.address.landmark}`} – {o.address.pincode}
+                    {o.address.landmark && `, near ${o.address.landmark}`} – {o.address.pincode} · +91&nbsp;{o.phone}
                   </span>
                 </p>
                 <p className="muted">Pay cash or UPI when it arrives.</p>

@@ -181,7 +181,7 @@ export async function saveNameAction(_: Result, form: FormData): Promise<Result>
 
 /** The address fields of a form, checked; the label is one of Home, Work, Other. */
 function addressFrom(form: FormData) {
-  const address = { line: text(form, "line"), landmark: text(form, "landmark"), pincode: text(form, "pincode") };
+  const address = { line: text(form, "line"), landmark: text(form, "landmark"), pincode: text(form, "pincode"), phone: tenDigits(text(form, "phone")) };
   const problem = checkDetails({ name: "ok", ...address });
   if (problem) throw new OrderError(problem);
   const label = ADDRESS_LABELS.includes(text(form, "label") as never) ? text(form, "label") : "Home";
@@ -199,10 +199,10 @@ export async function addAddressAction(_: Result, form: FormData): Promise<Resul
 export async function editAddressAction(_: Result, form: FormData): Promise<Result> {
   return attempt(async () => {
     const user = await me();
-    const { line, landmark, pincode, label } = addressFrom(form);
+    const { line, landmark, pincode, phone, label } = addressFrom(form);
     const { matchedCount } = await User.updateOne(
       { _id: user.id, "addresses._id": text(form, "id") },
-      { $set: { "addresses.$.line": line, "addresses.$.landmark": landmark, "addresses.$.pincode": pincode, "addresses.$.label": label } },
+      { $set: { "addresses.$.line": line, "addresses.$.landmark": landmark, "addresses.$.pincode": pincode, "addresses.$.phone": phone, "addresses.$.label": label } },
     );
     if (!matchedCount) throw new OrderError("That address is gone. Refresh the page.");
     return "Address saved.";
@@ -310,7 +310,6 @@ export type CheckoutState = { error?: string; number?: number } | null;
 export async function placeOrderAction(_: CheckoutState, form: FormData): Promise<CheckoutState> {
   const user = await currentUser();
   if (!user) return { error: "Please log in again to place your order." };
-  if (!user.phone) return { error: "Add your mobile number first, so we can call you about delivery." };
   let lines: { id: string; qty: number }[];
   try {
     lines = JSON.parse(text(form, "cart"));
@@ -321,9 +320,11 @@ export async function placeOrderAction(_: CheckoutState, form: FormData): Promis
   // a saved address from the book, or a new one typed in (saved to the book when the order goes through)
   const saved = user.addresses.find((a) => a.id === text(form, "addressId"));
   if (text(form, "addressId") && text(form, "addressId") !== "new" && !saved) return { error: "That address is gone. Pick another, or add a new one." };
+  // a saved address brings its number; one without (from before numbers were kept) gets it typed in
+  const phone = tenDigits(text(form, "phone")) || (saved?.phone ?? "");
   const details = saved
-    ? { name: text(form, "name"), line: saved.line, landmark: saved.landmark, pincode: saved.pincode }
-    : { name: text(form, "name"), line: text(form, "line"), landmark: text(form, "landmark"), pincode: text(form, "pincode"), label: text(form, "label") };
+    ? { name: text(form, "name"), phone, line: saved.line, landmark: saved.landmark, pincode: saved.pincode }
+    : { name: text(form, "name"), phone, line: text(form, "line"), landmark: text(form, "landmark"), pincode: text(form, "pincode"), label: text(form, "label") };
   try {
     const order = await placeOrder(user, lines.map((l) => ({ id: String(l?.id), qty: Number(l?.qty) })), details);
     revalidatePath("/", "layout");

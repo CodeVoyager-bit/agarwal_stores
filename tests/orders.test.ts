@@ -13,7 +13,7 @@ await connectDB();
 await mongoose.connection.dropDatabase();
 after(() => mongoose.disconnect());
 
-const details = { name: "Test Customer", line: "12 Station Road, Civil Lines", landmark: "", pincode: "226001" };
+const details = { name: "Test Customer", phone: "9876543210", line: "12 Station Road, Civil Lines", landmark: "", pincode: "226001" };
 
 test("stock is taken once, never oversold, and returned once on cancel", async () => {
   const user = await User.create({ phone: "9876543210" });
@@ -57,7 +57,7 @@ test("delivery: only the assigned person, only with the customer's code and the 
   const other = await User.create({ phone: "9876500003", role: "delivery" });
   const shopper = await User.create({ phone: "9876500004" }); // a customer can't be given deliveries
   const p = await Product.create({ name: "Chakri", category: "Chakri", mrp: 200, price: 80, stock: 10 });
-  const order = await placeOrder({ id: String(customer._id), phone: customer.phone! }, [{ id: String(p._id), qty: 2 }], details);
+  const order = await placeOrder({ id: String(customer._id) }, [{ id: String(p._id), qty: 2 }], details);
   const id = String(order._id);
 
   await assert.rejects(assignDelivery(id, String(shopper._id), "owner"), OrderError);
@@ -88,7 +88,7 @@ test("delivery: five wrong codes lock it; a missed delivery goes back to packed"
   const customer = await User.create({ phone: "9876500005" });
   const rider = await User.create({ phone: "9876500006", role: "delivery" });
   const p = await Product.create({ name: "Rocket", category: "Rockets", mrp: 50, price: 20, stock: 10 });
-  const order = await placeOrder({ id: String(customer._id), phone: customer.phone! }, [{ id: String(p._id), qty: 1 }], details);
+  const order = await placeOrder({ id: String(customer._id) }, [{ id: String(p._id), qty: 1 }], details);
   const id = String(order._id);
   await assignDelivery(id, String(rider._id), "owner");
   await startDelivery(id, String(rider._id), "r");
@@ -106,16 +106,25 @@ test("delivery: five wrong codes lock it; a missed delivery goes back to packed"
 
 test("address book: a new checkout address is saved once, any capitals; at most 10", async () => {
   const customer = await User.create({ phone: "9876500007" });
-  const who = { id: String(customer._id), phone: customer.phone! };
+  const who = { id: String(customer._id) };
   const p = await Product.create({ name: "Pencil", category: "Kids Special", mrp: 40, price: 20, stock: 50 });
   await placeOrder(who, [{ id: String(p._id), qty: 1 }], { ...details, label: "Work" });
   await placeOrder(who, [{ id: String(p._id), qty: 1 }], { ...details, line: details.line.toUpperCase() });
   let book = (await User.findById(customer._id).lean())!.addresses!;
   assert.equal(book.length, 1);
   assert.equal(book[0].label, "Work");
-  assert.equal(await saveToBook(who.id, { line: "Flat 2, (Old) Market Rd.", landmark: "", pincode: "226002" }), true);
-  for (let i = 0; i < 12; i++) await saveToBook(who.id, { line: `House ${i}, Some Long Street`, landmark: "", pincode: "226003" });
+  // the same number may sit on many addresses, here and on other accounts; a repeat address takes the newest number
+  const other = await User.create({ phone: "9876500008" });
+  await placeOrder({ id: String(other._id) }, [{ id: String(p._id), qty: 1 }], details);
+  await placeOrder(who, [{ id: String(p._id), qty: 1 }], { ...details, phone: "9000000001" });
+  book = (await User.findById(customer._id).lean())!.addresses!;
+  assert.equal(book.length, 1);
+  assert.equal(book[0].phone, "9000000001");
+  assert.equal((await User.findById(other._id).lean())!.addresses![0].phone, details.phone);
+  await assert.rejects(placeOrder(who, [{ id: String(p._id), qty: 1 }], { ...details, phone: "12345" }), /mobile number/);
+  assert.equal(await saveToBook(who.id, { line: "Flat 2, (Old) Market Rd.", landmark: "", pincode: "226002", phone: details.phone }), true);
+  for (let i = 0; i < 12; i++) await saveToBook(who.id, { line: `House ${i}, Some Long Street`, landmark: "", pincode: "226003", phone: details.phone });
   book = (await User.findById(customer._id).lean())!.addresses!;
   assert.equal(book.length, 10);
-  assert.equal(await saveToBook(who.id, { line: "One more house, far away", landmark: "", pincode: "226004" }), false);
+  assert.equal(await saveToBook(who.id, { line: "One more house, far away", landmark: "", pincode: "226004", phone: details.phone }), false);
 });

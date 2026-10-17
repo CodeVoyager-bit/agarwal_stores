@@ -61,6 +61,8 @@ const bookAddressSchema = new Schema({
   line: { type: String, required: true, trim: true, maxlength: 300 },
   landmark: { type: String, trim: true, default: "", maxlength: 120 },
   pincode: { type: String, required: true, match: /^\d{6}$/ },
+  /** who the delivery person calls; any number, the same one can be on many addresses and accounts */
+  phone: { type: String, match: /^[6-9]\d{9}$/ },
 });
 
 const userSchema = new Schema(

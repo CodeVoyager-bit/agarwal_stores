@@ -7,13 +7,13 @@ import { useActionState, useEffect, useState } from "react";
 import { placeOrderAction } from "@/lib/actions";
 import { inr, type ShopItem } from "@/lib/format";
 import { clearCart, setQty, Stepper, useCart } from "./cart";
-import { AddPhone } from "./login-form";
+import { PhoneField } from "./login-form";
 import { ProductArt } from "./category";
 
-type Address = { id: string; label: string; line: string; landmark: string; pincode: string };
+type Address = { id: string; label: string; line: string; landmark: string; pincode: string; phone: string };
 type Customer = { phone: string; name: string; addresses: Address[] };
 
-export function CartView({ items, customer, deliveryDays, codeHint }: { items: ShopItem[]; customer: Customer | null; deliveryDays: number; codeHint?: string }) {
+export function CartView({ items, customer, deliveryDays }: { items: ShopItem[]; customer: Customer | null; deliveryDays: number }) {
   const cart = useCart();
   const router = useRouter();
   const [state, action, pending] = useActionState(placeOrderAction, null);
@@ -28,6 +28,7 @@ export function CartView({ items, customer, deliveryDays, codeHint }: { items: S
   }, [state, router]);
 
   if (!cart) return null;
+  const chosen = customer?.addresses.find((a) => a.id === deliverTo);
   const lines = items.filter((i) => cart[i.id]).map((i) => ({ ...i, qty: cart[i.id] }));
   const total = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
   const saved = lines.reduce((sum, l) => sum + Math.max(0, l.mrp - l.price) * l.qty, 0);
@@ -101,19 +102,13 @@ export function CartView({ items, customer, deliveryDays, codeHint }: { items: S
           </li>
         </ul>
 
-        {customer && !customer.phone ? (
-          <AddPhone hint={codeHint} />
-        ) : customer ? (
+        {customer ? (
           <form action={action} className="fields">
             <h3>Delivery Details</h3>
             <input type="hidden" name="cart" value={JSON.stringify(lines.map((l) => ({ id: l.id, qty: l.qty })))} />
             <label>
               Name
               <input name="name" required minLength={2} maxLength={80} autoComplete="name" defaultValue={customer.name} />
-            </label>
-            <label>
-              Mobile
-              <input value={`+91 ${customer.phone}`} readOnly aria-readonly="true" className="readonly" />
             </label>
             {customer.addresses.length > 0 && (
               <fieldset className="deliver-to">
@@ -133,6 +128,7 @@ export function CartView({ items, customer, deliveryDays, codeHint }: { items: S
                           {a.line}
                           {a.landmark && `, near ${a.landmark}`} – {a.pincode}
                         </small>
+                        {a.phone && <small>Call +91 {a.phone}</small>}
                       </span>
                     )}
                   </label>
@@ -158,6 +154,8 @@ export function CartView({ items, customer, deliveryDays, codeHint }: { items: S
                     <input name="pincode" required inputMode="numeric" pattern="\d{6}" maxLength={6} autoComplete="postal-code" placeholder="226001" />
                   </label>
                 </div>
+                <PhoneField label="Mobile number for delivery" initial={customer.phone} />
+                <p className="note">The delivery person calls this number. It can be anyone’s at this address.</p>
                 <label>
                   Save as
                   <select name="label" defaultValue={customer.addresses.length ? "Other" : "Home"}>
@@ -168,6 +166,8 @@ export function CartView({ items, customer, deliveryDays, codeHint }: { items: S
                 </label>
               </>
             )}
+            {/* a saved address from before numbers were kept */}
+            {chosen && !chosen.phone && <PhoneField key={chosen.id} label="Mobile number for delivery" />}
             {state?.error && (
               <p role="alert" className="error">
                 {state.error}
@@ -179,7 +179,7 @@ export function CartView({ items, customer, deliveryDays, codeHint }: { items: S
           </form>
         ) : (
           <div className="fields">
-            <p className="muted">Log in with your mobile number so we can call you about delivery.</p>
+            <p className="muted">Log in or sign up to place your order: mobile, email or Google.</p>
             <Link href="/login?next=/cart" className="btn primary big">
               Log In to Place Order
             </Link>

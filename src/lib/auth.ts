@@ -31,7 +31,7 @@ export const currentUser = cache(async () => {
     const { line, landmark, pincode } = user.address;
     user = (await User.findByIdAndUpdate(user._id, { addresses: [{ label: "Home", line, landmark, pincode }], $unset: { address: 1 } }, { returnDocument: "after" }).lean())!;
   }
-  const addresses = (user.addresses ?? []).map((a) => ({ id: String(a._id), label: a.label ?? "Home", line: a.line, landmark: a.landmark ?? "", pincode: a.pincode }));
+  const addresses = (user.addresses ?? []).map((a) => ({ id: String(a._id), label: a.label ?? "Home", line: a.line, landmark: a.landmark ?? "", pincode: a.pincode, phone: a.phone || user.phone || "" }));
   return {
     id: String(user._id),
     /** "" for someone who joined with Google and hasn't added a number yet */

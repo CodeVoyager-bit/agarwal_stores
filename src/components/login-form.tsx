@@ -27,11 +27,11 @@ export function PasswordInput({ name, autoComplete, label }: { name: string; aut
  * typed, and a pasted "+91 98765 43210" or "09876543210" becomes 9876543210. Controlled, so a failed try
  * doesn't clear it. No maxLength: it would cut a pasted "+91 …" short before the prefix comes off.
  */
-function PhoneField({ name = "phone", focus = false }: { name?: string; focus?: boolean }) {
-  const [phone, setPhone] = useState("");
+export function PhoneField({ name = "phone", focus = false, label = "Mobile number", initial = "" }: { name?: string; focus?: boolean; label?: string; initial?: string }) {
+  const [phone, setPhone] = useState(initial);
   return (
     <label>
-      Mobile number
+      {label}
       <span className="phone">
         <span aria-hidden="true">+91</span>
         <input

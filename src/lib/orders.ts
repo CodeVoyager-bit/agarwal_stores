@@ -10,13 +10,14 @@ export const DELIVERY_DAYS = 4;
 export class OrderError extends Error {}
 
 type Line = { id: string; qty: number };
-type Details = { name: string; line: string; landmark: string; pincode: string; label?: string };
+type Details = { name: string; phone: string; line: string; landmark: string; pincode: string; label?: string };
 
 export function checkDetails(d: Details) {
   if (d.name.length < 2 || d.name.length > 80) return "Enter your name.";
   if (d.line.length < 10 || d.line.length > 300) return "Enter your full address (house, street, area).";
   if (d.landmark.length > 120) return "Keep the landmark under 120 characters.";
   if (!/^\d{6}$/.test(d.pincode)) return "Enter a 6‑digit pincode.";
+  if (!/^[6-9]\d{9}$/.test(d.phone)) return "Enter a 10‑digit mobile number for delivery.";
   return null;
 }
 
@@ -26,7 +27,7 @@ export function checkDetails(d: Details) {
  * ponytail: no transaction (plain local Mongo has none); a crash between taking stock and writing
  * the order loses that stock. Move to session.withTransaction on a replica set if that ever matters.
  */
-export async function placeOrder(user: { id: string; phone: string }, lines: Line[], details: Details) {
+export async function placeOrder(user: { id: string }, lines: Line[], details: Details) {
   await connectDB();
   const wanted = new Map<string, number>();
   for (const { id, qty } of lines) {
@@ -57,20 +58,21 @@ export async function placeOrder(user: { id: string; phone: string }, lines: Lin
     const items = products.map((p) => ({ product: p._id, name: p.name, unit: p.unit, price: p.price, qty: wanted.get(String(p._id))! }));
     const counter = await Counter.findOneAndUpdate({ _id: "order" }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: "after" });
     const address = { line: details.line, landmark: details.landmark, pincode: details.pincode };
+    // the address's own number, not the account's: it may be a family member's, or shared
     const order = await Order.create({
       number: 1000 + counter!.seq!,
       user: user.id,
       name: details.name,
-      phone: user.phone,
+      phone: details.phone,
       address,
       items,
       total: items.reduce((sum, i) => sum + i.price * i.qty, 0),
       deliverBy: new Date(Date.now() + DELIVERY_DAYS * 86_400_000),
-      history: [{ by: `${details.name} · ${user.phone}`, text: "Order placed" }],
+      history: [{ by: `${details.name} · ${details.phone}`, text: "Order placed" }],
     });
     // remembered for next time: the name, and a new address joins the address book
     await User.updateOne({ _id: user.id }, { name: details.name });
-    await saveToBook(user.id, { ...address, label: details.label });
+    await saveToBook(user.id, { ...address, phone: details.phone, label: details.label });
     return order;
   } catch (error) {
     await Promise.all(taken.map((t) => Product.updateOne({ _id: t.id }, { $inc: { stock: t.qty } })));
@@ -82,15 +84,17 @@ const sameAddress = (line: string, pincode: string) => ({ $elemMatch: { line: ne
 
 /**
  * Adds an address to the person's book unless it is already there (same address and pincode, any
- * capitals). The first one becomes the default. Returns false when the book is full.
+ * capitals), in which case it keeps the number given this time. The first one becomes the default.
+ * Returns false when the book is full.
  */
-export async function saveToBook(userId: string, a: { line: string; landmark: string; pincode: string; label?: string }) {
+export async function saveToBook(userId: string, a: { line: string; landmark: string; pincode: string; phone: string; label?: string }) {
   await connectDB();
-  if (await User.exists({ _id: userId, addresses: sameAddress(a.line, a.pincode) })) return true;
+  const { matchedCount } = await User.updateOne({ _id: userId, addresses: sameAddress(a.line, a.pincode) }, { $set: { "addresses.$.phone": a.phone } });
+  if (matchedCount) return true;
   const label = ADDRESS_LABELS.includes(a.label as never) ? a.label : "Home";
   const { modifiedCount } = await User.updateOne(
     { _id: userId, [`addresses.${MAX_ADDRESSES - 1}`]: { $exists: false } },
-    { $push: { addresses: { label, line: a.line, landmark: a.landmark, pincode: a.pincode } } },
+    { $push: { addresses: { label, line: a.line, landmark: a.landmark, pincode: a.pincode, phone: a.phone } } },
   );
   return modifiedCount > 0;
 }
