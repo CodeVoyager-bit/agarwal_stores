@@ -16,6 +16,7 @@ const COLUMNS = {
   addStock: ["add stock", "received", "new stock", "add qty"],
   active: ["on sale", "active", "live", "available", "show"],
   image: ["photo", "image", "picture", "photo link", "image url", "photo url"],
+  maker: ["maker", "manufacturer", "manufactured by", "mfd by", "made by", "company", "brand"],
   // last on purpose: many lists call the product's name "Description", and the name takes it first
   description: ["details", "product details", "about", "notes", "description"],
 } as const;
@@ -26,7 +27,7 @@ export type PlanRow = {
   name: string;
   outcome: "create" | "update" | "same" | "heading" | "error";
   message?: string;
-  fields?: { name: string; category: string; unit: string; mrp: number; price: number; stock?: number; addStock?: number; active: boolean; image?: string; description?: string };
+  fields?: { name: string; category: string; unit: string; mrp: number; price: number; stock?: number; addStock?: number; active: boolean; image?: string; description?: string; maker?: string };
   id?: string;
 };
 
@@ -155,6 +156,8 @@ export async function planImport(table: string[][]): Promise<{ rows: PlanRow[]; 
     // like the other columns, an empty cell keeps what the product has; line breaks inside a cell stay
     const description = columns.description === undefined ? "" : String(cells[columns.description] ?? "").replace(/\r\n?/g, "\n").replace(/[ \t]+/g, " ").replace(/ ?\n ?/g, "\n").trim();
     if (description.length > 1000) return { line, name, outcome: "error", message: "The description is longer than 1000 letters." };
+    const maker = cell(cells, "maker");
+    if (maker.length > 200) return { line, name, outcome: "error", message: "The maker is longer than 200 letters." };
 
     const stockFields: { stock?: number; addStock?: number } = stock !== undefined ? { stock: stock + added } : added ? { addStock: added } : {};
     const fields = {
@@ -167,9 +170,10 @@ export async function planImport(table: string[][]): Promise<{ rows: PlanRow[]; 
       active: cell(cells, "active") ? yes(cell(cells, "active")) : (old?.active ?? true),
       ...(image ? { image } : {}),
       ...(description ? { description } : {}),
+      ...(maker ? { maker } : {}),
     };
     if (!old) return { line, name, outcome: "create", fields };
-    const changed = (["category", "unit", "mrp", "price", "stock", "active", "image", "description"] as const).filter(
+    const changed = (["category", "unit", "mrp", "price", "stock", "active", "image", "description", "maker"] as const).filter(
       (f) => fields[f as keyof typeof fields] !== undefined && fields[f as keyof typeof fields] !== old[f],
     );
     const what = [...changed.map((f) => (f === "stock" ? `stock ${old.stock} → ${fields.stock}` : f)), ...(fields.addStock ? [`stock +${fields.addStock}`] : [])];

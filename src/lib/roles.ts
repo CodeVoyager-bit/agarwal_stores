@@ -13,7 +13,7 @@ const GRANTS = {
   customer: [],
   delivery: ["delivery"],
   admin: ["orders", "catalog", "customers", "reports", "cash"],
-  owner: ["orders", "catalog", "customers", "reports", "cash", "staff", "audit"],
+  owner: ["orders", "catalog", "customers", "reports", "cash", "staff", "audit", "shop"],
 } as const;
 export type Permission = (typeof GRANTS)["owner" | "delivery"][number];
 

@@ -1,11 +1,11 @@
-import { BadgeCheck, LogOut, MapPin, Package, Smartphone, UserRound, Mail, KeyRound } from "lucide-react";
+import { BadgeCheck, LogOut, MapPin, Package, Smartphone, UserRound, Mail, KeyRound, Trash2 } from "lucide-react";
 import type { Metadata } from "next";
 import mongoose from "mongoose";
 import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
 import { GoogleMark } from "@/components/google-button";
 import { AddPhone, EmailChange, PasswordInput, PhoneField } from "@/components/login-form";
-import { addAddressAction, defaultAddressAction, editAddressAction, linkGoogleAction, logoutAction, logoutEverywhereAction, passwordAction, removeAddressAction, saveNameAction } from "@/lib/actions";
+import { addAddressAction, defaultAddressAction, deleteAccountAction, editAddressAction, linkGoogleAction, logoutAction, logoutEverywhereAction, passwordAction, removeAddressAction, saveNameAction } from "@/lib/actions";
 import { mockOtp, requireUser } from "@/lib/auth";
 import { googleEnabled } from "@/lib/better-auth";
 import { ADDRESS_LABELS, connectDB, MAX_ADDRESSES, Order, User } from "@/lib/db";
@@ -247,6 +247,25 @@ export default async function Account({ searchParams }: { searchParams: Promise<
             <button className="btn quiet">Log out on all phones and computers</button>
           </form>
         </section>
+
+        {/* the right to erasure (DPDP Act); staff are removed by an owner instead */}
+        {user.role === "customer" && (
+          <section className="panel stack" aria-labelledby="delete">
+            <h2 id="delete">
+              <Trash2 size={20} aria-hidden="true" /> Delete Account
+            </h2>
+            <p className="muted">
+              Deletes your login, addresses and Google link for good. Past bookings stay in the shop’s GST records, without your name, number and
+              address. This can’t be undone. See our <Link href="/privacy#rights">Privacy Policy</Link>.
+            </p>
+            <ActionForm action={deleteAccountAction} submit="Delete My Account">
+              <label>
+                Type DELETE to confirm
+                <input name="confirm" required autoComplete="off" autoCapitalize="characters" />
+              </label>
+            </ActionForm>
+          </section>
+        )}
       </div>
     </>
   );

@@ -1,4 +1,5 @@
 import { IndianRupee, PhoneCall, ShieldCheck, Truck } from "lucide-react";
+import { isValidObjectId } from "mongoose";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -6,20 +7,23 @@ import { cache } from "react";
 import { Stepper } from "@/components/cart";
 import { ProductCard } from "@/components/catalog";
 import { CategoryIcon, ProductArt } from "@/components/category";
+import { Rows } from "@/components/legal-rows";
 import { bestSellers, Product, shopItems } from "@/lib/db";
 import { inr } from "@/lib/format";
+import { shopDetails } from "@/lib/legal";
 import { DELIVERY_DAYS } from "@/lib/orders";
 import { goesWith } from "@/lib/pairs";
 
 /** The product, its write-up, what goes with it and the rest of its shelf; once per request (the title asks too). */
 const load = cache(async (id: string) => {
-  const [items, popular] = await Promise.all([shopItems(), bestSellers()]);
+  // all three at once rather than the write-up after the rest
+  const [items, popular, doc] = await Promise.all([shopItems(), bestSellers(), isValidObjectId(id) ? Product.findById(id, "description maker").lean() : null]);
   const item = items.find((i) => i.id === id);
   if (!item) return null;
-  const description = (await Product.findById(id, "description").lean())?.description ?? "";
   return {
     item,
-    description,
+    description: doc?.description ?? "",
+    maker: doc?.maker ?? "",
     pairs: goesWith(items, [item.category], new Set([id]), popular),
     more: items.filter((i) => i.category === item.category && i.id !== id),
   };
@@ -33,7 +37,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const found = await load((await params).id);
   if (!found) notFound();
-  const { item, description, pairs, more } = found;
+  const { item, description, maker, pairs, more } = found;
+  const shop = await shopDetails();
+  const phone = process.env.SHOP_PHONE;
   const off = Math.round((1 - item.price / item.mrp) * 100);
   const shelf = `/?c=${encodeURIComponent(item.category)}`;
 
@@ -47,7 +53,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
       <article className={item.stock > 0 ? "product panel" : "product panel sold-out"}>
         <div className="card-art">
-          <ProductArt category={item.category} image={item.image} />
+          <ProductArt category={item.category} image={item.image} large />
           {off > 0 && <span className="off">{off}% Off</span>}
         </div>
         <div className="product-info">
@@ -77,6 +83,33 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             <p className="oos">Out of Stock</p>
           )}
           {description && <p className="about">{description}</p>}
+          {/* what Legal Metrology asks an online seller to show before purchase; owners fill the shop's part on /admin/shop */}
+          <section aria-labelledby="details">
+            <h2 id="details" className="details-title">
+              Product Details
+            </h2>
+            <Rows
+              rows={[
+                ["Net quantity", item.unit],
+                ["MRP", `${inr(item.mrp)} (incl. of all taxes)`],
+                ["Maker", maker],
+                // Indian-made crackers only; change this if the shop ever stocks imported ones
+                ["Country of origin", "India"],
+                ["Sold by", [shop.legalName, shop.address].filter(Boolean).join(", ")],
+                [
+                  "Customer care",
+                  <>
+                    {phone && (
+                      <>
+                        <a href={`tel:+91${phone}`}>+91 {phone}</a> ·{" "}
+                      </>
+                    )}
+                    <Link href="/terms#contact">Complaints</Link>
+                  </>,
+                ],
+              ]}
+            />
+          </section>
           <ul className="assurances">
             <li>
               <Truck size={18} aria-hidden="true" /> At your door in 3–{DELIVERY_DAYS} days

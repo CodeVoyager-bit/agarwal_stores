@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   // makes the shared-link picture (opengraph-image.tsx) a full https:// address
   metadataBase: new URL(appOrigin()),
   title: "Agarwal Stores · Crackers",
-  description: "Order Diwali crackers from Agarwal Stores. Home delivery in 3–4 days, pay cash or UPI on delivery.",
+  description: "Book Diwali crackers from Agarwal Stores. Home delivery in 3–4 days, pay cash or UPI on delivery.",
 };
 export const viewport: Viewport = { themeColor: "#ff9933" };
 
@@ -62,6 +62,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {" "}· Help: <a href={`tel:+91${process.env.SHOP_PHONE}`}>{process.env.SHOP_PHONE}</a>
             </>
           )}
+          <nav className="foot-links" aria-label="Policies">
+            <Link href="/terms">Terms of Sale</Link>
+            <Link href="/terms#refunds">Cancellation &amp; Refunds</Link>
+            <Link href="/privacy">Privacy Policy</Link>
+            <Link href="/terms#contact">Grievances</Link>
+          </nav>
         </footer>
       </body>
     </html>

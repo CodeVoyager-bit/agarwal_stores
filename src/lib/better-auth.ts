@@ -165,6 +165,15 @@ async function ensureIndexes() {
     db.collection("authAccounts").createIndex({ userId: 1 }),
     db.collection("authAccounts").createIndex({ providerId: 1, accountId: 1 }),
     db.collection("authVerifications").createIndex({ identifier: 1 }),
+    // Mongo clears out sessions and codes once they expire, instead of keeping them forever
+    db.collection("authSessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    db.collection("authVerifications").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    // the old one-field order indexes: db.ts's indexes that also sort replace them, and Mongo kept picking these
+    db
+      .collection("orders")
+      .indexes()
+      .then((list) => Promise.all(list.filter((i) => ["user_1", "status_1", "assignedTo_1"].includes(i.name!)).map((i) => db.collection("orders").dropIndex(i.name!))))
+      .catch(() => {}), // no orders yet, or another server dropped it first
     db.collection("authRateLimits").createIndex({ key: 1 }),
   ]);
 }

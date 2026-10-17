@@ -1,4 +1,4 @@
-import { ChevronRight, MapPin, MessageCircle, Phone, Printer } from "lucide-react";
+import { ChevronRight, MapPin, MessageCircle, Phone, Printer, ReceiptText } from "lucide-react";
 import type { Metadata } from "next";
 import { isValidObjectId } from "mongoose";
 import Link from "next/link";
@@ -23,7 +23,7 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
   const map = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${order.address.line} ${order.address.pincode}`)}`;
   const assignable = order.status === "placed" || order.status === "packed";
   // orders placed before history was kept start with just their placing
-  const history = order.history?.length ? order.history : [{ at: order.createdAt, by: order.name, text: "Order placed" }];
+  const history = order.history?.length ? order.history : [{ at: order.createdAt, by: order.name, text: "Booked" }];
 
   return (
     <>
@@ -36,12 +36,20 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
         <h1>
           Order #{order.number} <span className={`pill ${order.status}`}>{STATUS_LABEL[order.status]}</span>
         </h1>
-        <Link href={`/admin/orders/${id}/slip`} className="btn" target="_blank">
-          <Printer size={18} aria-hidden="true" /> Print Slip
-        </Link>
+        {/* once it's delivered the packing slip is done with, and the bill is what's printed */}
+        {order.status === "delivered" ? (
+          <Link href={`/bill/${id}`} className="btn" target="_blank">
+            <ReceiptText size={18} aria-hidden="true" /> View Bill
+          </Link>
+        ) : (
+          <Link href={`/admin/orders/${id}/slip`} className="btn" target="_blank">
+            <Printer size={18} aria-hidden="true" /> Print Slip
+          </Link>
+        )}
       </div>
       <p className="muted">
-        Placed {when(order.createdAt)} · Deliver by {day(order.deliverBy)}
+        Booked {when(order.createdAt)} · Deliver by {day(order.deliverBy)}
+        {order.status === "placed" && " · Call the customer to confirm before packing"}
       </p>
 
       <div className="order-layout">

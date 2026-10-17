@@ -1,7 +1,8 @@
 import { randomInt, timingSafeEqual } from "node:crypto";
-import { isValidObjectId, type Types } from "mongoose";
+import { isValidObjectId, Types } from "mongoose";
 import { ADDRESS_LABELS, audit, connectDB, Counter, MAX_ADDRESSES, Order, Product, User, type OrderStatus } from "./db";
 import { BY_HAND, MAX_QTY, STATUS_LABEL } from "./format";
+import { shopDetails, TERMS_VERSION } from "./legal";
 import { mockOtp, sendCode } from "./sms";
 
 export const DELIVERY_DAYS = 4;
@@ -79,7 +80,8 @@ export async function placeOrder(user: { id: string }, lines: Line[], details: D
       items,
       total: items.reduce((sum, i) => sum + i.price * i.qty, 0),
       deliverBy: new Date(Date.now() + DELIVERY_DAYS * 86_400_000),
-      history: [{ by: `${details.name} · ${details.phone}`, text: "Order placed" }],
+      terms: TERMS_VERSION,
+      history: [{ by: `${details.name} · ${details.phone}`, text: "Booked" }],
     });
     // the order stands from here: a failure below must not put its stock back (the catch would)
     taken.length = 0;
@@ -141,6 +143,7 @@ export async function setOrderStatus(orderId: string, status: OrderStatus, by: s
   if (!order) return;
   if (status === "cancelled")
     await Promise.all(order.items.map((i) => Product.updateOne({ _id: i.product }, { $inc: { stock: i.qty! } })));
+  if (status === "delivered") await issueBill(orderId);
   await audit(by, "order.status", `Order #${order.number}`, `${STATUS_LABEL[order.status]} → ${STATUS_LABEL[status]}`);
 }
 
@@ -206,7 +209,60 @@ export async function completeDelivery(orderId: string, riderId: string, code: s
     },
   );
   if (!done) throw new OrderError("This delivery has already changed.");
+  await issueBill(orderId);
   await audit(by, "delivery.done", `Order #${order.number}`, `₹${collected} ${method === "upi" ? "by UPI" : "in cash"}`);
+}
+
+/** The Indian financial year a moment falls in, by India time: "26-27" runs 1 April 2026 to 31 March 2027. */
+export function financialYear(at: Date) {
+  const ist = new Date(at.getTime() + 330 * 60_000);
+  const start = ist.getUTCFullYear() - (ist.getUTCMonth() < 3 ? 1 : 0);
+  return `${String(start % 100).padStart(2, "0")}-${String((start + 1) % 100).padStart(2, "0")}`;
+}
+
+/**
+ * Gives a delivered order its bill (GST wants one for every sale): the next number in the financial
+ * year's series, the time it was handed over, and the shop's details as they are now, so a later change
+ * on Shop Details never rewrites an old bill. Safe to call again: an order keeps its first bill.
+ * ponytail: two calls at the same moment, or a crash between taking the number and saving it, skip a
+ * number; GST wants the series unbroken, so note any gap in the books (or claim the number first if it recurs).
+ */
+export async function issueBill(orderId: string) {
+  await connectDB();
+  const order = await Order.findOne({ _id: orderId, status: "delivered", "bill.number": { $exists: false } }, "cash");
+  if (!order) return;
+  const at = order.cash?.collectedAt ?? new Date();
+  const fy = financialYear(at);
+  const { legalName, address, gstin, gstScheme } = await shopDetails();
+  const counter = await Counter.findOneAndUpdate({ _id: `bill ${fy}` }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: "after" });
+  await Order.updateOne(
+    { _id: orderId, "bill.number": { $exists: false } },
+    { bill: { number: `${fy}/${String(counter!.seq).padStart(4, "0")}`, at, shop: { legalName, address, gstin, gstScheme } } },
+  );
+}
+
+/**
+ * Erases a customer at their request (DPDP Act, s. 12): the account, password, Google link, logins
+ * and address book go. Bookings stay for the GST records, without the name, number and address; a
+ * booking of ₹50,000 or more keeps the name and address, which its bill must show (CGST rule 46).
+ */
+export async function deleteAccount(userId: string, role: string) {
+  await connectDB();
+  if (role !== "customer") throw new OrderError("Staff accounts are removed by an owner on the Staff page.");
+  if (await Order.exists({ user: userId, status: { $in: OPEN } }))
+    throw new OrderError("You have a booking that isn’t delivered yet. Receive it, or ask the shop to cancel it, then delete your account.");
+  const booked = { "h.text": { $in: ["Booked", "Order placed"] } };
+  await Order.updateMany(
+    { user: userId, total: { $lt: 50_000 } },
+    { name: "Deleted customer", phone: "removed", "address.line": "Removed at the customer’s request", "address.landmark": "", "history.$[h].by": "Customer" },
+    { arrayFilters: [booked] },
+  );
+  await Order.updateMany({ user: userId, total: { $gte: 50_000 } }, { phone: "removed", "history.$[h].by": "Customer" }, { arrayFilters: [booked] });
+  const db = Order.db.db!;
+  const ids = [new Types.ObjectId(userId), userId];
+  await Promise.all([db.collection("authSessions").deleteMany({ userId: { $in: ids } }), db.collection("authAccounts").deleteMany({ userId: { $in: ids } })]);
+  await User.deleteOne({ _id: userId });
+  await audit("Customer", "account.delete", "A customer account", "deleted at the customer’s request");
 }
 
 /** Nobody home, wrong address…: the order goes back to Packed for another try. */

@@ -206,20 +206,35 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
             )}
             {/* a saved address from before numbers were kept */}
             {chosen && !chosen.phone && <PhoneField key={chosen.id} label="Mobile number for delivery" />}
+            <label className="f-check agree">
+              <input type="checkbox" name="agree" value="yes" required />
+              <span>
+                I’m 18 or older and agree to the{" "}
+                <Link href="/terms" target="_blank">
+                  Terms of Sale
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" target="_blank">
+                  Privacy Policy
+                </Link>
+                .
+              </span>
+            </label>
+            <p className="note">This is a booking. We call you to confirm it, and you pay at the door when it arrives.</p>
             {state?.error && (
               <p role="alert" className="error">
                 {state.error}
               </p>
             )}
             <button className="btn primary big" disabled={pending || short.length > 0 || !!state?.number}>
-              {pending ? "Placing Order…" : `Place Order · ${inr(total)}`}
+              {pending ? "Booking…" : `Book Order · ${inr(total)}`}
             </button>
           </form>
         ) : (
           <div className="fields">
-            <p className="muted">Log in or sign up to place your order: mobile, email or Google.</p>
+            <p className="muted">Log in or sign up to book: mobile, email or Google.</p>
             <Link href="/login?next=/cart" className="btn primary big">
-              Log In to Place Order
+              Log In to Book
             </Link>
           </div>
         )}

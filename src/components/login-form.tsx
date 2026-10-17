@@ -1,6 +1,7 @@
 "use client";
 
 import { Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { addPhoneAction, confirmEmailChangeAction, loginStepAction, requestEmailChangeAction, sendPhoneCodeAction, type LoginStep } from "@/lib/actions";
 import { tenDigitMobile } from "@/lib/format";
@@ -145,6 +146,17 @@ function LoginSteps({ next, hint, google, by, setBy, restart }: { next: string; 
         {/* the login page is for this one field, so it takes the keyboard */}
         {by === "phone" ? <PhoneField name="id" focus /> : <EmailField name="id" focus />}
         <p className="note">New here? Just continue: we’ll check it’s yours with a code, then you choose a password.</p>
+        <p className="note">
+          By continuing you agree to our{" "}
+          <Link href="/terms" target="_blank">
+            Terms of Sale
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" target="_blank">
+            Privacy Policy
+          </Link>
+          .
+        </p>
         <Message error={state.error} />
         <button className="btn primary big" disabled={pending}>
           {pending ? "Checking…" : "Continue"}

@@ -19,7 +19,7 @@ export const BY_HAND: Record<string, string[]> = {
 };
 
 export const STATUS_LABEL: Record<string, string> = {
-  placed: "Placed",
+  placed: "Booked",
   packed: "Packed",
   out_for_delivery: "Out for Delivery",
   delivered: "Delivered",

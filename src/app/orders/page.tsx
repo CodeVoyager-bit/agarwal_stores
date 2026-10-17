@@ -46,7 +46,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
             <Sparks count={8} />
           </span>
           <p>
-            <strong>Order #{placed} is placed.</strong> We’ll call +91&nbsp;{placedOrder.phone} before we deliver.
+            <strong>Order #{placed} is booked.</strong> We’ll call +91&nbsp;{placedOrder.phone} to confirm it before we deliver.
           </p>
         </div>
       )}
@@ -60,7 +60,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                   <div>
                     <h2>Order #{o.number}</h2>
                     <p className="muted">
-                      Placed {day(o.createdAt)}
+                      Booked {day(o.createdAt)}
                       {step >= 0 && step < 3 && ` · Arrives by ${day(o.deliverBy)}`}
                     </p>
                   </div>
@@ -105,7 +105,13 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                     {o.address.landmark && `, near ${o.address.landmark}`} – {o.address.pincode} · +91&nbsp;{o.phone}
                   </span>
                 </p>
-                <p className="muted">Pay cash or UPI when it arrives.</p>
+                {o.status === "delivered" ? (
+                  <Link href={`/bill/${o._id}`} className="link">
+                    View bill
+                  </Link>
+                ) : (
+                  <p className="muted">Pay cash or UPI when it arrives.</p>
+                )}
               </li>
             );
           })}

@@ -3,10 +3,15 @@ import { Catalog } from "@/components/catalog";
 import { Rangoli } from "@/components/rangoli";
 import { categoriesOf, shopItems } from "@/lib/db";
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ q?: string; c?: string }> }) {
+export default async function Home({ searchParams }: { searchParams: Promise<{ q?: string; c?: string; deleted?: string }> }) {
   const [items, params] = await Promise.all([shopItems(), searchParams]);
   return (
     <>
+      {params.deleted !== undefined && (
+        <p className="success" role="status">
+          Your account is deleted, with your name, number and addresses.
+        </p>
+      )}
       <section className="hero">
         <div className="hero-text">
           <p className="eyebrow" lang="hi">

@@ -1,6 +1,7 @@
 import type { ShopItem } from "./format";
 import { ROLES } from "./roles";
 import mongoose, { Schema, model, type InferSchemaType, type Model } from "mongoose";
+import { unstable_cache } from "next/cache";
 
 const g = globalThis as typeof globalThis & { mongo?: Promise<typeof mongoose> };
 
@@ -40,6 +41,8 @@ const productSchema = new Schema(
     image: { type: String, trim: true, default: "" },
     /** a few lines for the product page: what it does, how long it lasts; line breaks kept */
     description: { type: String, trim: true, default: "", maxlength: 1000 },
+    /** the maker's name and address, which Legal Metrology wants shown before purchase */
+    maker: { type: String, trim: true, default: "", maxlength: 200 },
     active: { type: Boolean, default: true },
   },
   { timestamps: true },
@@ -88,6 +91,19 @@ const userSchema = new Schema(
 
 const counterSchema = new Schema({ _id: String, seq: Number });
 
+/** The shop's legal details: one document, _id "shop", saved by owners on /admin/shop (lib/legal.ts). */
+const shopSchema = new Schema({
+  _id: String,
+  legalName: String,
+  address: String,
+  gstin: String,
+  gstScheme: String,
+  licence: String,
+  grievanceOfficer: String,
+  email: String,
+  courts: String,
+});
+
 /** Counts tries per key in a time window (copied from Agarwal Online's rate limit); Mongo removes old windows. */
 const rateLimitSchema = new Schema({
   key: { type: String, required: true, unique: true },
@@ -101,7 +117,7 @@ const photoSchema = new Schema({ _id: Schema.Types.ObjectId, data: { type: Buffe
 const orderSchema = new Schema(
   {
     number: { type: Number, required: true, unique: true },
-    user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    user: { type: Schema.Types.ObjectId, ref: "User", required: true },
     name: { type: String, required: true, trim: true, maxlength: 80 },
     phone: { type: String, required: true },
     address: { type: addressSchema, required: true },
@@ -116,11 +132,19 @@ const orderSchema = new Schema(
       },
     ],
     total: { type: Number, required: true },
-    status: { type: String, enum: ORDER_STATUSES, default: "placed", index: true },
+    status: { type: String, enum: ORDER_STATUSES, default: "placed" },
     deliverBy: { type: Date, required: true },
+    /** the TERMS_VERSION (lib/legal.ts) the customer agreed to when booking */
+    terms: String,
+    /** made when it's delivered (lib/orders.ts issueBill): the number in the financial year's series, and the shop as it was then */
+    bill: {
+      number: String,
+      at: Date,
+      shop: { legalName: String, address: String, gstin: String, gstScheme: String },
+    },
     /** What happened to the order and who did it, oldest first; staff notes too. */
     history: [{ _id: false, at: { type: Date, default: Date.now }, by: String, text: String }],
-    assignedTo: { type: Schema.Types.ObjectId, ref: "User", index: true },
+    assignedTo: { type: Schema.Types.ObjectId, ref: "User" },
     assignedName: String,
     /** The code the customer reads out at the door; made when the delivery starts. */
     handoverCode: { type: String, select: false },
@@ -140,6 +164,11 @@ const orderSchema = new Schema(
   },
   { timestamps: true },
 );
+// Each matches how a page finds and sorts orders, so Mongo reads only the orders it shows:
+orderSchema.index({ user: 1, createdAt: -1 }); // My Orders, newest first
+orderSchema.index({ status: 1, deliverBy: 1 }); // Admin: open orders, due soonest first; overdue count
+orderSchema.index({ assignedTo: 1, status: 1, deliverBy: 1 }); // a delivery person's run
+orderSchema.index({ createdAt: -1 }); // Admin "all" and Sales reports, by date
 
 orderSchema.index({ user: 1, key: 1 }, { unique: true, partialFilterExpression: { key: { $type: "string" } } });
 
@@ -160,6 +189,7 @@ function define<S extends Schema>(name: string, schema: S) {
 export const Product = define("Product", productSchema);
 export const User = define("User", userSchema);
 export const Counter = define("Counter", counterSchema);
+export const Shop = define("Shop", shopSchema);
 export const RateLimit = define("RateLimit", rateLimitSchema);
 export const Photo = define("Photo", photoSchema);
 export const Audit = define("Audit", auditSchema);
@@ -167,7 +197,8 @@ export const Order = define("Order", orderSchema);
 
 export async function shopItems(): Promise<ShopItem[]> {
   await connectDB();
-  const products = await Product.find({ active: true }).sort({ price: 1, name: 1 }).lean();
+  // not the descriptions: up to 1000 characters each, and only the product page shows one
+  const products = await Product.find({ active: true }, "name category unit mrp price stock image").sort({ price: 1, name: 1 }).lean();
   return products.map((p) => ({
     id: String(p._id),
     name: p.name,
@@ -180,20 +211,27 @@ export async function shopItems(): Promise<ShopItem[]> {
   }));
 }
 
-/** The usual categories in shelf order, then any new ones the shop has typed in. */
-/** Product ids by units sold, best first (cancelled orders don't count): what other shoppers pick. */
-export async function bestSellers() {
-  await connectDB();
-  const sold = await Order.aggregate<{ _id: unknown }>([
-    { $match: { status: { $ne: "cancelled" } } },
-    { $unwind: "$items" },
-    { $group: { _id: "$items.product", qty: { $sum: "$items.qty" } } },
-    { $sort: { qty: -1, _id: 1 } },
-    { $limit: 300 },
-  ]);
-  return sold.map((s) => String(s._id));
-}
+/**
+ * Product ids by units sold, best first (cancelled orders don't count): what other shoppers pick.
+ * It reads every order, so it's worked out at most every 10 minutes, not on each product or cart view.
+ */
+export const bestSellers = unstable_cache(
+  async () => {
+    await connectDB();
+    const sold = await Order.aggregate<{ _id: unknown }>([
+      { $match: { status: { $ne: "cancelled" } } },
+      { $unwind: "$items" },
+      { $group: { _id: "$items.product", qty: { $sum: "$items.qty" } } },
+      { $sort: { qty: -1, _id: 1 } },
+      { $limit: 300 },
+    ]);
+    return sold.map((s) => String(s._id));
+  },
+  ["best-sellers"],
+  { revalidate: 600 },
+);
 
+/** The usual categories in shelf order, then any new ones the shop has typed in. */
 export function categoriesOf(items: { category: string }[]) {
   const used = new Set(items.map((i) => i.category));
   return [...CATEGORIES.filter((c) => used.delete(c)), ...used];

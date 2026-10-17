@@ -23,6 +23,7 @@ test("stock is taken once, never oversold, and returned once on cancel", async (
 
   const order = await placeOrder(who, [{ id: String(a._id), qty: 2 }, { id: String(b._id), qty: 1 }], details);
   assert.equal(order.total, 2 * 40 + 20);
+  assert.equal(order.terms, (await import("../src/lib/legal")).TERMS_VERSION);
   assert.equal((await Product.findById(a._id))!.stock, 1);
 
   // short on one line: nothing ordered, the other line's stock is put back

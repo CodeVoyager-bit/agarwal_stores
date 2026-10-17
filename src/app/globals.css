@@ -734,6 +734,31 @@ main > :nth-child(n + 3) { --stagger: 2; }
 @keyframes dud { 25% { transform: rotate(-14deg); } 50% { transform: rotate(10deg); } 75% { transform: rotate(-5deg); } }
 .lost .login-icon svg { animation: dud 700ms var(--ease) 350ms; }
 
+/* ---- policy pages (terms, privacy) and their links ---- */
+.legal { max-width: 720px; margin: 0 auto; }
+.legal section { margin-top: 32px; }
+.legal h2 { margin-bottom: 10px; }
+.legal p { margin: 0 0 10px; text-wrap: pretty; }
+.legal ul { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 6px; }
+.legal-toc ol { margin: 16px 0 0; padding: 14px 14px 14px 34px; columns: 2 200px; column-gap: 32px; background: var(--cream); border-radius: var(--radius-sm); }
+.legal-toc li { padding: 3px 0; break-inside: avoid; }
+.legal-rows { margin: 0 0 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.legal-rows div { display: grid; grid-template-columns: minmax(120px, 30%) 1fr; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--line); }
+.legal-rows div:first-child { border-top: 0; }
+.legal-rows dt { font-weight: 700; }
+.legal-rows dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .legal-rows div { grid-template-columns: 1fr; gap: 2px; } }
+.foot-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin-top: 10px; }
+.foot-links a { color: var(--muted); padding: 6px 0; }
+.f-check.agree { align-items: flex-start; font-weight: 400; font-size: 0.9rem; }
+.f-check.agree input { flex: none; margin-top: 1px; }
+.shop-details { max-width: 640px; }
+.shop-details label > span small { display: block; margin-top: 2px; }
+.upper { text-transform: uppercase; }
+.details-title { font-size: 1.05rem; margin: 4px 0 8px; }
+.bill-from, .bill .slip-number { display: grid; gap: 2px; font-size: 0.9rem; }
+.bill tfoot td { border-bottom: 0; padding-block: 4px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .burst { display: none; }

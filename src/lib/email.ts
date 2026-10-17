@@ -65,7 +65,8 @@ export function codeMail(code: string, type = "sign-in") {
   return {
     subject: `${code} ${why.subject}`,
     text: `Agarwal Stores · Crackers\n\n${why.heading}: ${code}\n\n${why.lead}\nIt works for 10 minutes. Never share it: the shop will never ask you for it.\n\nDidn't ask for this? Ignore this email; nobody can use your account without the code.\n\n${site}${phone ? `\nHelp: +91 ${phone}` : ""}`,
-    html: `<!doctype html><html><body style="margin:0;padding:0;background:#fff8f0">
+    // charset: without it, anything that opens the HTML on its own garbles the Hindi and the garland
+    html: `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#fff8f0">
 <div style="display:none;max-height:0;overflow:hidden">${why.heading}: ${code}. It works for 10 minutes.</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff8f0"><tr><td align="center" style="padding:28px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #f0dcc8;border-radius:18px;overflow:hidden">

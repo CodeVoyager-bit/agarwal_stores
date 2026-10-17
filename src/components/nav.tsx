@@ -48,6 +48,7 @@ const ADMIN_TABS: { href: string; label: string; permission: Permission }[] = [
   { href: "/admin/cash", label: "Cash", permission: "cash" },
   { href: "/admin/staff", label: "Staff", permission: "staff" },
   { href: "/admin/audit", label: "Audit Log", permission: "audit" },
+  { href: "/admin/shop", label: "Shop Details", permission: "shop" },
 ];
 
 export function AdminTabs({ role }: { role: Role }) {

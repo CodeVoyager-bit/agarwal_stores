@@ -8,7 +8,7 @@ import { CATEGORIES, connectDB, Product } from "@/lib/db";
 export const metadata: Metadata = { title: "Inventory · Admin" };
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-type Editable = { _id?: unknown; name?: string; category?: string; unit?: string | null; mrp?: number; price?: number; stock?: number; image?: string | null; description?: string | null; active?: boolean | null };
+type Editable = { _id?: unknown; name?: string; category?: string; unit?: string | null; mrp?: number; price?: number; stock?: number; image?: string | null; description?: string | null; maker?: string | null; active?: boolean | null };
 
 /** One product's inputs; the same fields add a new product and edit a listed one. */
 function Fields({ p }: { p: Editable }) {
@@ -53,11 +53,16 @@ function Fields({ p }: { p: Editable }) {
   );
 }
 
-/** The product page's write-up, folded away so the list stays one line per product. */
+/** The maker and the product page's write-up, folded away so the list stays one line per product. */
 function Description({ p }: { p: Editable }) {
+  const summary = [p.maker && `Maker: ${p.maker}`, p.description && `Description: ${p.description}`].filter(Boolean).join(" · ");
   return (
     <details className="f-desc">
-      <summary>{p.description ? `Description: ${p.description}` : "Add a description"}</summary>
+      <summary>{summary || "Add the maker and a description"}</summary>
+      <label>
+        <span>Maker’s name and address (shown on the product page, as the law asks)</span>
+        <input name="maker" maxLength={200} autoComplete="off" defaultValue={p.maker ?? ""} placeholder="Standard Fireworks, Sivakasi, Tamil Nadu" />
+      </label>
       <label>
         <span>Description (shown on the product page)</span>
         <textarea name="description" rows={4} maxLength={1000} defaultValue={p.description ?? ""} placeholder="What it does, colours, how long it lasts, how high it goes…" />

@@ -8,8 +8,10 @@ import { headers } from "next/headers";
 import { allowStaff, clientIp, currentUser, overLimit, ownerPhones, safeNext, tenDigits, validPhone, who } from "./auth";
 import { getAuth, googleEnabled } from "./better-auth";
 import { isPlaceholderEmail, placeholderEmail } from "./email";
-import { ADDRESS_LABELS, audit, connectDB, MAX_ADDRESSES, ORDER_STATUSES, Photo, Product, User, type OrderStatus } from "./db";
-import { addNote, assignDelivery, checkDetails, completeDelivery, deliveryFailed, OrderError, saveToBook, placeOrder, receiveCash, setOrderStatus, startDelivery } from "./orders";
+import { cloudinaryEnabled, uploadPhoto } from "./cloudinary";
+import { ADDRESS_LABELS, audit, connectDB, MAX_ADDRESSES, ORDER_STATUSES, Photo, Product, Shop, User, type OrderStatus } from "./db";
+import { addNote, assignDelivery, checkDetails, completeDelivery, deleteAccount, deliveryFailed, OrderError, saveToBook, placeOrder, receiveCash, setOrderStatus, startDelivery } from "./orders";
+import { checkShop, SHOP_FIELDS, shopDetails, type ShopDetails } from "./legal";
 import { ROLE_LABEL, ROLES, type Role } from "./roles";
 import { applyImport, planImport, readSheet, type PlanRow } from "./stock-import";
 
@@ -88,7 +90,7 @@ export async function loginStepAction(_: LoginStep, form: FormData): Promise<Log
       if (by === "phone") await (await authApi()).signInPhoneNumber({ body: { phoneNumber: id, password }, headers: await headerList() });
       else await (await authApi()).signInEmail({ body: { email: id, password }, headers: await headerList() });
     } catch {
-      return { ...at, step: "password", name: text(form, "known") || undefined, error: "That password isn't right. Try again, or use Forgot password." };
+      return { ...at, step: "password", error: "That password isn't right. Try again, or use Forgot password." };
     }
     redirect(safeNext(text(form, "next")));
   }
@@ -308,6 +310,22 @@ export async function logoutEverywhereAction() {
   redirect("/");
 }
 
+/** Deletes the person's own account (lib/orders.ts deleteAccount), logs them out and says goodbye on the shop page. */
+export async function deleteAccountAction(_: Result, form: FormData): Promise<Result> {
+  const user = await currentUser();
+  if (!user) return { error: "Please log in again." };
+  if (text(form, "confirm").toUpperCase() !== "DELETE") return { error: "Type DELETE to confirm." };
+  try {
+    await deleteAccount(user.id, user.role);
+  } catch (error) {
+    if (error instanceof OrderError) return { error: error.message };
+    throw error;
+  }
+  // the login is already gone; this clears its cookie
+  await (await authApi()).signOut({ headers: await headerList() }).catch(() => undefined);
+  redirect("/?deleted=1");
+}
+
 export async function logoutAction() {
   await (await authApi()).signOut({ headers: await headerList() }).catch(() => undefined);
   redirect("/");
@@ -317,7 +335,8 @@ export type CheckoutState = { error?: string; number?: number } | null;
 
 export async function placeOrderAction(_: CheckoutState, form: FormData): Promise<CheckoutState> {
   const user = await currentUser();
-  if (!user) return { error: "Please log in again to place your order." };
+  if (!user) return { error: "Please log in again to book." };
+  if (text(form, "agree") !== "yes") return { error: "Tick the box to confirm you’re 18 or older and agree to the terms." };
   let lines: { id: string; qty: number }[];
   try {
     lines = JSON.parse(text(form, "cart"));
@@ -377,6 +396,7 @@ export async function saveProductAction(form: FormData) {
     price: rupees(form, "price"),
     stock: rupees(form, "stock"),
     description: text(form, "description").replace(/\r\n?/g, "\n").slice(0, 1000),
+    maker: text(form, "maker").replace(/\s+/g, " ").slice(0, 200),
     active: form.get("active") === "on",
   };
   const photo = form.get("photo");
@@ -395,13 +415,19 @@ export async function saveProductAction(form: FormData) {
   if (product && id && Number.isInteger(stockWas) && stock !== stockWas)
     await Product.collection.updateOne({ _id: product._id }, [{ $set: { stock: { $max: [0, { $add: ["$stock", stock - stockWas] }] } } }]);
   if (product && hasPhoto) {
-    await Photo.updateOne({ _id: product._id }, { data: Buffer.from(await photo.arrayBuffer()), type: photo.type }, { upsert: true });
-    // the version in the address lets browsers keep each photo forever (app/photo/[id]/route.ts)
-    await Product.updateOne({ _id: product._id }, { image: `/photo/${product._id}?v=${Date.now()}` });
+    let image;
+    if (cloudinaryEnabled()) image = await uploadPhoto(photo, String(product._id));
+    else {
+      // no Cloudinary account set (CLOUDINARY_URL): the photo goes in the database, as before
+      await Photo.updateOne({ _id: product._id }, { data: Buffer.from(await photo.arrayBuffer()), type: photo.type }, { upsert: true });
+      // the version in the address lets browsers keep each photo forever (app/photo/[id]/route.ts)
+      image = `/photo/${product._id}?v=${Date.now()}`;
+    }
+    await Product.updateOne({ _id: product._id }, { image });
   }
   const changes = before
     ? (Object.keys(fields) as (keyof typeof fields)[])
-        .filter((f) => fields[f] !== (before[f] ?? (f === "description" ? "" : undefined)))
+        .filter((f) => fields[f] !== (before[f] ?? (f === "description" || f === "maker" ? "" : undefined)))
         .map((f) => (f === "description" ? "description" : `${f} ${before[f]} → ${fields[f]}`))
     : ["added"];
   if (hasPhoto) changes.push("new photo");
@@ -463,6 +489,21 @@ export async function deliveryFailedAction(_: Result, form: FormData): Promise<R
     const user = await allowStaff("delivery");
     await deliveryFailed(text(form, "id"), user.id, text(form, "reason"), who(user));
     return "Recorded. The shop will plan another try.";
+  });
+}
+
+export async function saveShopAction(_: Result, form: FormData): Promise<Result> {
+  return attempt(async () => {
+    const user = await allowStaff("shop");
+    const details = Object.fromEntries(SHOP_FIELDS.map(({ key, max }) => [key, text(form, key).replace(/\s+/g, " ").slice(0, max)])) as ShopDetails;
+    details.gstin = details.gstin.toUpperCase();
+    const problem = checkShop(details);
+    if (problem) throw new OrderError(problem);
+    const before = await shopDetails();
+    await Shop.updateOne({ _id: "shop" }, details, { upsert: true });
+    const changed = SHOP_FIELDS.filter(({ key }) => before[key] !== details[key]).map(({ label }) => label);
+    if (changed.length) await audit(who(user), "shop.edit", "Shop details", changed.join(", "));
+    return "Saved. The Terms, Privacy and product pages show these now.";
   });
 }
 
