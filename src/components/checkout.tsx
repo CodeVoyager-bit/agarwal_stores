@@ -6,14 +6,16 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import { placeOrderAction } from "@/lib/actions";
 import { inr, type ShopItem } from "@/lib/format";
+import { goesWith } from "@/lib/pairs";
 import { clearCart, setQty, Stepper, useCart } from "./cart";
+import { ProductCard } from "./catalog";
 import { PhoneField } from "./login-form";
 import { ProductArt } from "./category";
 
 type Address = { id: string; label: string; line: string; landmark: string; pincode: string; phone: string };
 type Customer = { phone: string; name: string; addresses: Address[] };
 
-export function CartView({ items, customer, deliveryDays }: { items: ShopItem[]; customer: Customer | null; deliveryDays: number }) {
+export function CartView({ items, customer, deliveryDays, popular }: { items: ShopItem[]; customer: Customer | null; deliveryDays: number; popular: string[] }) {
   const cart = useCart();
   const router = useRouter();
   const [state, action, pending] = useActionState(placeOrderAction, null);
@@ -34,6 +36,8 @@ export function CartView({ items, customer, deliveryDays }: { items: ShopItem[];
   const saved = lines.reduce((sum, l) => sum + Math.max(0, l.mrp - l.price) * l.qty, 0);
   const pieces = lines.reduce((sum, l) => sum + l.qty, 0);
   const short = lines.filter((l) => l.qty > l.stock);
+  // what goes with what's in the cart, from the shelves not in it yet
+  const extras = goesWith(items, [...new Set(lines.map((l) => l.category))], new Set(lines.map((l) => l.id)), popular);
 
   if (!lines.length)
     return (
@@ -49,31 +53,45 @@ export function CartView({ items, customer, deliveryDays }: { items: ShopItem[];
 
   return (
     <div className="checkout">
-      <ul className="lines panel">
-        {lines.map((l) => (
-          <li key={l.id}>
-            <ProductArt category={l.category} image={l.image} small />
-            <div className="line-name">
-              <strong>{l.name}</strong>
-              <small>
-                {l.unit} · {inr(l.price)} each
-              </small>
-              {l.qty > l.stock && (
-                <small className="error" role="alert">
-                  {l.stock ? `Only ${l.stock} left. Lower the quantity.` : "Out of stock. Please remove it."}
+      <div className="checkout-main">
+        <ul className="lines panel">
+          {lines.map((l) => (
+            <li key={l.id}>
+              <ProductArt category={l.category} image={l.image} small />
+              <div className="line-name">
+                <strong>{l.name}</strong>
+                <small>
+                  {l.unit} · {inr(l.price)} each
                 </small>
-              )}
+                {l.qty > l.stock && (
+                  <small className="error" role="alert">
+                    {l.stock ? `Only ${l.stock} left. Lower the quantity.` : "Out of stock. Please remove it."}
+                  </small>
+                )}
+              </div>
+              <div className="line-qty">
+                <Stepper id={l.id} name={l.name} max={l.stock} />
+                <button type="button" className="icon-btn" onClick={() => setQty(l.id, 0)} aria-label={`Remove ${l.name}`}>
+                  <Trash2 size={18} aria-hidden="true" />
+                </button>
+              </div>
+              <strong className="line-total">{inr(l.price * l.qty)}</strong>
+            </li>
+          ))}
+        </ul>
+        {extras.length > 0 && (
+          <section aria-labelledby="extras">
+            <div className="shelf-head">
+              <h2 id="extras">Add These Too</h2>
             </div>
-            <div className="line-qty">
-              <Stepper id={l.id} name={l.name} max={l.stock} />
-              <button type="button" className="icon-btn" onClick={() => setQty(l.id, 0)} aria-label={`Remove ${l.name}`}>
-                <Trash2 size={18} aria-hidden="true" />
-              </button>
-            </div>
-            <strong className="line-total">{inr(l.price * l.qty)}</strong>
-          </li>
-        ))}
-      </ul>
+            <ul className="grid compact">
+              {extras.map((m, n) => (
+                <ProductCard key={m.id} item={m} n={n} />
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
 
       <div className="summary panel">
         <h2>Order Summary</h2>

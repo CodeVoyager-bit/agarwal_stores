@@ -248,6 +248,7 @@ main:has(.cartbar) { padding-bottom: 88px; }
 .product-info { display: grid; gap: 10px; }
 .product-info h1 { margin: 0; overflow-wrap: anywhere; }
 .product-info > .muted { margin: 0; }
+.about { margin: 0; white-space: pre-line; line-height: 1.6; }
 .product-cat { justify-self: start; display: inline-flex; align-items: center; gap: 6px; color: var(--red); font-weight: 700; text-decoration: none; }
 .product .price { margin: 4px 0 0; flex-wrap: wrap; }
 .product .price strong { font-size: 2.1rem; }
@@ -266,6 +267,10 @@ main:has(.cartbar) { padding-bottom: 88px; }
 
 /* ---- cart & checkout ---- */
 .checkout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr); gap: 24px; align-items: start; }
+.checkout-main { display: grid; gap: 24px; min-width: 0; }
+/* four suggestions: two by two on phones, one row of four from there up */
+.grid.compact { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (min-width: 600px) { .grid.compact { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .lines { list-style: none; margin: 0; padding: 4px 20px; }
 .lines li { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto 90px; gap: 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--line); }
 .lines li:last-child { border-bottom: 0; }
@@ -373,6 +378,11 @@ main:has(.cartbar) { padding-bottom: 88px; }
 .inv-row.low { border-color: #f3b7b7; background: #fffafa; }
 .inv-row.low input[name="stock"] { border-color: var(--danger); color: var(--danger); font-weight: 700; }
 .inv-row.off { opacity: 0.6; }
+.f-desc { grid-column: 1 / -1; }
+.f-desc summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.f-desc[open] summary { white-space: normal; margin-bottom: 6px; }
+.f-desc label { display: grid; gap: 4px; }
+.f-desc textarea { width: 100%; resize: vertical; }
 .photo-pick {
   display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px 0 4px; border-radius: 10px;
   border: 1.5px dashed #e2bf9c; background: var(--cream); color: var(--maroon); font-size: 0.85rem; font-weight: 700; cursor: pointer; white-space: nowrap;

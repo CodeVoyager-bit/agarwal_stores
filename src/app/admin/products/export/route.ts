@@ -13,9 +13,9 @@ export async function GET() {
     {
       name: "Price list",
       rows: [
-        ["Name", "Category", "Pack", "MRP", "Price", "Stock", "On sale", "Photo"],
+        ["Name", "Category", "Pack", "MRP", "Price", "Stock", "On sale", "Photo", "Description"],
         // uploaded photos stay as they are; only https links travel in the sheet
-        ...products.map((p) => [p.name, p.category, p.unit ?? "", p.mrp, p.price, p.stock, p.active ? "yes" : "no", p.image?.startsWith("https://") ? p.image : ""]),
+        ...products.map((p) => [p.name, p.category, p.unit ?? "", p.mrp, p.price, p.stock, p.active ? "yes" : "no", p.image?.startsWith("https://") ? p.image : "", p.description ?? ""]),
       ],
     },
   ]);

@@ -368,6 +368,7 @@ export async function saveProductAction(form: FormData) {
     mrp: rupees(form, "mrp"),
     price: rupees(form, "price"),
     stock: rupees(form, "stock"),
+    description: text(form, "description").replace(/\r\n?/g, "\n").slice(0, 1000),
     active: form.get("active") === "on",
   };
   const photo = form.get("photo");
@@ -385,7 +386,9 @@ export async function saveProductAction(form: FormData) {
     await Product.updateOne({ _id: product._id }, { image: `/photo/${product._id}?v=${Date.now()}` });
   }
   const changes = before
-    ? (Object.keys(fields) as (keyof typeof fields)[]).filter((f) => fields[f] !== before[f]).map((f) => `${f} ${before[f]} → ${fields[f]}`)
+    ? (Object.keys(fields) as (keyof typeof fields)[])
+        .filter((f) => fields[f] !== (before[f] ?? (f === "description" ? "" : undefined)))
+        .map((f) => (f === "description" ? "description" : `${f} ${before[f]} → ${fields[f]}`))
     : ["added"];
   if (hasPhoto) changes.push("new photo");
   if (changes.length) await audit(who(user), before ? "product.edit" : "product.add", fields.name, changes.join(", "));

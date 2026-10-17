@@ -38,6 +38,8 @@ const productSchema = new Schema(
     price: { type: Number, required: true, min: 0 },
     stock: { type: Number, required: true, min: 0, default: 0 },
     image: { type: String, trim: true, default: "" },
+    /** a few lines for the product page: what it does, how long it lasts; line breaks kept */
+    description: { type: String, trim: true, default: "", maxlength: 1000 },
     active: { type: Boolean, default: true },
   },
   { timestamps: true },
@@ -173,6 +175,19 @@ export async function shopItems(): Promise<ShopItem[]> {
 }
 
 /** The usual categories in shelf order, then any new ones the shop has typed in. */
+/** Product ids by units sold, best first (cancelled orders don't count): what other shoppers pick. */
+export async function bestSellers() {
+  await connectDB();
+  const sold = await Order.aggregate<{ _id: unknown }>([
+    { $match: { status: { $ne: "cancelled" } } },
+    { $unwind: "$items" },
+    { $group: { _id: "$items.product", qty: { $sum: "$items.qty" } } },
+    { $sort: { qty: -1, _id: 1 } },
+    { $limit: 300 },
+  ]);
+  return sold.map((s) => String(s._id));
+}
+
 export function categoriesOf(items: { category: string }[]) {
   const used = new Set(items.map((i) => i.category));
   return [...CATEGORIES.filter((c) => used.delete(c)), ...used];

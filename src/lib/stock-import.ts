@@ -15,6 +15,8 @@ const COLUMNS = {
   stock: ["stock", "qty", "quantity", "in stock", "on hand", "count"],
   active: ["on sale", "active", "live", "available", "show"],
   image: ["photo", "image", "picture", "photo link", "image url", "photo url"],
+  // last on purpose: many lists call the product's name "Description", and the name takes it first
+  description: ["details", "product details", "about", "notes", "description"],
 } as const;
 type Column = keyof typeof COLUMNS;
 
@@ -23,7 +25,7 @@ export type PlanRow = {
   name: string;
   outcome: "create" | "update" | "same" | "heading" | "error";
   message?: string;
-  fields?: { name: string; category: string; unit: string; mrp: number; price: number; stock: number; active: boolean; image?: string };
+  fields?: { name: string; category: string; unit: string; mrp: number; price: number; stock: number; active: boolean; image?: string; description?: string };
   id?: string;
 };
 
@@ -77,13 +79,17 @@ const titleCase = (text: string) => clean(text).toLowerCase().replace(/\b\w/g, (
 const amount = (text: string) => (text.trim() ? Number(text.replace(/rs\.?|₹|,|\s/gi, "")) : NaN);
 const yes = (text: string) => !/^(no|n|false|0|off|hide|hidden)$/i.test(text.trim());
 
-/** Which position each known column has in the header row. */
+/** Which position each known column has in the header row; a column is only ever used once. */
 function positions(header: string[]) {
   const names = header.map((h) => key(h).replace(/[_.()]/g, " ").replace(/\s+/g, " ").trim());
   const found: Partial<Record<Column, number>> = {};
+  const taken = new Set<number>();
   for (const [column, aliases] of Object.entries(COLUMNS) as [Column, readonly string[]][]) {
-    const index = names.findIndex((n) => (aliases as readonly string[]).includes(n));
-    if (index >= 0) found[column] = index;
+    const index = names.findIndex((n, i) => !taken.has(i) && (aliases as readonly string[]).includes(n));
+    if (index >= 0) {
+      found[column] = index;
+      taken.add(index);
+    }
   }
   return found;
 }
@@ -134,6 +140,9 @@ export async function planImport(table: string[][]): Promise<{ rows: PlanRow[]; 
     if (!category) return { line, name, outcome: "error", message: "No category: add a Category column, or a heading row like “Sparklers” above it." };
     const image = cell(cells, "image");
     if (image && !/^https:\/\//.test(image)) return { line, name, outcome: "error", message: "The photo must be a link starting with https://" };
+    // like the other columns, an empty cell keeps what the product has; line breaks inside a cell stay
+    const description = columns.description === undefined ? "" : String(cells[columns.description] ?? "").replace(/\r\n?/g, "\n").replace(/[ \t]+/g, " ").replace(/ ?\n ?/g, "\n").trim();
+    if (description.length > 1000) return { line, name, outcome: "error", message: "The description is longer than 1000 letters." };
 
     const fields = {
       name: old?.name ?? name,
@@ -144,9 +153,10 @@ export async function planImport(table: string[][]): Promise<{ rows: PlanRow[]; 
       stock,
       active: cell(cells, "active") ? yes(cell(cells, "active")) : (old?.active ?? true),
       ...(image ? { image } : {}),
+      ...(description ? { description } : {}),
     };
     if (!old) return { line, name, outcome: "create", fields };
-    const changed = (["category", "unit", "mrp", "price", "stock", "active", "image"] as const).filter(
+    const changed = (["category", "unit", "mrp", "price", "stock", "active", "image", "description"] as const).filter(
       (f) => fields[f as keyof typeof fields] !== undefined && fields[f as keyof typeof fields] !== old[f],
     );
     return changed.length

@@ -73,3 +73,17 @@ test("a shop's price list: title rows, section headings, new and changed product
 test("a sheet without a name and price column is refused before anything is read", async () => {
   assert.match((await planImport([["Item code", "Qty"], ["A1", "3"]])).problem!, /header row/);
 });
+
+test("a Description column is the write-up when there's a Name column, and the name when there isn't", async () => {
+  const withName = [["Name", "Category", "Price", "Description"], ["Write-up Anar", "Anar", "90", "Golden fountain,\r\n  about 40 seconds"]];
+  const a = (await planImport(withName)).rows[0];
+  assert.equal(a.fields!.name, "Write-up Anar");
+  assert.equal(a.fields!.description, "Golden fountain,\nabout 40 seconds");
+  const nameOnly = [["S.No", "Description", "Type", "Rate"], ["1", "Write-up Rocket", "Rockets", "70"]];
+  const b = (await planImport(nameOnly)).rows[0];
+  assert.equal(b.fields!.name, "Write-up Rocket");
+  assert.equal(b.fields!.description, undefined);
+  await applyImport([a], "test");
+  // an empty cell keeps the write-up already saved
+  assert.equal((await planImport([["Name", "Category", "Price", "Description"], ["Write-up Anar", "Anar", "90", ""]])).rows[0].outcome, "same");
+});

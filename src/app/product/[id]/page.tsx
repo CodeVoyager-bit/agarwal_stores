@@ -6,26 +6,34 @@ import { cache } from "react";
 import { Stepper } from "@/components/cart";
 import { ProductCard } from "@/components/catalog";
 import { CategoryIcon, ProductArt } from "@/components/category";
-import { shopItems } from "@/lib/db";
+import { bestSellers, Product, shopItems } from "@/lib/db";
 import { inr } from "@/lib/format";
 import { DELIVERY_DAYS } from "@/lib/orders";
+import { goesWith } from "@/lib/pairs";
 
-/** The product and the rest of its shelf; once per request (the title asks too). */
+/** The product, its write-up, what goes with it and the rest of its shelf; once per request (the title asks too). */
 const load = cache(async (id: string) => {
-  const items = await shopItems();
+  const [items, popular] = await Promise.all([shopItems(), bestSellers()]);
   const item = items.find((i) => i.id === id);
-  return item && { item, more: items.filter((i) => i.category === item.category && i.id !== id) };
+  if (!item) return null;
+  const description = (await Product.findById(id, "description").lean())?.description ?? "";
+  return {
+    item,
+    description,
+    pairs: goesWith(items, [item.category], new Set([id]), popular),
+    more: items.filter((i) => i.category === item.category && i.id !== id),
+  };
 });
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const found = await load((await params).id);
-  return { title: `${found?.item.name ?? "Not Found"} · Agarwal Stores` };
+  return { title: `${found?.item.name ?? "Not Found"} · Agarwal Stores`, description: found?.description.slice(0, 160) || undefined };
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const found = await load((await params).id);
   if (!found) notFound();
-  const { item, more } = found;
+  const { item, description, pairs, more } = found;
   const off = Math.round((1 - item.price / item.mrp) * 100);
   const shelf = `/?c=${encodeURIComponent(item.category)}`;
 
@@ -68,6 +76,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           ) : (
             <p className="oos">Out of Stock</p>
           )}
+          {description && <p className="about">{description}</p>}
           <ul className="assurances">
             <li>
               <Truck size={18} aria-hidden="true" /> At your door in 3–{DELIVERY_DAYS} days
@@ -81,6 +90,19 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           </ul>
         </div>
       </article>
+
+      {pairs.length > 0 && (
+        <section className="shelf" aria-labelledby="pairs">
+          <div className="shelf-head">
+            <h2 id="pairs">Goes Well With {item.category}</h2>
+          </div>
+          <ul className="grid">
+            {pairs.map((m, n) => (
+              <ProductCard key={m.id} item={m} n={n} />
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="panel safety" aria-labelledby="safety">
         <h2 id="safety">

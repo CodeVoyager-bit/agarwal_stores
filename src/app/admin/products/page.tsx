@@ -8,7 +8,7 @@ import { CATEGORIES, connectDB, Product } from "@/lib/db";
 export const metadata: Metadata = { title: "Inventory · Admin" };
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-type Editable = { _id?: unknown; name?: string; category?: string; unit?: string | null; mrp?: number; price?: number; stock?: number; image?: string | null; active?: boolean | null };
+type Editable = { _id?: unknown; name?: string; category?: string; unit?: string | null; mrp?: number; price?: number; stock?: number; image?: string | null; description?: string | null; active?: boolean | null };
 
 /** One product's inputs; the same fields add a new product and edit a listed one. */
 function Fields({ p }: { p: Editable }) {
@@ -51,6 +51,19 @@ function Fields({ p }: { p: Editable }) {
   );
 }
 
+/** The product page's write-up, folded away so the list stays one line per product. */
+function Description({ p }: { p: Editable }) {
+  return (
+    <details className="f-desc">
+      <summary>{p.description ? `Description: ${p.description}` : "Add a description"}</summary>
+      <label>
+        <span>Description (shown on the product page)</span>
+        <textarea name="description" rows={4} maxLength={1000} defaultValue={p.description ?? ""} placeholder="What it does, colours, how long it lasts, how high it goes…" />
+      </label>
+    </details>
+  );
+}
+
 export default async function AdminProducts({ searchParams }: { searchParams: Promise<{ q?: string; low?: string }> }) {
   await requireStaff("catalog", "/admin/products");
   const params = await searchParams;
@@ -80,6 +93,7 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
         <form action={saveProductAction} className="inv-row">
           <Fields p={{}} />
           <button className="btn primary">Add Product</button>
+          <Description p={{}} />
         </form>
       </details>
 
@@ -99,6 +113,7 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
           <form key={String(p._id)} action={saveProductAction} className={`inv-row${p.stock <= 5 ? " low" : ""}${p.active ? "" : " off"}`}>
             <Fields p={p} />
             <button className="btn small">Save</button>
+            <Description p={p} />
           </form>
         ))}
       </div>

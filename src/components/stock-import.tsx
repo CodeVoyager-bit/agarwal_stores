@@ -30,7 +30,7 @@ export function StockImport() {
       <div className="import-body">
         <ol className="steps">
           <li>
-            Download the current list, or use your own. It needs a <b>Name</b> column and a <b>Price</b> or <b>MRP</b> column; Category, Pack, Stock, On sale and Photo are
+            Download the current list, or use your own. It needs a <b>Name</b> column and a <b>Price</b> or <b>MRP</b> column; Category, Pack, Stock, On sale, Photo and Description are
             optional. A row with only a name, like <b>SPARKLERS</b>, starts a category for the rows below it.
           </li>
           <li>Products are matched by name: a new name is added, an existing one is updated.</li>
