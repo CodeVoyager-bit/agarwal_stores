@@ -1,6 +1,10 @@
 // Needs local MongoDB running. Run: npm test
 // The bugs found in the end-to-end bug bash, each pinned so it stays fixed.
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { after, test } from "node:test";
 import mongoose from "mongoose";
 
@@ -9,12 +13,14 @@ process.env.MONGODB_URI = process.env.TEST_MONGODB_URI ?? "mongodb://127.0.0.1:2
 process.env.MOCK_OTP = "true";
 const { connectDB, Order, Product, User } = await import("../src/lib/db");
 const { assignDelivery, completeDelivery, placeOrder, setOrderStatus, startDelivery } = await import("../src/lib/orders");
-const { applyImport, planImport } = await import("../src/lib/stock-import");
+const { applyImport, planImport, readSheet } = await import("../src/lib/stock-import");
+const { xlsx } = await import("../src/lib/xlsx");
 const { safeNext } = await import("../src/lib/auth");
 const { goesWith } = await import("../src/lib/pairs");
 
 await connectDB();
 await mongoose.connection.dropDatabase();
+await Order.createIndexes(); // dropping the database took the unique booking-id index with it
 after(() => mongoose.disconnect());
 
 const details = { name: "Bug Bash", phone: "9876543210", line: "12 Station Road, Civil Lines", landmark: "", pincode: "226001" };
@@ -123,4 +129,49 @@ test("suggestions skip a sold-out shelf instead of showing nothing", () => {
   const items = [item("kids", "Kids Special", 0), item("anar-2", "Anar", 5), item("spark", "Sparklers", 5)];
   const picks = goesWith(items, ["Sparklers", "Chakri", "Anar"], new Set(["spark"]), []).map((i) => i.id);
   assert.deepEqual(picks, ["anar-2"]);
+});
+
+
+test("pressing Book again with the same booking id gives back the first order, even at the same moment", async () => {
+  const who = await person();
+  const p = await Product.create({ name: "Retry Anar", category: "Anar", mrp: 100, price: 40, stock: 10 });
+  const line = [{ id: String(p._id), qty: 2 }];
+  const first = await placeOrder(who, line, { ...details, key: "booking-key-1" });
+  const again = await placeOrder(who, line, { ...details, key: "booking-key-1" });
+  assert.equal(again.number, first.number);
+  const both = await Promise.all([1, 2].map(() => placeOrder(who, line, { ...details, key: "booking-key-2" })));
+  assert.equal(both[0].number, both[1].number);
+  assert.equal(await Order.countDocuments({ user: who.id }), 2);
+  assert.equal((await Product.findById(p._id).lean())!.stock, 6, "stock taken once per booking");
+  const other = await person();
+  assert.notEqual((await placeOrder(other, line, { ...details, key: "booking-key-1" })).number, first.number, "ids are per account");
+});
+
+test("paid by UPI at the door: recorded as UPI, not cash the rider carries", async () => {
+  const who = await person();
+  const rider = await person({ role: "delivery" });
+  const p = await Product.create({ name: "UPI Rocket", category: "Rockets", mrp: 100, price: 70, stock: 5 });
+  const id = String((await placeOrder(who, [{ id: String(p._id), qty: 1 }], details))._id);
+  await assignDelivery(id, rider.id, "Shop");
+  await startDelivery(id, rider.id, "Rider");
+  const code = (await Order.findById(id).select("+handoverCode").lean())!.handoverCode!;
+  await completeDelivery(id, rider.id, code, 70, "Rider", "upi");
+  const done = (await Order.findById(id).lean())!;
+  assert.equal(done.cash?.method, "upi");
+  assert.match(done.history.at(-1)!.text!, /paid by UPI/);
+  assert.equal(await Order.countDocuments({ assignedTo: rider.id, "cash.receivedAt": { $exists: false }, "cash.method": { $ne: "upi" }, "cash.collected": { $exists: true } }), 0);
+});
+
+test("Excel leaves out empty rows; problems still name the row people see", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "xlsx-gap-"));
+  writeFileSync(join(dir, "a.xlsx"), xlsx([{ name: "Price list", rows: [["Name", "Category", "Price"], [], ["Gap Bomb", "Bombs", "abc"]] }]));
+  execFileSync("unzip", ["-q", "a.xlsx", "-d", "parts"], { cwd: dir });
+  const sheet = join(dir, "parts/xl/worksheets/sheet1.xml");
+  writeFileSync(sheet, readFileSync(sheet, "utf8").replace(/<row r="2"[^>]*>(<\/row>)?|<row r="2"\/>/, ""));
+  execFileSync("zip", ["-q", "-r", "-X", "../b.xlsx", "."], { cwd: join(dir, "parts") });
+  const rows = readSheet(new Uint8Array(readFileSync(join(dir, "b.xlsx"))));
+  assert.deepEqual(rows[2], ["Gap Bomb", "Bombs", "abc"]);
+  const plan = (await planImport(rows)).rows.find((r) => r.name === "Gap Bomb")!;
+  assert.equal(plan.outcome, "error");
+  assert.equal(plan.line, 3);
 });

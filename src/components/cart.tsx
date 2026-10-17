@@ -57,7 +57,29 @@ export function setQty(id: string, qty: number) {
   write(next);
 }
 
-export const clearCart = () => write({});
+const BOOKING = "fatake-booking";
+
+/** After a booking: the cart empties, and the next booking gets a new id. */
+export const clearCart = () => {
+  write({});
+  try {
+    localStorage.removeItem(BOOKING);
+  } catch {}
+};
+
+/**
+ * This booking's id, kept until the cart is cleared. If the answer to Book is lost (the network
+ * dropped), pressing it again finds the order already made instead of booking it twice.
+ */
+export function bookingKey() {
+  try {
+    const key = localStorage.getItem(BOOKING) ?? crypto.randomUUID();
+    localStorage.setItem(BOOKING, key);
+    return key;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
 
 /** Drops products no longer sold (taken off sale or deleted), so the cart count stays true. */
 export function pruneCart(known: Set<string>) {

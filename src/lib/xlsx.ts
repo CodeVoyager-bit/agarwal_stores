@@ -198,9 +198,13 @@ export function readXlsx(bytes: Uint8Array): string[][] {
   const shared = [...read("xl/sharedStrings.xml").matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) => textOf(m[1]));
 
   const rows: string[][] = [];
-  for (const row of sheet.matchAll(/<row\b[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g)) {
+  for (const row of sheet.matchAll(/<row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/row>)/g)) {
+    // Excel leaves empty rows out; put each row at its own number so errors name the row people see
+    const at = Number(/\br="(\d+)"/.exec(row[1])?.[1]);
+    if (at > 10_000) break; // far past what an import takes; it is refused for size anyway
+    while (at > rows.length + 1) rows.push([]);
     const cells: string[] = [];
-    for (const cell of (row[1] ?? "").matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+    for (const cell of (row[2] ?? "").matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
       const attrs = cell[1];
       const ref = /\br="([A-Z]+)\d+"/.exec(attrs)?.[1] ?? "";
       const index = ref ? [...ref].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1 : cells.length;

@@ -81,9 +81,18 @@ export default async function DeliveryStop({ params }: { params: Promise<{ id: s
                 </label>
                 <p className="note">The customer sees this code on their My Orders page (and gets it by WhatsApp/SMS).</p>
                 <label>
-                  Rupees collected
+                  Rupees paid
                   <input name="collected" inputMode="numeric" pattern="\d+" required defaultValue={o.total} autoComplete="off" />
                 </label>
+                <fieldset className="paid-by">
+                  <legend>Paid by</legend>
+                  <label className="f-check">
+                    <input type="radio" name="method" value="cash" defaultChecked /> Cash
+                  </label>
+                  <label className="f-check">
+                    <input type="radio" name="method" value="upi" /> UPI to the shop
+                  </label>
+                </fieldset>
                 <label className="f-check">
                   <input type="checkbox" required /> I handed over the full order
                 </label>
@@ -98,7 +107,7 @@ export default async function DeliveryStop({ params }: { params: Promise<{ id: s
               </ActionForm>
             </>
           )}
-          {o.status === "delivered" && <p className="success">Delivered. Hand {inr(o.cash?.collected ?? o.total)} in at the shop.</p>}
+          {o.status === "delivered" && <p className="success">{o.cash?.method === "upi" ? "Delivered and paid by UPI." : `Delivered. Hand ${inr(o.cash?.collected ?? o.total)} in at the shop.`}</p>}
           {o.status === "cancelled" && <p className="error">The shop cancelled this order. Bring it back.</p>}
         </section>
       </div>

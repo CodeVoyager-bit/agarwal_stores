@@ -16,18 +16,25 @@ export default async function Cash() {
     Order.find({ "cash.receivedAt": { $exists: true } }).sort({ "cash.receivedAt": -1 }).limit(100).lean(),
   ]);
   const short = counted.filter((o) => o.cash!.received !== o.cash!.collected);
-  // who is carrying how much
+  // UPI went straight to the shop's account: nobody carries it, it only needs checking
+  const upi = (o: (typeof waiting)[number]) => o.cash!.method === "upi";
+  const sum = (list: typeof waiting) => list.reduce((n, o) => n + o.cash!.collected!, 0);
+  // who is carrying how much cash
   const byPerson = new Map<string, number>();
-  for (const o of waiting) byPerson.set(o.cash!.collectedBy ?? "?", (byPerson.get(o.cash!.collectedBy ?? "?") ?? 0) + o.cash!.collected!);
+  for (const o of waiting.filter((o) => !upi(o))) byPerson.set(o.cash!.collectedBy ?? "?", (byPerson.get(o.cash!.collectedBy ?? "?") ?? 0) + o.cash!.collected!);
 
   return (
     <>
       <h1>Cash</h1>
-      <p className="muted">Cash the delivery team collected, and what reached the shop’s counter.</p>
+      <p className="muted">Count in the cash the delivery team brings back, and check each UPI payment reached the shop’s account.</p>
       <div className="stats">
-        <div className={waiting.length ? "alert" : ""}>
-          <strong>{inr(waiting.reduce((n, o) => n + o.cash!.collected!, 0))}</strong>
-          <span>with the delivery team</span>
+        <div className={waiting.some((o) => !upi(o)) ? "alert" : ""}>
+          <strong>{inr(sum(waiting.filter((o) => !upi(o))))}</strong>
+          <span>cash with the delivery team</span>
+        </div>
+        <div className={waiting.some(upi) ? "alert" : ""}>
+          <strong>{inr(sum(waiting.filter(upi)))}</strong>
+          <span>UPI to check in the account</span>
         </div>
         <div>
           <strong>{inr(counted.reduce((n, o) => n + o.cash!.received!, 0))}</strong>
@@ -49,7 +56,7 @@ export default async function Cash() {
         </ul>
       )}
 
-      <h2>To Hand In</h2>
+      <h2>To Count or Check</h2>
       {waiting.length ? (
         <table className="table">
           <thead>
@@ -69,13 +76,16 @@ export default async function Cash() {
                 </td>
                 <td data-label="Collected by">
                   {o.cash!.collectedBy}
-                  <small>{when(o.cash!.collectedAt!)}</small>
+                  <small>
+                    {upi(o) ? "UPI · " : ""}
+                    {when(o.cash!.collectedAt!)}
+                  </small>
                 </td>
                 <td data-label="Amount" className="num">
                   <strong>{inr(o.cash!.collected!)}</strong>
                 </td>
                 <td data-label="Count it">
-                  <ActionForm action={receiveCashAction} submit="Received" className="inline-form">
+                  <ActionForm action={receiveCashAction} submit={upi(o) ? "Seen in Account" : "Received"} className="inline-form">
                     <input type="hidden" name="id" value={String(o._id)} />
                     <input name="received" inputMode="numeric" pattern="\d+" required defaultValue={o.cash!.collected!} aria-label={`Rupees received for order ${o.number}`} autoComplete="off" />
                   </ActionForm>
@@ -85,7 +95,7 @@ export default async function Cash() {
           </tbody>
         </table>
       ) : (
-        <p className="empty panel">No cash waiting. Everything collected has been counted.</p>
+        <p className="empty panel">Nothing waiting. All cash is counted and every UPI payment checked.</p>
       )}
 
       {counted.length > 0 && (

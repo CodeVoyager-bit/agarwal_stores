@@ -12,7 +12,7 @@ export const MAX_WAITING = 5;
 export class OrderError extends Error {}
 
 type Line = { id: string; qty: number };
-type Details = { name: string; phone: string; line: string; landmark: string; pincode: string; label?: string };
+type Details = { name: string; phone: string; line: string; landmark: string; pincode: string; label?: string; key?: string };
 
 export function checkDetails(d: Details) {
   if (d.name.length < 2 || d.name.length > 80) return "Enter your name.";
@@ -31,6 +31,10 @@ export function checkDetails(d: Details) {
  */
 export async function placeOrder(user: { id: string }, lines: Line[], details: Details) {
   await connectDB();
+  // the same booking sent again (the answer to the first got lost on the way): it already stands
+  const key = details.key && /^[\w-]{8,64}$/.test(details.key) ? details.key : undefined;
+  const already = key && (await Order.findOne({ user: user.id, key }));
+  if (already) return already;
   const wanted = new Map<string, number>();
   for (const { id, qty } of lines) {
     if (!isValidObjectId(id) || !Number.isInteger(qty) || qty < 1)
@@ -68,6 +72,7 @@ export async function placeOrder(user: { id: string }, lines: Line[], details: D
     const order = await Order.create({
       number: 1000 + counter!.seq!,
       user: user.id,
+      ...(key && { key }),
       name: details.name,
       phone: details.phone,
       address,
@@ -85,6 +90,9 @@ export async function placeOrder(user: { id: string }, lines: Line[], details: D
     return order;
   } catch (error) {
     await Promise.all(taken.map((t) => Product.updateOne({ _id: t.id }, { $inc: { stock: t.qty } })));
+    // the same booking sent twice at once: the unique key let only the first through, and it stands
+    const first = key && (error as { code?: number }).code === 11000 ? await Order.findOne({ user: user.id, key }) : null;
+    if (first) return first;
     throw error;
   }
 }
@@ -170,7 +178,7 @@ export async function startDelivery(orderId: string, riderId: string, by: string
 }
 
 /** At the door: the customer's code and the full amount in cash or UPI close the order. */
-export async function completeDelivery(orderId: string, riderId: string, code: string, collected: number, by: string) {
+export async function completeDelivery(orderId: string, riderId: string, code: string, collected: number, by: string, method: "cash" | "upi" = "cash") {
   await connectDB();
   // the amount first: a slip typing it shouldn't use up one of the five code tries
   const open = await Order.findOne({ _id: orderId, assignedTo: riderId, status: "out_for_delivery" }, "total");
@@ -192,13 +200,13 @@ export async function completeDelivery(orderId: string, riderId: string, code: s
     { _id: orderId, status: "out_for_delivery" },
     {
       status: "delivered",
-      cash: { collected, collectedAt: now, collectedBy: by },
+      cash: { collected, collectedAt: now, collectedBy: by, method },
       $unset: { handoverCode: 1 },
-      $push: { history: { by, text: `Delivered, collected ₹${collected}` } },
+      $push: { history: { by, text: `Delivered, ₹${collected} ${method === "upi" ? "paid by UPI" : "in cash"}` } },
     },
   );
   if (!done) throw new OrderError("This delivery has already changed.");
-  await audit(by, "delivery.done", `Order #${order.number}`, `collected ₹${collected}`);
+  await audit(by, "delivery.done", `Order #${order.number}`, `₹${collected} ${method === "upi" ? "by UPI" : "in cash"}`);
 }
 
 /** Nobody home, wrong address…: the order goes back to Packed for another try. */

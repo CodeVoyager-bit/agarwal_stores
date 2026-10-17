@@ -7,7 +7,7 @@ import { useActionState, useEffect, useState } from "react";
 import { placeOrderAction } from "@/lib/actions";
 import { inr, type ShopItem } from "@/lib/format";
 import { goesWith } from "@/lib/pairs";
-import { clearCart, pruneCart, setQty, Stepper, useCart } from "./cart";
+import { bookingKey, clearCart, pruneCart, setQty, Stepper, useCart } from "./cart";
 import { ProductCard } from "./catalog";
 import { PhoneField } from "./login-form";
 import { ProductArt } from "./category";
@@ -28,6 +28,9 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
   const [state, action, pending] = useActionState(placeOrderAction, null);
   // the default (first saved) address, or a new one when there are none
   const [deliverTo, setDeliverTo] = useState(customer?.addresses[0]?.id ?? "new");
+  // read in the browser only: the server has no saved booking id
+  const [key, setKey] = useState("");
+  useEffect(() => setKey(bookingKey()), []);
 
   useEffect(() => {
     if (state?.number) {
@@ -140,6 +143,7 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
           <form action={action} className="fields" onReset={keepTyped}>
             <h3>Delivery Details</h3>
             <input type="hidden" name="cart" value={JSON.stringify(lines.map((l) => ({ id: l.id, qty: l.qty })))} />
+            <input type="hidden" name="key" value={key} />
             <label>
               Name
               <input name="name" required minLength={2} maxLength={80} autoComplete="name" defaultValue={customer.name} />

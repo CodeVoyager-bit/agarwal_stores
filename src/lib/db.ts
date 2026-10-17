@@ -125,10 +125,14 @@ const orderSchema = new Schema(
     /** The code the customer reads out at the door; made when the delivery starts. */
     handoverCode: { type: String, select: false },
     handoverTries: { type: Number, default: 0 },
+    /** The checkout's own id for this booking: pressing Book again after a lost answer finds this order. */
+    key: String,
     cash: {
       collected: Number,
       collectedAt: Date,
       collectedBy: String,
+      /** UPI goes straight to the shop's account: nothing to hand in, only to check it arrived. */
+      method: { type: String, enum: ["cash", "upi"], default: "cash" },
       received: Number,
       receivedAt: Date,
       receivedBy: String,
@@ -136,6 +140,8 @@ const orderSchema = new Schema(
   },
   { timestamps: true },
 );
+
+orderSchema.index({ user: 1, key: 1 }, { unique: true, partialFilterExpression: { key: { $type: "string" } } });
 
 const auditSchema = new Schema({
   at: { type: Date, default: Date.now, index: true },

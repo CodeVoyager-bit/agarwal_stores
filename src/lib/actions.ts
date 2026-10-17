@@ -334,7 +334,7 @@ export async function placeOrderAction(_: CheckoutState, form: FormData): Promis
     ? { name: text(form, "name"), phone, line: saved.line, landmark: saved.landmark, pincode: saved.pincode }
     : { name: text(form, "name"), phone, line: text(form, "line"), landmark: text(form, "landmark"), pincode: text(form, "pincode"), label: text(form, "label") };
   try {
-    const order = await placeOrder(user, lines.map((l) => ({ id: String(l?.id), qty: Number(l?.qty) })), details);
+    const order = await placeOrder(user, lines.map((l) => ({ id: String(l?.id), qty: Number(l?.qty) })), { ...details, key: text(form, "key") });
     revalidatePath("/", "layout");
     return { number: order.number };
   } catch (error) {
@@ -452,8 +452,9 @@ export async function startDeliveryAction(_: Result, form: FormData): Promise<Re
 export async function completeDeliveryAction(_: Result, form: FormData): Promise<Result> {
   return attempt(async () => {
     const user = await allowStaff("delivery");
-    await completeDelivery(text(form, "id"), user.id, text(form, "code").replace(/\D/g, ""), Number(text(form, "collected")), who(user));
-    return "Delivered. Hand the cash in at the shop.";
+    const method = text(form, "method") === "upi" ? "upi" : "cash";
+    await completeDelivery(text(form, "id"), user.id, text(form, "code").replace(/\D/g, ""), Number(text(form, "collected")), who(user), method);
+    return method === "upi" ? "Delivered. Paid by UPI: the shop checks it arrived." : "Delivered. Hand the cash in at the shop.";
   });
 }
 

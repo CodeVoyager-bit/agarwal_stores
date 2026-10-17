@@ -14,7 +14,8 @@ export default async function Deliveries() {
   const [stops, done, carrying] = await Promise.all([
     Order.find({ ...mine, status: { $in: ["placed", "packed", "out_for_delivery"] } }).sort({ deliverBy: 1 }).lean(),
     Order.find({ ...mine, status: "delivered" }).sort({ "cash.collectedAt": -1 }).limit(20).lean(),
-    Order.find({ ...mine, "cash.collected": { $exists: true }, "cash.receivedAt": { $exists: false } }).select("cash").lean(),
+    // cash only: UPI is already in the shop's account
+    Order.find({ ...mine, "cash.collected": { $exists: true }, "cash.receivedAt": { $exists: false }, "cash.method": { $ne: "upi" } }).select("cash").lean(),
   ]);
   const cash = carrying.reduce((n, o) => n + (o.cash?.collected ?? 0), 0);
 

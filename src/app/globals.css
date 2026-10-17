@@ -657,6 +657,8 @@ ul.chips { list-style: none; margin: 0 0 12px; }
 .address-option input { margin-top: 3px; accent-color: var(--red); }
 .address-option strong { font-weight: 700; }
 .address-option > span { display: grid; gap: 2px; }
+.paid-by { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 20px; }
+.paid-by legend { padding: 0; margin-bottom: 4px; font-weight: 600; }
 .address-book { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .address-book > li { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--page); }
 .address-book p { margin: 0; }
