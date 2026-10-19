@@ -4,12 +4,18 @@
  * the size each card needs and keeps the copy (next.config.ts); a photo from any other site is shown as
  * it is. Add a site here when a new brand's photos load slowly or full size.
  */
-export const IMAGE_HOSTS = ["res.cloudinary.com", "ayyansworld.com", "standardcrackers.in", "vadivelpyrotechs.com", "www.sonnyvinayagashop.com", "siyafireworks.com", "cdn.shopify.com"];
+const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD || process.env.CLOUDINARY_CLOUD_NAME;
+// on shared hosts only the shop's own folder, so nobody can spend the shop's image quota on other photos
+export const IMAGE_SOURCES: { hostname: string; pathname?: string }[] = [
+  ...(cloud ? [{ hostname: "res.cloudinary.com", pathname: `/${cloud}/**` }] : []),
+  ...["ayyansworld.com", "standardcrackers.in", "vadivelpyrotechs.com", "www.sonnyvinayagashop.com", "siyafireworks.com"].map((hostname) => ({ hostname })),
+  { hostname: "cdn.shopify.com", pathname: "/s/files/1/0029/8011/8646/**" },
+];
 
 export function resizable(src: string) {
   try {
     const url = new URL(src);
-    return url.protocol === "https:" && IMAGE_HOSTS.includes(url.hostname);
+    return url.protocol === "https:" && IMAGE_SOURCES.some((s) => s.hostname === url.hostname && (!s.pathname || url.pathname.startsWith(s.pathname.slice(0, -2))));
   } catch {
     return false; // /photo/… uploads kept in the database (no Cloudinary): already shrunk to 900px in the browser
   }

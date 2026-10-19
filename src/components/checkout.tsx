@@ -42,6 +42,10 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
   const [key, setKey] = useState("");
   useEffect(() => setKey(bookingKey()), []);
 
+  // prices changed since the cart opened: fresh prices from the server, the typed address stays in the form
+  useEffect(() => {
+    if (state?.error?.startsWith("Prices have changed")) router.refresh();
+  }, [state, router]);
   useEffect(() => {
     if (state?.number) {
       clearCart();

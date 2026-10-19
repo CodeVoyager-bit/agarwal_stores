@@ -87,10 +87,10 @@ export default async function Customers({ searchParams }: { searchParams: Promis
                 <td data-label={col.customer}>
                   <strong>{c.name}</strong>
                   <span className="contact">
-                    <a href={`tel:+91${c.phone}`} className="chip-link">
+                    <a href={/^\d{10}$/.test(c.phone) ? `tel:+91${c.phone}` : undefined} className="chip-link">
                       <Phone size={14} aria-hidden="true" /> {c.phone}
                     </a>
-                    <a href={`https://wa.me/91${c.phone}`} target="_blank" rel="noreferrer" className="chip-link">
+                    <a href={/^\d{10}$/.test(c.phone) ? `https://wa.me/91${c.phone}` : undefined} target="_blank" rel="noreferrer" className="chip-link">
                       <MessageCircle size={14} aria-hidden="true" /> WhatsApp
                     </a>
                   </span>

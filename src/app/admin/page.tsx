@@ -122,10 +122,10 @@ export default async function AdminOrders({ searchParams }: { searchParams: Prom
                   <td data-label={c.customer}>
                     {o.name}
                     <span className="contact">
-                      <a href={`tel:+91${o.phone}`} className="chip-link">
+                      <a href={/^\d{10}$/.test(o.phone) ? `tel:+91${o.phone}` : undefined} className="chip-link">
                         <Phone size={14} aria-hidden="true" /> {o.phone}
                       </a>
-                      <a href={`https://wa.me/91${o.phone}`} target="_blank" rel="noreferrer" className="chip-link">
+                      <a href={/^\d{10}$/.test(o.phone) ? `https://wa.me/91${o.phone}` : undefined} target="_blank" rel="noreferrer" className="chip-link">
                         <MessageCircle size={14} aria-hidden="true" /> WhatsApp
                       </a>
                     </span>

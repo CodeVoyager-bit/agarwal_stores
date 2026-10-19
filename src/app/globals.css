@@ -421,16 +421,11 @@ main:has(.cartbar) ~ .foot { padding-bottom: 128px; }
   .inv-row .f-image { grid-column: span 2; }
 }
 
-/* ---- phone: tab bar along the bottom, search pinned at the top ---- */
-@media (max-width: 760px) {
-  :root { --header-h: 72px; --tab-h: 64px; }
-  html { scroll-padding-top: 130px; }
+/* ---- phones and tablets: the menu is a tab bar along the bottom; the header keeps the logo, the
+   language switch and Log Out (as its icon), so it fits in every language with five tabs ---- */
+@media (max-width: 1023px) {
+  :root { --tab-h: 64px; }
   body { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom)); }
-  .top { position: static; }
-  .top .wrap { justify-content: space-between; min-height: 52px; }
-  .logout-btn span { display: none; }
-  .logout-btn { width: 40px; padding: 0; justify-content: center; }
-  .toolbar { top: 0; }
   .site-nav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
     gap: 0; padding: 6px 8px env(safe-area-inset-bottom); background: rgb(255 255 255 / 0.96); border-top: 1px solid var(--line);
@@ -441,6 +436,15 @@ main:has(.cartbar) ~ .foot { padding-bottom: 128px; }
   .site-nav a[aria-current="page"] { background: transparent; color: var(--red); font-weight: 800; box-shadow: none; }
   .site-nav a[aria-current="page"] svg { stroke-width: 2.25; }
   .badge { box-shadow: 0 0 0 2px #fff; }
+}
+
+/* ---- phone: search pinned at the top ---- */
+@media (max-width: 760px) {
+  :root { --header-h: 72px; }
+  html { scroll-padding-top: 130px; }
+  .top { position: static; }
+  .top .wrap { justify-content: space-between; min-height: 52px; }
+  .toolbar { top: 0; }
   .hero { grid-template-columns: 1fr; padding: 24px 20px; margin-top: 8px; border-radius: 20px; }
   .rangoli { position: absolute; width: 130px; height: 130px; top: -48px; right: -48px; margin: 0; }
   .hero h1 { max-width: 13ch; }
@@ -637,8 +641,12 @@ ul.chips { list-style: none; margin: 0 0 12px; }
 .logout-btn { white-space: nowrap; }
 .logout-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1.5px solid rgb(122 16 34 / 0.25); background: rgb(255 255 255 / 0.35); color: var(--maroon); font: inherit; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background-color 150ms var(--ease); }
 .logout-btn:hover { background: #fff; }
-/* below desktop the menu, the language switch and Log Out share the header, so the CRACKERS tag steps aside */
-@media (max-width: 1023px) { .brand span { display: none; } }
+/* below 1200px the menu, the language switch and Log Out share the header, so the CRACKERS tag steps aside and Log Out shows as its icon */
+@media (max-width: 1199px) {
+  .brand span { display: none; }
+  .logout-btn span { display: none; }
+  .logout-btn { width: 40px; padding: 0; justify-content: center; }
+}
 /* phones: the logo, the switch and Log Out share one short row */
 @media (max-width: 760px) {
   .top .wrap { gap: 8px; }

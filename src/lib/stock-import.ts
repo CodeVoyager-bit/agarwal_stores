@@ -123,6 +123,7 @@ export async function planImport(table: string[][]): Promise<{ rows: PlanRow[]; 
   if (headerAt < 0) return { rows: [], problem: "Couldn't find the header row. It needs a “Name” column and a “Price” or “MRP” column." };
   const columns = positions(table[headerAt]);
   const body = table.slice(headerAt + 1);
+  while (body.length && body.at(-1)!.every((cell) => !String(cell ?? "").trim())) body.pop();
   if (body.length > MAX_ROWS) return { rows: [], problem: `One file can hold up to ${MAX_ROWS} rows. Split it into smaller files.` };
 
   await connectDB();

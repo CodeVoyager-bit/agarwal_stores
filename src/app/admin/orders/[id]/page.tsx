@@ -120,10 +120,10 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
           <section className="panel" aria-labelledby="customer">
             <h2 id="customer">{order.name}</h2>
             <p className="contact">
-              <a href={`tel:+91${order.phone}`} className="chip-link">
+              <a href={/^\d{10}$/.test(order.phone) ? `tel:+91${order.phone}` : undefined} className="chip-link">
                 <Phone size={14} aria-hidden="true" /> {order.phone}
               </a>
-              <a href={`https://wa.me/91${order.phone}`} target="_blank" rel="noreferrer" className="chip-link">
+              <a href={/^\d{10}$/.test(order.phone) ? `https://wa.me/91${order.phone}` : undefined} target="_blank" rel="noreferrer" className="chip-link">
                 <MessageCircle size={14} aria-hidden="true" /> WhatsApp
               </a>
               <a href={map} target="_blank" rel="noreferrer" className="chip-link">

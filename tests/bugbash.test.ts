@@ -12,11 +12,13 @@ import mongoose from "mongoose";
 process.env.MONGODB_URI = process.env.TEST_MONGODB_URI ?? "mongodb://127.0.0.1:27017/agarwal_fatake_bugbash_test";
 process.env.MOCK_OTP = "true";
 const { connectDB, Order, Product, User } = await import("../src/lib/db");
-const { assignDelivery, completeDelivery, placeOrder, setOrderStatus, startDelivery } = await import("../src/lib/orders");
+const { assignDelivery, completeDelivery, deleteAccount, issueBill, placeOrder, setOrderStatus, startDelivery } = await import("../src/lib/orders");
 const { applyImport, planImport, readSheet } = await import("../src/lib/stock-import");
 const { xlsx } = await import("../src/lib/xlsx");
 const { safeNext } = await import("../src/lib/auth");
 const { goesWith } = await import("../src/lib/pairs");
+const { catName } = await import("../src/lib/i18n");
+const { DICTS } = await import("../src/lib/i18n/dict");
 
 await connectDB();
 await mongoose.connection.dropDatabase();
@@ -175,3 +177,77 @@ test("Excel leaves out empty rows; problems still name the row people see", asyn
   assert.equal(plan.outcome, "error");
   assert.equal(plan.line, 3);
 });
+
+// ---- bug bash 2
+
+test("a product the shop hasn't priced yet (₹0) can't be booked, even from an old cart", async () => {
+  const who = await person();
+  const p = await Product.create({ name: "Unpriced Rocket", category: "Rockets", mrp: 0, price: 0, stock: 50 });
+  await assert.rejects(placeOrder(who, [{ id: String(p._id), qty: 5 }], details), /no longer sold/);
+  assert.equal((await Product.findById(p._id).lean())!.stock, 50);
+});
+
+test("an old booking id books afresh instead of bringing back a cancelled order", async () => {
+  const who = await person();
+  const p = await Product.create({ name: "Key Anar", category: "Anar", mrp: 100, price: 40, stock: 10 });
+  const line = [{ id: String(p._id), qty: 1 }];
+  const first = await placeOrder(who, line, { ...details, key: "old-booking-key" });
+  await setOrderStatus(String(first._id), "cancelled", "Shop");
+  await Order.collection.updateOne({ _id: first._id }, { $set: { createdAt: new Date(Date.now() - 2 * 3_600_000) } }); // two hours ago
+  const again = await placeOrder(who, line, { ...details, key: "old-booking-key" });
+  assert.notEqual(again.number, first.number);
+  assert.equal(again.status, "placed");
+});
+
+test("bookings sent all at once still stop at five waiting", async () => {
+  const who = await person();
+  const p = await Product.create({ name: "Rush Bomb", category: "Bombs", mrp: 10, price: 5, stock: 1000 });
+  const tries = await Promise.allSettled(Array.from({ length: 12 }, (_, n) => placeOrder(who, [{ id: String(p._id), qty: 10 }], { ...details, key: `rush-key-${n}` })));
+  const waiting = await Order.countDocuments({ user: who.id, status: "placed" });
+  assert.ok(waiting <= 5, `${waiting} waiting`);
+  assert.equal((await Product.findById(p._id).lean())!.stock, 1000 - 10 * waiting, "stock of the undone ones is back");
+  assert.ok(tries.some((t) => t.status === "rejected"));
+});
+
+test("a bill opened many times at once takes exactly one number", async () => {
+  const who = await person();
+  const p = await Product.create({ name: "Bill Chakri", category: "Chakri", mrp: 100, price: 50, stock: 10 });
+  const order = await placeOrder(who, [{ id: String(p._id), qty: 1 }], details);
+  await Order.updateOne({ _id: order._id }, { status: "delivered", cash: { collected: 50, collectedAt: new Date(), collectedBy: "Shop" } });
+  const before = (await mongoose.connection.collection("counters").find({ _id: { $regex: /^bill / } as never }).toArray()).reduce((n, c) => n + (c.seq as number), 0);
+  await Promise.all(Array.from({ length: 8 }, () => issueBill(String(order._id))));
+  const after = (await mongoose.connection.collection("counters").find({ _id: { $regex: /^bill / } as never }).toArray()).reduce((n, c) => n + (c.seq as number), 0);
+  assert.equal(after - before, 1);
+  assert.ok((await Order.findById(order._id).lean())!.bill?.number);
+});
+
+test("deleting an account makes any bill still owed first, so a big one keeps the buyer's name", async () => {
+  const who = await person({ name: "Big Buyer" });
+  const p = await Product.create({ name: "Gift Box Grand", category: "Gift Boxes", mrp: 70000, price: 60000, stock: 2 });
+  const order = await placeOrder(who, [{ id: String(p._id), qty: 1 }], { ...details, name: "Big Buyer" });
+  await Order.updateOne({ _id: order._id }, { status: "delivered", cash: { collected: 60000, collectedAt: new Date(), collectedBy: "Shop" } });
+  await deleteAccount(who.id, "customer");
+  const kept = (await Order.findById(order._id).lean())!;
+  assert.equal(kept.bill?.named, true);
+  assert.equal(kept.name, "Big Buyer");
+  assert.equal(kept.phone, "removed");
+});
+
+test("suggestions leave out products not priced yet", () => {
+  const item = (id: string, category: string, price: number) => ({ id, name: id, category, unit: "", mrp: price, price, stock: 5, image: "" });
+  const picks = goesWith([item("free-anar", "Anar", 0), item("anar", "Anar", 40)], ["Sparklers"], new Set(), []).map((i) => i.id);
+  assert.deepEqual(picks, ["anar"]);
+});
+
+test("blank rows under a short price list don't count towards the row limit", async () => {
+  const rows = [["Name", "Category", "Price"], ["Blank Tail Sparkler", "Sparklers", "30"], ...Array.from({ length: 1200 }, () => ["", "", ""])];
+  const { problem, rows: plan } = await planImport(rows);
+  assert.equal(problem, undefined);
+  assert.equal(plan.filter((r) => r.outcome === "create").length, 1);
+});
+
+test("a shelf named like a built-in name shows as typed instead of crashing the page", () => {
+  assert.equal(catName(DICTS.hi, "constructor"), "constructor");
+  assert.equal(catName(DICTS.hi, "Anar"), DICTS.hi.common.categories.Anar);
+});
+

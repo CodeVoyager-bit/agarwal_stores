@@ -10,7 +10,7 @@ import { getAuth, googleEnabled } from "./better-auth";
 import { isPlaceholderEmail, placeholderEmail } from "./email";
 import { tidyLines } from "./format";
 import { cloudinaryEnabled, uploadPhoto } from "./cloudinary";
-import { ADDRESS_LABELS, audit, connectDB, MAX_ADDRESSES, ORDER_STATUSES, Photo, Product, Shop, User, type OrderStatus } from "./db";
+import { ADDRESS_LABELS, Audit, audit, connectDB, MAX_ADDRESSES, ORDER_STATUSES, Photo, Product, Shop, User, type OrderStatus } from "./db";
 import { addNote, assignDelivery, checkDetails, completeDelivery, deleteAccount, deliveryFailed, OrderError, saveToBook, placeOrder, receiveCash, setOrderStatus, startDelivery } from "./orders";
 import { checkShop, SHOP_FIELDS, shopDetails, type ShopDetails } from "./legal";
 import { ROLE_LABEL, ROLES, staffHome, type Role } from "./roles";
@@ -159,6 +159,18 @@ export async function googleAction(form: FormData) {
   redirect(url);
 }
 
+/**
+ * What hands the account to someone else (a number or email, Google, a new password, deleting it) needs
+ * the current password when the account has one, so a phone left unlocked for a minute isn't enough;
+ * ten wrong tries in 15 minutes, then a wait. Returns what's wrong, or null.
+ */
+async function passwordProblem(userId: string, password: string) {
+  const hash = await passwordHash(userId);
+  if (!hash) return null;
+  if (await overLimit(`pw:${userId}`, 10)) return "Too many tries. Please wait 15 minutes.";
+  return password && (await verifyPassword({ hash, password })) ? null : "Your password isn't right.";
+}
+
 /** Step 1 of adding a mobile number to the logged-in account (people who joined with Google or email). */
 export async function sendPhoneCodeAction(_: LoginState, form: FormData): Promise<LoginState> {
   const phone = tenDigits(text(form, "phone"));
@@ -168,6 +180,8 @@ export async function sendPhoneCodeAction(_: LoginState, form: FormData): Promis
   await connectDB();
   const owner = await User.findOne({ phone }).lean();
   if (owner && String(owner._id) !== me.id) return { error: "This number already has its own account. Log out and log in with it instead." };
+  const wrong = await passwordProblem(me.id, String(form.get("current") ?? ""));
+  if (wrong) return { error: wrong };
   const problem = await sendCodeTo("phone", phone);
   return problem ? { error: problem } : { phone };
 }
@@ -177,6 +191,11 @@ export async function addPhoneAction(_: LoginState, form: FormData): Promise<Log
   const phone = tenDigits(text(form, "phone"));
   const code = text(form, "code").replace(/\D/g, "");
   if (!validPhone(phone) || code.length !== 6) return { phone, error: "Enter the 6‑digit code." };
+  // checked here too: a code for any number can also come from the sign-up screen
+  const me = await currentUser();
+  if (!me) return { phone, error: "Please log in again." };
+  const wrong = await passwordProblem(me.id, String(form.get("current") ?? ""));
+  if (wrong) return { phone, error: wrong };
   try {
     await (await authApi()).verifyPhoneNumber({ body: { phoneNumber: phone, code, updatePhoneNumber: true }, headers: await headerList() });
   } catch {
@@ -261,9 +280,10 @@ export async function defaultAddressAction(_: Result, form: FormData): Promise<R
 /** A new or changed password. With one already set, the current password is checked first. */
 export async function passwordAction(_: Result, form: FormData): Promise<Result> {
   return attempt(async () => {
-    await me();
+    const user = await me();
     const current = String(form.get("current") ?? "");
     const password = String(form.get("password") ?? "");
+    if (current && (await overLimit(`pw:${user.id}`, 10))) throw new OrderError("Too many tries. Please wait 15 minutes.");
     if (password.length < 8 || password.length > 128) throw new OrderError("Choose a password of at least 8 characters.");
     if (password !== String(form.get("confirm") ?? "")) throw new OrderError("The two passwords don't match.");
     const api = await authApi();
@@ -288,6 +308,8 @@ export async function requestEmailChangeAction(_: EmailChangeState, form: FormDa
   if (email === user.email) return { error: "That's already your email." };
   await connectDB();
   if (await User.exists({ email })) return { error: "That email is on another account. Log in with it instead, or use a different one." };
+  const wrong = await passwordProblem(user.id, String(form.get("current") ?? ""));
+  if (wrong) return { error: wrong };
   const limited = await codeLimit(email);
   if (limited) return { error: limited };
   try {
@@ -328,9 +350,7 @@ export async function linkGoogleAction(form: FormData) {
   if (!user) redirect("/login?next=/account");
   await connectDB();
   if (await mongoose.connection.collection("authAccounts").findOne({ userId: new mongoose.Types.ObjectId(user.id), providerId: "google" })) redirect("/account");
-  const hash = await passwordHash(user.id);
-  const password = String(form.get("current") ?? "");
-  if (hash && !(password && (await verifyPassword({ hash, password })))) redirect("/account?google=password");
+  if (await passwordProblem(user.id, String(form.get("current") ?? ""))) redirect("/account?google=password");
   const { url } = await (await authApi()).linkSocialAccount({
     body: { provider: "google", callbackURL: "/account?google=linked", errorCallbackURL: "/account?google=failed", disableRedirect: true },
     headers: await headerList(),
@@ -345,8 +365,8 @@ export async function unlinkGoogleAction(_: Result, form: FormData): Promise<Res
     const user = await me();
     const hash = await passwordHash(user.id);
     if (!hash) throw new OrderError("Set a password first, so you can still log in without Google.");
-    const password = String(form.get("current") ?? "");
-    if (!password || !(await verifyPassword({ hash, password }))) throw new OrderError("Your password isn't right.");
+    const wrong = await passwordProblem(user.id, String(form.get("current") ?? ""));
+    if (wrong) throw new OrderError(wrong);
     await mongoose.connection.collection("authAccounts").deleteMany({ userId: new mongoose.Types.ObjectId(user.id), providerId: "google" });
     await audit(who(user), "account.google", "Own account", "Google disconnected");
     return "Google is disconnected. Log in with your number or email and password.";
@@ -365,8 +385,12 @@ export async function deleteAccountAction(_: Result, form: FormData): Promise<Re
   const user = await currentUser();
   if (!user) return { error: "Please log in again." };
   if (text(form, "confirm").toUpperCase() !== "DELETE") return { error: "Type DELETE to confirm." };
+  const wrong = await passwordProblem(user.id, String(form.get("current") ?? ""));
+  if (wrong) return { error: wrong };
   try {
     await deleteAccount(user.id, user.role);
+    // their name and number leave the audit log too (written there when they changed their own login)
+    await Audit.updateMany({ actor: who(user) }, { actor: "Customer" });
   } catch (error) {
     if (error instanceof OrderError) return { error: error.message };
     throw error;

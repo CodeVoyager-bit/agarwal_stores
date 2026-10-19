@@ -1,12 +1,14 @@
 import type { NextConfig } from "next";
-import { IMAGE_HOSTS } from "./src/lib/image-hosts";
+import { IMAGE_SOURCES } from "./src/lib/image-hosts";
 
 const config: NextConfig = {
   poweredByHeader: false,
   devIndicators: false,
+  // the Cloudinary account's name is in every photo address (not a secret): lib/image-hosts.ts needs it in the browser too
+  env: { NEXT_PUBLIC_CLOUDINARY_CLOUD: process.env.CLOUDINARY_CLOUD_NAME ?? "" },
   images: {
-    // product photos from the brand sites, shrunk to card size (components/category.tsx)
-    remotePatterns: IMAGE_HOSTS.map((hostname) => ({ protocol: "https", hostname })),
+    // product photos from Cloudinary and the brand sites, shrunk to card size (components/category.tsx)
+    remotePatterns: IMAGE_SOURCES.map((source) => ({ protocol: "https", ...source })),
     qualities: [75],
     // the brand sites are slow and their photos don't change: keep our small copies for a month
     minimumCacheTTL: 2678400,

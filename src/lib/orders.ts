@@ -35,7 +35,9 @@ export async function placeOrder(user: { id: string; role?: string }, lines: Lin
   // the same booking sent again (the answer to the first got lost on the way): it already stands
   const key = details.key && /^[\w-]{8,64}$/.test(details.key) ? details.key : undefined;
   const already = key && (await Order.findOne({ user: user.id, key }));
-  if (already) return already;
+  if (already && Date.now() - already.createdAt.getTime() < 60 * 60_000) return already;
+  // the same id on an older order (the cart stayed open after it): that order lets go of it, this one books
+  if (already) await Order.updateOne({ _id: already._id }, { $unset: { key: 1 } });
   const wanted = new Map<string, number>();
   for (const { id, qty } of lines) {
     if (!isValidObjectId(id) || !Number.isInteger(qty) || qty < 1)
@@ -47,18 +49,18 @@ export async function placeOrder(user: { id: string; role?: string }, lines: Lin
   // counted after the lines are added up, so splitting one product over many lines doesn't get past it
   if ([...wanted.values()].some((qty) => qty > MAX_QTY)) throw new OrderError(`At most ${MAX_QTY} of one item per order. Call the shop for more.`);
   // staff booking for callers from their own account aren't held to a customer's limit
-  // ponytail: count-then-insert, so bookings sent at the same instant can pass it together; fine for a cap on mistakes
-  if ((user.role ?? "customer") === "customer" && (await Order.countDocuments({ user: user.id, status: "placed" })) >= MAX_WAITING)
-    throw new OrderError(`You have ${MAX_WAITING} orders waiting for our call already. We'll call you soon, or call the shop.`);
+  const capped = (user.role ?? "customer") === "customer";
+  const waitingCap = `You have ${MAX_WAITING} orders waiting for our call already. We'll call you soon, or call the shop.`;
+  if (capped && (await Order.countDocuments({ user: user.id, status: "placed" })) >= MAX_WAITING) throw new OrderError(waitingCap);
   const problem = checkDetails(details);
   if (problem) throw new OrderError(problem);
 
-  const products = await Product.find({ _id: { $in: [...wanted.keys()] }, active: true });
+  const products = await Product.find({ _id: { $in: [...wanted.keys()] }, active: true, price: { $gt: 0 } });
   if (products.length !== wanted.size)
     throw new OrderError("Some items in your cart are no longer sold. Please refresh the page.");
   // the Terms promise the price shown when booking: if it changed since the cart was opened, say so first
   if (details.total !== undefined && details.total !== products.reduce((sum, p) => sum + p.price * wanted.get(String(p._id))!, 0))
-    throw new OrderError("Prices have changed since you opened your cart. Please refresh the page to see them, then book again.");
+    throw new OrderError("Prices have changed since you opened your cart. The cart shows the new ones now: check them, then book again.");
 
   const taken: { id: Types.ObjectId; qty: number }[] = [];
   try {
@@ -89,6 +91,11 @@ export async function placeOrder(user: { id: string; role?: string }, lines: Lin
       terms: TERMS_VERSION,
       history: [{ by: `${details.name} · ${details.phone}`, text: "Booked" }],
     });
+    // bookings sent at the same moment all pass the count above: the ones past the cap are undone here
+    if (capped && (await Order.countDocuments({ user: user.id, status: "placed", createdAt: { $lte: order.createdAt } })) > MAX_WAITING) {
+      await Order.deleteOne({ _id: order._id });
+      throw new OrderError(waitingCap);
+    }
     // the order stands from here: a failure below must not put its stock back (the catch would)
     taken.length = 0;
     // remembered for next time: the name if the account has none yet (staff booking for a caller keep
@@ -232,13 +239,19 @@ export function financialYear(at: Date) {
  * Gives a delivered order its bill (GST wants one for every sale): the next number in the financial
  * year's series, the time it was handed over, and the shop's details as they are now, so a later change
  * on Shop Details never rewrites an old bill. Safe to call again: an order keeps its first bill.
- * ponytail: two calls at the same moment, or a crash between taking the number and saving it, skip a
- * number; GST wants the series unbroken, so note any gap in the books (or claim the number first if it recurs).
+ * The order is claimed first, so two calls at the same moment can't both take a number.
+ * ponytail: a crash between taking the number and saving it still skips one (the claim lapses after a
+ * minute); GST wants the series unbroken, so note any such gap in the books.
  */
 export async function issueBill(orderId: string) {
   await connectDB();
   const order = await Order.findOne({ _id: orderId, status: "delivered", "bill.number": { $exists: false } }, "cash");
   if (!order) return;
+  const claim = await Order.collection.updateOne(
+    { _id: order._id, "bill.number": { $exists: false }, $or: [{ "bill.claimed": { $exists: false } }, { "bill.claimed": { $lt: new Date(Date.now() - 60_000) } }] },
+    { $set: { "bill.claimed": new Date() } },
+  );
+  if (!claim.modifiedCount) return;
   const at = order.cash?.collectedAt ?? new Date();
   const fy = financialYear(at);
   const { legalName, address, gstin, gstScheme } = await shopDetails();
@@ -262,6 +275,7 @@ export async function deleteAccount(userId: string, role: string) {
   if (role !== "customer") throw new OrderError("Staff accounts are removed by an owner on the Staff page.");
   if (await Order.exists({ user: userId, status: { $in: OPEN } }))
     throw new OrderError("You have a booking that isn’t delivered yet. Receive it, or ask the shop to cancel it, then delete your account.");
+  for (const o of await Order.find({ user: userId, status: "delivered", "bill.number": { $exists: false } }, "_id")) await issueBill(String(o._id));
   const booked = { "h.text": { $in: ["Booked", "Order placed"] } };
   await Order.updateMany(
     { user: userId, "bill.named": { $ne: true } },

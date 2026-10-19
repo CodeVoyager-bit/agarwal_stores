@@ -136,10 +136,10 @@ export default async function Account({ searchParams }: { searchParams: Promise<
           {user.phone ? (
             <details className="edit">
               <summary>{a.changeNumber}</summary>
-              <AddPhone hint={hint} title={t.auth.phone.changeNumber} />
+              <AddPhone hint={hint} title={t.auth.phone.changeNumber} withPassword={hasPassword} />
             </details>
           ) : (
-            <AddPhone hint={hint} />
+            <AddPhone hint={hint} withPassword={hasPassword} />
           )}
         </section>
 
@@ -156,7 +156,7 @@ export default async function Account({ searchParams }: { searchParams: Promise<
           )}
           <details className="edit" open={!user.email}>
             <summary>{user.email ? a.changeEmail : a.addEmail}</summary>
-            <EmailChange current={user.email} hint={hint} />
+            <EmailChange current={user.email} hint={hint} withPassword={hasPassword} />
           </details>
         </section>
 
@@ -285,6 +285,7 @@ export default async function Account({ searchParams }: { searchParams: Promise<
                 {a.typeDelete}
                 <input name="confirm" required autoComplete="off" autoCapitalize="characters" />
               </label>
+              {hasPassword && <PasswordInput name="current" autoComplete="current-password" label={a.passwordToConfirm} />}
             </ActionForm>
           </section>
         )}

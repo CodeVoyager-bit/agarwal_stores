@@ -27,7 +27,7 @@ export function goesWith(items: ShopItem[], categories: string[], skip: Set<stri
   const paired = [...new Set(categories.flatMap((c) => GOES_WITH[c] ?? []))];
   const rank = (id: string) => (popular.includes(id) ? popular.indexOf(id) : popular.length);
   const shelf = new Map(
-    paired.map((c) => [c, items.filter((i) => i.category === c && i.stock > 0 && !skip.has(i.id)).sort((a, b) => rank(a.id) - rank(b.id) || a.price - b.price)]),
+    paired.map((c) => [c, items.filter((i) => i.category === c && i.stock > 0 && i.price > 0 && !skip.has(i.id)).sort((a, b) => rank(a.id) - rank(b.id) || a.price - b.price)]),
   );
   // new shelves when any of them has something in stock; otherwise more from the chosen ones
   const fresh = paired.filter((c) => !have.has(c) && shelf.get(c)!.length);

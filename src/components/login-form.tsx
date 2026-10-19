@@ -251,23 +251,26 @@ function LoginSteps({ next, hint, google, by, setBy, restart }: { next: string; 
 }
 
 /** For accounts made with Google or email: the mobile number the shop calls about delivery, checked with a code once. */
-export function AddPhone({ hint, title }: { hint?: string; title?: string }) {
+export function AddPhone({ hint, title, withPassword = false }: { hint?: string; title?: string; withPassword?: boolean }) {
   const [round, setRound] = useState(0);
   const add = useT().auth.phone.title;
-  return <AddPhoneSteps key={round} hint={hint} title={title ?? add} restart={() => setRound((r) => r + 1)} />;
+  return <AddPhoneSteps key={round} hint={hint} title={title ?? add} withPassword={withPassword} restart={() => setRound((r) => r + 1)} />;
 }
 
-function AddPhoneSteps({ hint, title, restart }: { hint?: string; title: string; restart: () => void }) {
+function AddPhoneSteps({ hint, title, withPassword, restart }: { hint?: string; title: string; withPassword: boolean; restart: () => void }) {
   const [sent, send, sending] = useActionState(sendPhoneCodeAction, null);
   const [added, add, adding] = useActionState(addPhoneAction, null);
+  // the password goes with the code too: the server checks it again where the number changes
+  const [password, setPassword] = useState("");
   const t = useT();
   const p = t.auth.phone;
   if (!sent?.phone)
     return (
-      <form action={send} className="fields">
+      <form action={send} onReset={keepTyped} onSubmit={(e) => setPassword(String(new FormData(e.currentTarget).get("current") ?? ""))} className="fields">
         <h3>{title}</h3>
         <p className="note">{p.note}</p>
         <PhoneField />
+        {withPassword && <PasswordInput name="current" autoComplete="current-password" label={t.auth.account.passwordToConfirm} />}
         <Message error={sent?.error} />
         <button className="btn primary big" disabled={sending}>
           {sending ? t.auth.phone.sending : t.auth.phone.send}
@@ -284,6 +287,7 @@ function AddPhoneSteps({ hint, title, restart }: { hint?: string; title: string;
         </button>
       </p>
       <input type="hidden" name="phone" value={sent.phone} />
+      <input type="hidden" name="current" value={password} />
       <label>
         {t.auth.fields.code}
         <input name="code" className="otp" inputMode="numeric" autoComplete="one-time-code" spellCheck={false} pattern="\d{6}" maxLength={6} onInput={codeDigits} required autoFocus />
@@ -298,12 +302,12 @@ function AddPhoneSteps({ hint, title, restart }: { hint?: string; title: string;
 }
 
 /** Adding or changing the account's email: a code to the new address, then it's saved (and verified). */
-export function EmailChange({ current, hint }: { current: string; hint?: string }) {
+export function EmailChange({ current, hint, withPassword = false }: { current: string; hint?: string; withPassword?: boolean }) {
   const [round, setRound] = useState(0);
-  return <EmailChangeSteps key={round} current={current} hint={hint} restart={() => setRound((r) => r + 1)} />;
+  return <EmailChangeSteps key={round} current={current} hint={hint} withPassword={withPassword} restart={() => setRound((r) => r + 1)} />;
 }
 
-function EmailChangeSteps({ current, hint, restart }: { current: string; hint?: string; restart: () => void }) {
+function EmailChangeSteps({ current, hint, withPassword, restart }: { current: string; hint?: string; withPassword: boolean; restart: () => void }) {
   const [sent, send, sending] = useActionState(requestEmailChangeAction, null);
   const [saved, save, saving] = useActionState(confirmEmailChangeAction, null);
   const t = useT();
@@ -314,6 +318,7 @@ function EmailChangeSteps({ current, hint, restart }: { current: string; hint?: 
         <h3>{current ? e.change : e.add}</h3>
         <p className="note">{current ? e.changeNote : e.addNote}</p>
         <EmailField />
+        {withPassword && <PasswordInput name="current" autoComplete="current-password" label={t.auth.account.passwordToConfirm} />}
         <Message error={sent?.error} />
         <button className="btn" disabled={sending}>
           {sending ? t.auth.phone.sending : t.auth.phone.send}

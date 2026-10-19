@@ -48,4 +48,5 @@ export function translateMessage(message: string | undefined, table: Record<stri
 }
 
 /** A shelf's name in the reader's language; one the shop added itself stays as it was typed. */
-export const catName = (t: { common: { categories: Record<string, string> } }, category: string) => t.common.categories[category] ?? category;
+export const catName = (t: { common: { categories: Record<string, string> } }, category: string) =>
+  Object.hasOwn(t.common.categories, category) ? t.common.categories[category] : category;

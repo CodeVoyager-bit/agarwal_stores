@@ -9,7 +9,7 @@ export function rich(text: string, tags: Record<string, (inner: string) => React
   let last = 0;
   for (const tag of text.matchAll(/<(\w+)>(.*?)<\/\1>/g)) {
     out.push(text.slice(last, tag.index));
-    out.push(<Fragment key={tag.index}>{tags[tag[1]]?.(tag[2]) ?? tag[2]}</Fragment>);
+    out.push(<Fragment key={tag.index}>{Object.hasOwn(tags, tag[1]) ? tags[tag[1]](tag[2]) : tag[2]}</Fragment>);
     last = tag.index + tag[0].length;
   }
   out.push(text.slice(last));
