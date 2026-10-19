@@ -131,8 +131,10 @@ export function Catalog({ items, categories, initialQuery, initialCategory }: { 
 export function ProductCard({ item: i, n }: { item: ShopItem; n: number }) {
   const t = useT();
   const off = Math.round((1 - i.price / i.mrp) * 100);
+  // price 0: put on the shelf before the shop priced it; shown in colour, with no price and no Add
+  const priced = i.price > 0;
   return (
-    <li className={i.stock > 0 ? "card" : "card sold-out"} style={{ "--i": String(Math.min(n, 6)) } as React.CSSProperties}>
+    <li className={i.stock > 0 || !priced ? "card" : "card sold-out"} style={{ "--i": String(Math.min(n, 6)) } as React.CSSProperties}>
       <div className="card-art">
         <ProductArt category={i.category} image={i.image} />
         {off > 0 && <span className="off">{fill(t.shop.off, { n: off })}</span>}
@@ -144,16 +146,18 @@ export function ProductCard({ item: i, n }: { item: ShopItem; n: number }) {
           </Link>
         </h3>
         <p className="unit">{i.unit}</p>
-        <p className="price">
-          <strong>{inr(i.price)}</strong>
-          {i.mrp > i.price && (
-            <s>
-              <span className="sr-only">MRP </span>
-              {inr(i.mrp)}
-            </s>
-          )}
-        </p>
-        {i.stock > 0 ? <Stepper id={i.id} name={i.name} max={i.stock} /> : <p className="oos">{t.shop.outOfStock}</p>}
+        {priced && (
+          <p className="price">
+            <strong>{inr(i.price)}</strong>
+            {i.mrp > i.price && (
+              <s>
+                <span className="sr-only">MRP </span>
+                {inr(i.mrp)}
+              </s>
+            )}
+          </p>
+        )}
+        {i.stock > 0 && priced ? <Stepper id={i.id} name={i.name} max={i.stock} /> : <p className="oos">{t.shop.outOfStock}</p>}
       </div>
     </li>
   );

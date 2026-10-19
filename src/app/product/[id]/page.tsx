@@ -47,6 +47,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const w = t.shop.product;
   const cat = catName(t, item.category);
   const off = Math.round((1 - item.price / item.mrp) * 100);
+  const priced = item.price > 0; // as on the shelf card (components/catalog.tsx)
   const shelf = `/?c=${encodeURIComponent(item.category)}`;
 
   return (
@@ -57,7 +58,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         <Link href={shelf}>{cat}</Link>
       </nav>
 
-      <article className={item.stock > 0 ? "product panel" : "product panel sold-out"}>
+      <article className={item.stock > 0 || !priced ? "product panel" : "product panel sold-out"}>
         <Gallery category={item.category} photos={photos} badge={off > 0 && <span className="off">{fill(t.shop.off, { n: off })}</span>} />
         <div className="product-info">
           <Link href={shelf} className="product-cat">
@@ -65,19 +66,21 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           </Link>
           <h1>{item.name}</h1>
           <p className="muted">{item.unit}</p>
-          <p className="price">
-            <strong>{inr(item.price)}</strong>
-            {item.mrp > item.price && (
-              <>
-                <s>
-                  <span className="sr-only">MRP </span>
-                  {inr(item.mrp)}
-                </s>
-                <span className="save">{fill(w.youSave, { amount: inr(item.mrp - item.price) })}</span>
-              </>
-            )}
-          </p>
-          {item.stock > 0 ? (
+          {priced && (
+            <p className="price">
+              <strong>{inr(item.price)}</strong>
+              {item.mrp > item.price && (
+                <>
+                  <s>
+                    <span className="sr-only">MRP </span>
+                    {inr(item.mrp)}
+                  </s>
+                  <span className="save">{fill(w.youSave, { amount: inr(item.mrp - item.price) })}</span>
+                </>
+              )}
+            </p>
+          )}
+          {item.stock > 0 && priced ? (
             <>
               <p className={item.stock > 10 ? "stock" : "stock low"}>{item.stock > 10 ? w.inStock : fill(w.onlyLeft, { n: item.stock })}</p>
               <Stepper id={item.id} name={item.name} max={item.stock} />
@@ -94,7 +97,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             <Rows
               rows={[
                 [w.netQty, item.unit],
-                ["MRP", fill(w.taxes, { mrp: inr(item.mrp) })],
+                ["MRP", item.mrp > 0 && fill(w.taxes, { mrp: inr(item.mrp) })],
                 [w.maker, maker],
                 // Indian-made crackers only; change this if the shop ever stocks imported ones
                 [w.origin, w.india],

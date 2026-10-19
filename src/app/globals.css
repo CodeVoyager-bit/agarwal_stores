@@ -402,7 +402,7 @@ main:has(.cartbar) ~ .foot { padding-bottom: 128px; }
 .inv-row .f-check { min-height: 40px; white-space: nowrap; }
 .inv-row.low { border-color: #f3b7b7; background: #fffafa; }
 .inv-row.low input[name="stock"] { border-color: var(--danger); color: var(--danger); font-weight: 700; }
-.inv-row.off { opacity: 0.6; }
+.inv-row.unlisted { opacity: 0.6; }
 .inv-row > .error, .inv-row > .ok { grid-column: 1 / -1; margin: 0; }
 .f-desc { grid-column: 1 / -1; }
 .f-desc summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

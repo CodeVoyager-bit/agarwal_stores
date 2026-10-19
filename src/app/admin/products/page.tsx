@@ -134,7 +134,7 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
 
       <div className="inventory">
         {products.map((p) => (
-          <ActionForm key={String(p._id)} action={saveProductAction} submit={t.common.words.save} small className={`inv-row${p.stock <= 5 ? " low" : ""}${p.active ? "" : " off"}`} after={<Description p={p} w={w} />}>
+          <ActionForm key={String(p._id)} action={saveProductAction} submit={t.common.words.save} small className={`inv-row${p.stock <= 5 ? " low" : ""}${p.active ? "" : " unlisted"}`} after={<Description p={p} w={w} />}>
             <Fields p={p} w={w} />
           </ActionForm>
         ))}

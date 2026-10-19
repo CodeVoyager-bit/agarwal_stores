@@ -52,7 +52,7 @@ export const en = {
       "We may refuse or cancel a booking we can’t lawfully or safely fill, for example an unusually large quantity.",
     ],
     crackers:
-      "We sell only crackers that may lawfully be sold, made by licensed makers: green crackers that carry the CSIR‑NEERI green logo and QR code, without barium salts, as the Supreme Court requires. Pictures are for guidance; the box you get may look a little different.",
+      "We sell only crackers that may lawfully be sold, made by licensed makers. Pictures are for guidance; the box you get may look a little different.",
     prices: [
       "Prices are in Indian rupees and include GST. The MRP printed on the box is shown next to our price.",
       "The price you pay is the one shown when you booked. If it has to change, we tell you on the confirmation call first.",
@@ -225,7 +225,7 @@ export const hi: typeof en = {
       "जो बुकिंग हम कानूनी या सुरक्षित तरीके से पूरी नहीं कर सकते, उसे हम मना या रद्द कर सकते हैं, जैसे सामान्य से बहुत ज़्यादा मात्रा।",
     ],
     crackers:
-      "हम सिर्फ़ वही पटाखे बेचते हैं जिन्हें कानूनी तौर पर बेचा जा सकता है और जो लाइसेंस वाले निर्माताओं ने बनाए हैं: ग्रीन पटाखे, जिन पर CSIR‑NEERI का ग्रीन लोगो और QR कोड होता है और जिनमें बेरियम सॉल्ट नहीं होते, जैसा सुप्रीम कोर्ट ने ज़रूरी किया है। तस्वीरें सिर्फ़ अंदाज़े के लिए हैं; आपको मिलने वाला डिब्बा थोड़ा अलग दिख सकता है।",
+      "हम सिर्फ़ वही पटाखे बेचते हैं जिन्हें कानूनी तौर पर बेचा जा सकता है और जो लाइसेंस वाले निर्माताओं ने बनाए हैं। तस्वीरें सिर्फ़ अंदाज़े के लिए हैं; आपको मिलने वाला डिब्बा थोड़ा अलग दिख सकता है।",
     prices: [
       "कीमतें भारतीय रुपये में हैं और इनमें GST शामिल है। डिब्बे पर छपी MRP हमारी कीमत के साथ दिखाई जाती है।",
       "आप वही कीमत देते हैं जो बुक करते समय दिखाई गई थी। अगर उसे बदलना पड़े, तो हम पहले कन्फ़र्मेशन कॉल पर आपको बताते हैं।",
@@ -398,7 +398,7 @@ export const mr: typeof en = {
       "जी बुकिंग आम्ही कायदेशीरपणे किंवा सुरक्षितपणे पूर्ण करू शकत नाही, ती आम्ही नाकारू किंवा रद्द करू शकतो, उदाहरणार्थ नेहमीपेक्षा खूप जास्त प्रमाण.",
     ],
     crackers:
-      "आम्ही फक्त कायदेशीरपणे विकता येणारे, परवानाधारक उत्पादकांनी बनवलेले फटाके विकतो: CSIR‑NEERI चा ग्रीन लोगो आणि QR कोड असलेले, बेरियम सॉल्ट नसलेले ग्रीन फटाके, जसे सुप्रीम कोर्टाने बंधनकारक केले आहे. चित्रे फक्त कल्पना येण्यासाठी आहेत; तुम्हाला मिळणारा बॉक्स थोडा वेगळा दिसू शकतो.",
+      "आम्ही फक्त कायदेशीरपणे विकता येणारे, परवानाधारक उत्पादकांनी बनवलेले फटाके विकतो. चित्रे फक्त कल्पना येण्यासाठी आहेत; तुम्हाला मिळणारा बॉक्स थोडा वेगळा दिसू शकतो.",
     prices: [
       "किमती भारतीय रुपयांत आहेत आणि त्यात GST समाविष्ट आहे. बॉक्सवर छापलेली MRP आमच्या किमतीच्या शेजारी दाखवली जाते.",
       "तुम्ही बुक करताना दाखवलेलीच किंमत देता. ती बदलावी लागली, तर आम्ही आधी कन्फर्मेशन कॉलवर तुम्हाला सांगतो.",
