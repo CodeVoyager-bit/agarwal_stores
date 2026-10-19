@@ -24,6 +24,8 @@ export default async function DeliveryStop({ params }: { params: Promise<{ id: s
   if (!o) notFound();
   const [t, lang] = await Promise.all([getT(), getLang()]);
   const s = t.delivery.stop;
+  // the address and number only while the stop is open: a rider doesn't keep past customers' details
+  const open = o.status === "placed" || o.status === "packed" || o.status === "out_for_delivery";
 
   return (
     <>
@@ -37,21 +39,25 @@ export default async function DeliveryStop({ params }: { params: Promise<{ id: s
       </h1>
       <div className="order-layout">
         <section className="panel stack">
-          <p>
-            {o.address.line}
-            {o.address.landmark && <small>{fill(s.near, { place: o.address.landmark })}</small>}
-            <small>
-              <strong>{o.address.pincode}</strong> · {fill(s.deliverBy, { day: day(o.deliverBy, lang) })}
-            </small>
-          </p>
-          <p className="contact">
-            <a className="btn" href={`tel:+91${o.phone}`}>
-              <Phone size={18} aria-hidden="true" /> {fill(s.callPhone, { phone: o.phone })}
-            </a>
-            <a className="btn" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${o.address.line} ${o.address.pincode}`)}`} target="_blank" rel="noreferrer">
-              <MapPin size={18} aria-hidden="true" /> {s.openMap}
-            </a>
-          </p>
+          {open && (
+            <>
+              <p>
+                {o.address.line}
+                {o.address.landmark && <small>{fill(s.near, { place: o.address.landmark })}</small>}
+                <small>
+                  <strong>{o.address.pincode}</strong> · {fill(s.deliverBy, { day: day(o.deliverBy, lang) })}
+                </small>
+              </p>
+              <p className="contact">
+                <a className="btn" href={`tel:+91${o.phone}`}>
+                  <Phone size={18} aria-hidden="true" /> {fill(s.callPhone, { phone: o.phone })}
+                </a>
+                <a className="btn" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${o.address.line} ${o.address.pincode}`)}`} target="_blank" rel="noreferrer">
+                  <MapPin size={18} aria-hidden="true" /> {s.openMap}
+                </a>
+              </p>
+            </>
+          )}
           {/* so the customer's "is everything there?" is answered before the code */}
           <h2>{s.parcel}</h2>
           <ul className="items">

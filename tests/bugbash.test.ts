@@ -251,3 +251,35 @@ test("a shelf named like a built-in name shows as typed instead of crashing the 
   assert.equal(catName(DICTS.hi, "Anar"), DICTS.hi.common.categories.Anar);
 });
 
+
+test("the shelves list products not priced yet after all the ones people can book", async () => {
+  await Product.create([
+    { name: "Unpriced Sorting Rocket", category: "Rockets", mrp: 120, price: 0, stock: 5 },
+    { name: "Priced Sorting Rocket", category: "Rockets", mrp: 120, price: 60, stock: 5 },
+  ]);
+  const { shopItems } = await import("../src/lib/db");
+  const prices = (await shopItems()).map((i) => i.price);
+  assert.ok(prices.includes(0));
+  assert.equal(prices.findIndex((p) => p === 0), prices.length - prices.filter((p) => p === 0).length, "an unpriced one before a priced one");
+});
+
+test("photo links with a ?query aren't shrunk by the image service, so nobody can spend its quota with ?n=1, ?n=2…", async () => {
+  const { resizable } = await import("../src/lib/image-hosts");
+  assert.equal(resizable("https://standardcrackers.in/assets/uploads/a.jpg"), true);
+  assert.equal(resizable("https://standardcrackers.in/assets/uploads/a.jpg?n=1"), false);
+  assert.equal(resizable("https://example.com/a.jpg"), false);
+});
+
+test("a form whose connection drops gets a message back, with what was there kept; a server error still throws", async () => {
+  const { offlineSafe } = await import("../src/components/action-form");
+  const form = new FormData();
+  const offline = offlineSafe(async (): Promise<{ id?: string; error?: string; ok?: string }> => {
+    throw new TypeError("Failed to fetch");
+  });
+  assert.deepEqual(await offline({ id: "9876543210", ok: "Code sent." }, form), { id: "9876543210", ok: undefined, error: "Couldn't reach the shop. Check your internet and try again." });
+  const broken = offlineSafe(async (): Promise<{ error?: string } | null> => {
+    throw Object.assign(new TypeError("x is undefined"), { digest: "123" });
+  });
+  await assert.rejects(broken(null, form), /x is undefined/);
+  assert.ok(DICTS.hi.messages["Couldn't reach the shop. Check your internet and try again."], "the message has a Hindi version");
+});

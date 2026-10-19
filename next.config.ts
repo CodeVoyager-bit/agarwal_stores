@@ -8,7 +8,7 @@ const config: NextConfig = {
   env: { NEXT_PUBLIC_CLOUDINARY_CLOUD: process.env.CLOUDINARY_CLOUD_NAME ?? "" },
   images: {
     // product photos from Cloudinary and the brand sites, shrunk to card size (components/category.tsx)
-    remotePatterns: IMAGE_SOURCES.map((source) => ({ protocol: "https", ...source })),
+    remotePatterns: IMAGE_SOURCES.map((source) => ({ protocol: "https", search: "", ...source })),
     qualities: [75],
     // the brand sites are slow and their photos don't change: keep our small copies for a month
     minimumCacheTTL: 2678400,

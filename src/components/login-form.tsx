@@ -3,12 +3,27 @@
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { addPhoneAction, confirmEmailChangeAction, loginStepAction, requestEmailChangeAction, sendPhoneCodeAction, type LoginStep } from "@/lib/actions";
+import {
+  addPhoneAction as addPhone,
+  confirmEmailChangeAction as confirmEmailChange,
+  loginStepAction as loginStep,
+  requestEmailChangeAction as requestEmailChange,
+  sendPhoneCodeAction as sendPhoneCode,
+  type LoginStep,
+} from "@/lib/actions";
 import { tenDigitMobile } from "@/lib/format";
 import { fill } from "@/lib/i18n";
 import { rich } from "@/lib/i18n/rich";
+import { offlineSafe } from "./action-form";
 import { GoogleButton } from "./google-button";
 import { useMsg, useT } from "./i18n";
+
+// with no connection, a message under the button (and what was typed kept) instead of the error page
+const loginStepAction = offlineSafe(loginStep);
+const sendPhoneCodeAction = offlineSafe(sendPhoneCode);
+const addPhoneAction = offlineSafe(addPhone);
+const requestEmailChangeAction = offlineSafe(requestEmailChange);
+const confirmEmailChangeAction = offlineSafe(confirmEmailChange);
 
 const strong = (s: string) => <strong>{s}</strong>;
 

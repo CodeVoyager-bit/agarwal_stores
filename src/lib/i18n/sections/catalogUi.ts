@@ -33,6 +33,8 @@ export const en = {
     remove: "Remove",
     removeNth: "Remove photo {n}",
     toAdd: "New",
+    busy: "Getting the photos ready. Press Save again in a moment.",
+    tooBig: "A photo must be a JPEG, PNG or WebP under 1.5 MB. Pick another one.",
   },
 };
 
@@ -68,6 +70,8 @@ export const hi: typeof en = {
     remove: "हटाएँ",
     removeNth: "फ़ोटो {n} हटाएँ",
     toAdd: "नई",
+    busy: "फ़ोटो तैयार हो रही हैं। थोड़ी देर में फिर से सेव दबाएँ।",
+    tooBig: "फ़ोटो 1.5 MB से छोटी JPEG, PNG या WebP होनी चाहिए। कोई दूसरी फ़ोटो चुनें।",
   },
 };
 
@@ -103,5 +107,7 @@ export const mr: typeof en = {
     remove: "काढा",
     removeNth: "फोटो {n} काढा",
     toAdd: "नवीन",
+    busy: "फोटो तयार होत आहेत. थोड्या वेळाने पुन्हा सेव्ह दाबा.",
+    tooBig: "फोटो 1.5 MB पेक्षा लहान JPEG, PNG किंवा WebP असावा. दुसरा फोटो निवडा.",
   },
 };

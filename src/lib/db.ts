@@ -204,6 +204,8 @@ export async function shopItems(): Promise<ShopItem[]> {
   await connectDB();
   // not the descriptions: up to 1000 characters each, and only the product page shows one
   const products = await Product.find({ active: true }, "name category unit mrp price stock image").sort({ price: 1, name: 1 }).lean();
+  // cheapest first, but the ones not priced yet (price 0) after all the ones people can book
+  products.sort((a, b) => Number(!a.price) - Number(!b.price));
   return products.map((p) => ({
     id: String(p._id),
     name: p.name,

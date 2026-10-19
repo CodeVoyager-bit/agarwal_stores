@@ -40,7 +40,7 @@ export default async function AdminOrders({ searchParams }: { searchParams: Prom
     Order.find(filter).sort(status === "open" ? { deliverBy: 1 } : { createdAt: -1 }).limit(500).lean(),
     Order.aggregate<{ _id: string; count: number; value: number }>([{ $group: { _id: "$status", count: { $sum: 1 }, value: { $sum: "$total" } } }]),
     Order.countDocuments({ status: { $in: OPEN }, deliverBy: { $lt: now } }),
-    Product.countDocuments({ active: true, stock: { $lte: 5 } }),
+    Product.countDocuments({ active: true, price: { $gt: 0 }, stock: { $lte: 5 } }),
   ]);
   const count = (s: string) => (s === "open" ? (OPEN as string[]) : s === "all" ? Object.keys(STATUS_LABEL) : [s]).reduce((n, k) => n + (byStatus.find((b) => b._id === k)?.count ?? 0), 0);
   const sales = byStatus.filter((b) => b._id !== "cancelled").reduce((n, b) => n + b.value, 0);

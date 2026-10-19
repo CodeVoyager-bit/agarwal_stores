@@ -98,7 +98,7 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
   await connectDB();
   const products = await Product.find({
     ...(q && { $or: [{ name: new RegExp(escape(q), "i") }, { category: new RegExp(escape(q), "i") }] }),
-    ...(low && { active: true, stock: { $lte: 5 } }),
+    ...(low && { active: true, price: { $gt: 0 }, stock: { $lte: 5 } }),
   })
     .sort({ category: 1, price: 1 })
     .lean();
@@ -134,7 +134,7 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
 
       <div className="inventory">
         {products.map((p) => (
-          <ActionForm key={String(p._id)} action={saveProductAction} submit={t.common.words.save} small className={`inv-row${p.stock <= 5 ? " low" : ""}${p.active ? "" : " unlisted"}`} after={<Description p={p} w={w} />}>
+          <ActionForm key={String(p._id)} action={saveProductAction} submit={t.common.words.save} small className={`inv-row${p.price > 0 && p.stock <= 5 ? " low" : ""}${p.active ? "" : " unlisted"}`} after={<Description p={p} w={w} />}>
             <Fields p={p} w={w} />
           </ActionForm>
         ))}

@@ -46,8 +46,8 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const [shop, t] = await Promise.all([shopDetails(), getT()]);
   const w = t.shop.product;
   const cat = catName(t, item.category);
-  const off = Math.round((1 - item.price / item.mrp) * 100);
-  const priced = item.price > 0; // as on the shelf card (components/catalog.tsx)
+  const priced = item.price > 0; // as on the shelf card (components/catalog.tsx), no "100% off" either
+  const off = priced ? Math.round((1 - item.price / item.mrp) * 100) : 0;
   const shelf = `/?c=${encodeURIComponent(item.category)}`;
 
   return (

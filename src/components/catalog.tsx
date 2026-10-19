@@ -35,7 +35,8 @@ export function Catalog({ items, categories, initialQuery, initialCategory }: { 
     return (!category || i.category === category) && words.every((w) => text.includes(w));
   });
   useEffect(() => {
-    if (cart) pruneCart(new Set(items.map((i) => i.id)));
+    // unpriced ones too: they can't be booked, so a line kept from before would block the booking
+    if (cart) pruneCart(new Set(items.filter((i) => i.price > 0).map((i) => i.id)));
   }, [cart, items]);
   const count = Object.values(cart ?? {}).reduce((a, b) => a + b, 0);
   const total = items.reduce((sum, i) => sum + (cart?.[i.id] ?? 0) * i.price, 0);
@@ -130,9 +131,9 @@ export function Catalog({ items, categories, initialQuery, initialCategory }: { 
 /** One product on a shelf. The whole card opens its page (the name's link covers it); Add sits above. */
 export function ProductCard({ item: i, n }: { item: ShopItem; n: number }) {
   const t = useT();
-  const off = Math.round((1 - i.price / i.mrp) * 100);
-  // price 0: put on the shelf before the shop priced it; shown in colour, with no price and no Add
+  // price 0: put on the shelf before the shop priced it; shown in colour, with no price, no Add and no "100% off"
   const priced = i.price > 0;
+  const off = priced ? Math.round((1 - i.price / i.mrp) * 100) : 0;
   return (
     <li className={i.stock > 0 || !priced ? "card" : "card sold-out"} style={{ "--i": String(Math.min(n, 6)) } as React.CSSProperties}>
       <div className="card-art">

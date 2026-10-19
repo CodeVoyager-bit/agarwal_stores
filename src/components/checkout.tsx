@@ -9,6 +9,7 @@ import { inr, type ShopItem } from "@/lib/format";
 import { fill } from "@/lib/i18n";
 import { rich } from "@/lib/i18n/rich";
 import { goesWith } from "@/lib/pairs";
+import { offlineSafe } from "./action-form";
 import { bookingKey, clearCart, pruneCart, setQty, Stepper, useCart } from "./cart";
 import { ProductCard } from "./catalog";
 import { PhoneField } from "./login-form";
@@ -33,9 +34,10 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
   const w = t.shop.cart;
   // products taken off sale since they were added leave the cart, and its count
   useEffect(() => {
-    if (cart) pruneCart(new Set(items.map((i) => i.id)));
+    // unpriced ones too: placeOrder refuses them, and refreshing wouldn't drop the line
+    if (cart) pruneCart(new Set(items.filter((i) => i.price > 0).map((i) => i.id)));
   }, [cart, items]);
-  const [state, action, pending] = useActionState(placeOrderAction, null);
+  const [state, action, pending] = useActionState(offlineSafe(placeOrderAction), null);
   // the default (first saved) address, or a new one when there are none
   const [deliverTo, setDeliverTo] = useState(customer?.addresses[0]?.id ?? "new");
   // read in the browser only: the server has no saved booking id
