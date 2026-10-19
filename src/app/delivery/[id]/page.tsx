@@ -9,6 +9,7 @@ import { requireStaff } from "@/lib/auth";
 import { connectDB, Order } from "@/lib/db";
 import { day, inr } from "@/lib/format";
 import { fill } from "@/lib/i18n";
+import { shopDetails } from "@/lib/legal";
 import { getLang, getT } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,7 +23,7 @@ export default async function DeliveryStop({ params }: { params: Promise<{ id: s
   await connectDB();
   const o = await Order.findOne({ _id: id, assignedTo: user.id }).lean();
   if (!o) notFound();
-  const [t, lang] = await Promise.all([getT(), getLang()]);
+  const [t, lang, shop] = await Promise.all([getT(), getLang(), shopDetails()]);
   const s = t.delivery.stop;
   // the address and number only while the stop is open: a rider doesn't keep past customers' details
   const open = o.status === "placed" || o.status === "packed" || o.status === "out_for_delivery";
@@ -103,6 +104,7 @@ export default async function DeliveryStop({ params }: { params: Promise<{ id: s
                   </label>
                   <label className="f-check">
                     <input type="radio" name="method" value="upi" /> {s.upi}
+                    {shop.upiId && ` (${shop.upiId})`}
                   </label>
                 </fieldset>
                 <label className="f-check">

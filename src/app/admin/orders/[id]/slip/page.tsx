@@ -6,6 +6,7 @@ import { requireStaff } from "@/lib/auth";
 import { connectDB, Order } from "@/lib/db";
 import { day, inr } from "@/lib/format";
 import { fill } from "@/lib/i18n";
+import { shopDetails } from "@/lib/legal";
 import { getLang, getT } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -21,7 +22,7 @@ export default async function Slip({ params }: { params: Promise<{ id: string }>
   const order = await Order.findById(id).lean();
   if (!order) notFound();
   const pieces = order.items.reduce((n, i) => n + i.qty!, 0);
-  const [t, lang] = await Promise.all([getT(), getLang()]);
+  const [t, lang, shop] = await Promise.all([getT(), getLang(), shopDetails()]);
   const s = t.staff.slip;
   const c = t.staff.cols;
 
@@ -33,7 +34,7 @@ export default async function Slip({ params }: { params: Promise<{ id: string }>
           <img src="/icon.svg" alt="" width={44} height={44} />
           <div>
             <strong className="slip-shop">{t.common.meta.title}</strong>
-            {process.env.SHOP_PHONE && <small>{fill(s.phone, { phone: process.env.SHOP_PHONE })}</small>}
+            {shop.phone && <small>{fill(s.phone, { phone: shop.phone })}</small>}
           </div>
         </div>
         <div className="slip-number">
@@ -87,7 +88,10 @@ export default async function Slip({ params }: { params: Promise<{ id: string }>
           </tr>
         </tfoot>
       </table>
-      <p className="slip-note">{s.note}</p>
+      <p className="slip-note">
+        {shop.slipNote || s.note}
+        {shop.upiId && ` ${fill(t.orders.mine.upiTo, { upi: shop.upiId })}`}
+      </p>
       <footer>
         <span>{s.packedBy}</span>
         <span>{s.receivedBy}</span>

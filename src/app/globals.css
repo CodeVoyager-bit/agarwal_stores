@@ -826,3 +826,24 @@ main > :nth-child(n + 3) { --stagger: 2; }
   /* no trickle: the bar just stands part-way while the page loads */
   .nav-progress[data-state="loading"] { scale: 0.6 1; }
 }
+
+/* ---- Settings (admin/shop) and what it switches on the site ---- */
+/* the banner an owner writes on Settings, under the header on every page */
+.announce { margin: 0; padding: 10px 16px; text-align: center; font-weight: 700; color: var(--maroon); background: var(--cream); border-bottom: 1px solid var(--line); text-wrap: balance; }
+/* a message in place of a form, e.g. bookings paused */
+.notice { margin: 0; padding: 14px 16px; border-radius: var(--radius-sm); background: var(--cream); border: 1px solid var(--line); color: var(--maroon); font-weight: 600; }
+/* Show discount badges off: the "% off" badges and "You save" lines go; the MRP stays */
+.no-discounts .off, .no-discounts .save, .no-discounts .saved { display: none; }
+.settings-jump { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 18px; }
+.settings-jump a { padding: 6px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+.settings { display: grid; gap: 18px; max-width: 760px; }
+.settings-group { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; margin: 0; scroll-margin-top: calc(var(--header-h) + 16px); }
+.settings-group legend { float: left; width: 100%; margin-bottom: 4px; font: 700 1.15rem/1.2 var(--font-display), system-ui, sans-serif; color: var(--maroon); }
+.setting { display: grid; gap: 4px; align-content: start; }
+.setting small { font-weight: 400; }
+.setting:has(textarea) { grid-column: 1 / -1; }
+.setting .f-check { min-height: 32px; }
+/* the Save button stays in reach on a long page, above the phone's tab bar */
+.settings > .btn { position: sticky; bottom: calc(var(--tab-h) + 12px + env(safe-area-inset-bottom)); z-index: 5; box-shadow: var(--shadow-2); }
+.bill-logo { vertical-align: -6px; margin-right: 8px; border-radius: 8px; }
+@media (max-width: 760px) { .settings-group { grid-template-columns: 1fr; } }

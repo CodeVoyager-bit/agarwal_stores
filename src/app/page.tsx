@@ -3,11 +3,14 @@ import { Catalog } from "@/components/catalog";
 import { AppLink } from "@/components/install-app";
 import { Rangoli } from "@/components/rangoli";
 import { categoriesOf, shopItems } from "@/lib/db";
+import { fill } from "@/lib/i18n";
 import { getLang, getT } from "@/lib/i18n/server";
+import { shopDetails } from "@/lib/legal";
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ q?: string; c?: string; deleted?: string }> }) {
-  const [items, params, t, lang] = await Promise.all([shopItems(), searchParams, getT(), getLang()]);
+  const [items, params, t, lang, shop] = await Promise.all([shopItems(), searchParams, getT(), getLang(), shopDetails()]);
   const h = t.common.home;
+  const days = { from: shop.deliveryFrom, to: shop.deliveryTo };
   return (
     <>
       {params.deleted !== undefined && (
@@ -21,10 +24,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
             {h.greeting}
           </p>
           <h1>{h.title}</h1>
-          <p className="lead">{h.lead}</p>
+          <p className="lead">{fill(h.lead, days)}</p>
           <ul className="promises">
             <li>
-              <Truck size={18} aria-hidden="true" /> {h.days}
+              <Truck size={18} aria-hidden="true" /> {fill(h.days, days)}
             </li>
             <li>
               <IndianRupee size={18} aria-hidden="true" /> {h.pay}

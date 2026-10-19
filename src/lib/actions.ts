@@ -12,7 +12,8 @@ import { MAX_PHOTOS, tidyLines } from "./format";
 import { cloudinaryEnabled, uploadPhoto } from "./cloudinary";
 import { ADDRESS_LABELS, Audit, audit, connectDB, MAX_ADDRESSES, ORDER_STATUSES, Photo, Product, Shop, User, type OrderStatus } from "./db";
 import { addNote, assignDelivery, checkDetails, completeDelivery, deleteAccount, deliveryFailed, OrderError, saveToBook, placeOrder, receiveCash, setOrderStatus, startDelivery } from "./orders";
-import { checkShop, SHOP_FIELDS, shopDetails, type ShopDetails } from "./legal";
+import { DICTS } from "./i18n/dict";
+import { checkShop, readSettings, SETTINGS, shopDetails } from "./legal";
 import { ROLE_LABEL, ROLES, staffHome, type Role } from "./roles";
 import { applyImport, planImport, readSheet, type PlanRow } from "./stock-import";
 
@@ -609,15 +610,16 @@ export async function deliveryFailedAction(_: Result, form: FormData): Promise<R
 export async function saveShopAction(_: Result, form: FormData): Promise<Result> {
   return attempt(async () => {
     const user = await allowStaff("shop");
-    const details = Object.fromEntries(SHOP_FIELDS.map(({ key, max }) => [key, text(form, key).replace(/\s+/g, " ").slice(0, max)])) as ShopDetails;
-    details.gstin = details.gstin.toUpperCase();
-    const problem = checkShop(details);
+    const settings = readSettings((key) => form.get(key));
+    const problem = checkShop(settings);
     if (problem) throw new OrderError(problem);
     const before = await shopDetails();
-    await Shop.updateOne({ _id: "shop" }, details, { upsert: true });
-    const changed = SHOP_FIELDS.filter(({ key }) => before[key] !== details[key]).map(({ label }) => label);
-    if (changed.length) await audit(who(user), "shop.edit", "Shop details", changed.join(", "));
-    return "Saved. The Terms, Privacy and product pages show these now.";
+    await Shop.updateOne({ _id: "shop" }, settings, { upsert: true });
+    // the audit log names what changed, by its English label on the Settings page
+    const labels = DICTS.en.catalog.shop.fields;
+    const changed = SETTINGS.filter(({ key }) => before[key] !== settings[key]).map(({ key }) => labels[key].label);
+    if (changed.length) await audit(who(user), "shop.edit", "Settings", changed.join(", "));
+    return "Saved. The whole site uses these now.";
   });
 }
 

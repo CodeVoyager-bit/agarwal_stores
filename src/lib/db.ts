@@ -93,18 +93,12 @@ const userSchema = new Schema(
 
 const counterSchema = new Schema({ _id: String, seq: Number });
 
-/** The shop's legal details: one document, _id "shop", saved by owners on /admin/shop (lib/legal.ts). */
-const shopSchema = new Schema({
-  _id: String,
-  legalName: String,
-  address: String,
-  gstin: String,
-  gstScheme: String,
-  licence: String,
-  grievanceOfficer: String,
-  email: String,
-  courts: String,
-});
+/** The shop's settings, legal details included: one document, _id "shop", saved by owners on /admin/shop (lib/legal.ts). */
+const shopSchema = new Schema(
+  { _id: String },
+  // every setting in lib/legal.ts SETTINGS, checked there, so a new one needs no change here
+  { strict: false },
+);
 
 /** Counts tries per key in a time window (copied from Agarwal Online's rate limit); Mongo removes old windows. */
 const rateLimitSchema = new Schema({
@@ -145,7 +139,9 @@ const orderSchema = new Schema(
       /** the GST rate when it was made, and whether the law needs the buyer's name, address and State on it */
       rate: Number,
       named: Boolean,
-      shop: { legalName: String, address: String, gstin: String, gstScheme: String },
+      /** the HSN code printed on it; the shop's details as they were then */
+      hsn: String,
+      shop: { legalName: String, address: String, gstin: String, gstScheme: String, phone: String, email: String },
     },
     /** What happened to the order and who did it, oldest first; staff notes too. */
     history: [{ _id: false, at: { type: Date, default: Date.now }, by: String, text: String }],

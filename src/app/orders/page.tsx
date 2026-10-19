@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { connectDB, Order } from "@/lib/db";
 import { day, inr } from "@/lib/format";
 import { fill } from "@/lib/i18n";
+import { shopDetails } from "@/lib/legal";
 import { rich } from "@/lib/i18n/rich";
 import { getLang, getT } from "@/lib/i18n/server";
 
@@ -32,7 +33,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const orders = await Order.find({ user: user.id }).select("+handoverCode").sort({ createdAt: -1 }).lean();
   // only for an order of theirs: a typed-in number shows nothing
   const placedOrder = typeof placed === "string" ? orders.find((o) => o.number === Number(placed)) : undefined;
-  const [t, lang] = await Promise.all([getT(), getLang()]);
+  const [t, lang, shop] = await Promise.all([getT(), getLang(), shopDetails()]);
   const m = t.orders.mine;
 
   return (
@@ -117,7 +118,12 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                     {m.viewBill}
                   </Link>
                 ) : (
-                  o.status !== "cancelled" && <p className="muted">{m.pay}</p>
+                  o.status !== "cancelled" && (
+                    <p className="muted">
+                      {m.pay}
+                      {shop.upiId && ` ${fill(m.upiTo, { upi: shop.upiId })}`}
+                    </p>
+                  )
                 )}
               </li>
             );

@@ -14,7 +14,6 @@ import { inr } from "@/lib/format";
 import { catName, fill } from "@/lib/i18n";
 import { getT } from "@/lib/i18n/server";
 import { shopDetails } from "@/lib/legal";
-import { DELIVERY_DAYS } from "@/lib/orders";
 import { goesWith } from "@/lib/pairs";
 
 /** The product, its write-up, what goes with it and the rest of its shelf; once per request (the title asks too). */
@@ -82,7 +81,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           )}
           {item.stock > 0 && priced ? (
             <>
-              <p className={item.stock > 10 ? "stock" : "stock low"}>{item.stock > 10 ? w.inStock : fill(w.onlyLeft, { n: item.stock })}</p>
+              <p className={item.stock > shop.showLeftBelow ? "stock" : "stock low"}>{item.stock > shop.showLeftBelow ? w.inStock : fill(w.onlyLeft, { n: item.stock })}</p>
               <Stepper id={item.id} name={item.name} max={item.stock} />
             </>
           ) : (
@@ -107,7 +106,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           </section>
           <ul className="assurances">
             <li>
-              <Truck size={18} aria-hidden="true" /> {fill(t.shop.assure.door, { days: DELIVERY_DAYS })}
+              <Truck size={18} aria-hidden="true" /> {fill(t.shop.assure.door, { from: shop.deliveryFrom, to: shop.deliveryTo })}
             </li>
             <li>
               <IndianRupee size={18} aria-hidden="true" /> {t.shop.assure.pay}

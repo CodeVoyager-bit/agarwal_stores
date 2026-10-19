@@ -6,8 +6,9 @@ import mongoose from "mongoose";
 // Always a throwaway local database (it is dropped), never the one in .env.
 process.env.MONGODB_URI = process.env.TEST_MONGODB_URI ?? "mongodb://127.0.0.1:27017/agarwal_fatake_legal_test";
 const { connectDB, Order, Shop, User } = await import("../src/lib/db");
-const { billTitle, checkShop, gstSplit, shopDetails } = await import("../src/lib/legal");
-const { deleteAccount, financialYear, issueBill, OrderError } = await import("../src/lib/orders");
+const { billTitle, checkShop, gstSplit, readSettings, servesPincode, SETTING_DEFAULTS, shopDetails } = await import("../src/lib/legal");
+const { deleteAccount, financialYear, issueBill, OrderError, placeOrder } = await import("../src/lib/orders");
+const { Product } = await import("../src/lib/db");
 const { planImport } = await import("../src/lib/stock-import");
 
 await connectDB();
@@ -16,7 +17,7 @@ await Promise.all(Object.values(mongoose.models).map((m) => m.init()));
 await mongoose.connection.dropDatabase();
 after(() => mongoose.disconnect());
 
-const shop = { legalName: "Agarwal Stores", address: "Main Road, Nagothane 402106", gstin: "", gstScheme: "regular", licence: "", grievanceOfficer: "", email: "", courts: "" };
+const shop = { ...SETTING_DEFAULTS, legalName: "Agarwal Stores", address: "Main Road, Nagothane 402106", phone: "", courts: "" };
 
 test("shop details: name and address needed, GSTIN and email checked only when given", () => {
   assert.equal(checkShop(shop), null);
@@ -30,6 +31,49 @@ test("the pages show the defaults until an owner saves, then exactly what was sa
   assert.equal((await shopDetails()).courts, "Raigad, Maharashtra");
   await Shop.updateOne({ _id: "shop" }, { ...shop }, { upsert: true });
   assert.deepEqual(await shopDetails(), shop);
+});
+
+test("the Settings form: numbers, ticks, a phone typed any way, pincodes in any spacing", () => {
+  const form = new Map<string, string>([
+    ["legalName", "  Agarwal   Stores "],
+    ["address", "Main Road\r\nNagothane 402106"],
+    ["phone", "+91 98765 43210"],
+    ["gstScheme", "regular"],
+    ["gstRate", "18"],
+    ["billPrefix", "ags/"],
+    ["billLogo", "on"],
+    ["hsn", "3604"],
+    ["deliveryFrom", "2"],
+    ["deliveryTo", "5"],
+    ["pincodes", "402106 402107,402108"],
+    ["minOrder", "500"],
+    ["maxWaiting", "5"],
+    ["showLeftBelow", "10"],
+    ["lowStock", "5"],
+  ]);
+  const s = readSettings((key) => form.get(key) ?? null);
+  assert.equal(s.legalName, "Agarwal Stores");
+  assert.equal(s.address, "Main Road\nNagothane 402106");
+  assert.equal(s.phone, "9876543210");
+  assert.equal(s.billPrefix, "AGS/");
+  assert.equal(s.gstRate, 18);
+  assert.equal(s.billLogo, true);
+  assert.equal(s.billHsnColumn, false, "an unticked box is off");
+  assert.equal(s.pincodes, "402106, 402107, 402108");
+  assert.equal(checkShop(s), null);
+  assert.ok(servesPincode(s, "402107"));
+  assert.ok(!servesPincode(s, "400001"));
+  assert.ok(servesPincode({ ...s, pincodes: "" }, "400001"), "no list takes any pincode");
+  // each rule refuses what it should
+  assert.match(checkShop({ ...s, deliveryFrom: 6 })!, /first delivery day/);
+  assert.match(checkShop({ ...s, minOrder: Number.NaN })!, /whole number/);
+  assert.match(checkShop({ ...s, maxWaiting: 0 })!, /whole number/);
+  assert.match(checkShop({ ...s, billPrefix: "AGS#" })!, /prefix/);
+  assert.match(checkShop({ ...s, hsn: "36" })!, /HSN/);
+  assert.match(checkShop({ ...s, pincodes: "4021, 402107" })!, /Pincodes/);
+  assert.match(checkShop({ ...s, upiId: "shop" })!, /UPI/);
+  assert.match(checkShop({ ...s, gstRate: 12 })!, /choices/);
+  assert.match(checkShop({ ...s, phone: "12345" })!, /mobile/);
 });
 
 test("a price list's Manufacturer column fills the maker", async () => {
@@ -107,4 +151,32 @@ test("deleting an account: blocked while a booking is open, then the person's de
   const big = (await Order.findOne({ user: customer._id, total: 60_000 }))!;
   assert.equal(big.name, "Bill Buyer");
   assert.equal(big.phone, "removed");
+});
+
+test("Settings rule booking: paused, the pincodes served and the smallest booking; staff aren't held to them", async () => {
+  const buyer = await User.create({ phone: "9822222222", name: "Rule Tester" });
+  const p = await Product.create({ name: "Settings Anar", category: "Anar", mrp: 100, price: 100, stock: 50 });
+  const where = { name: "Rule Tester", phone: "9822222222", line: "4 Market Road, Nagothane", landmark: "", pincode: "402106" };
+  const book = (role = "customer", pincode = "402106", qty = 1) => placeOrder({ id: String(buyer._id), role }, [{ id: String(p._id), qty }], { ...where, pincode });
+  await Shop.updateOne({ _id: "shop" }, { bookingsOpen: false, closedMessage: "Closed till Monday." });
+  await assert.rejects(book(), /Closed till Monday/);
+  await book("admin");
+  await Shop.updateOne({ _id: "shop" }, { bookingsOpen: true, pincodes: "402106, 402107", minOrder: 300, deliveryTo: 2 });
+  await assert.rejects(book("customer", "400001", 3), /deliver to 400001/);
+  await assert.rejects(book("customer", "402107", 2), /smallest booking is ₹300/);
+  const order = await book("customer", "402107", 3);
+  const days = (order.deliverBy.getTime() - order.createdAt.getTime()) / 86_400_000;
+  assert.ok(days > 1.9 && days < 2.1, "deliver by follows Settings");
+});
+
+test("a new bill takes Settings' prefix, HSN and rate; it keeps them after Settings change", async () => {
+  await Shop.updateOne({ _id: "shop" }, { billPrefix: "AGS/", hsn: "36041000", gstRate: 5, phone: "9876543210" });
+  const sold = await order("delivered", 1000);
+  await issueBill(String(sold._id));
+  await Shop.updateOne({ _id: "shop" }, { billPrefix: "", gstRate: 18 });
+  const bill = (await Order.findById(sold._id))!.bill!;
+  assert.match(bill.number!, /^AGS\/\d\d-\d\d\/\d{4}$/);
+  assert.equal(bill.hsn, "36041000");
+  assert.equal(bill.rate, 5);
+  assert.equal(bill.shop!.phone, "9876543210");
 });

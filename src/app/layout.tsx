@@ -20,12 +20,12 @@ import { getLang, getT } from "@/lib/i18n/server";
 const display = Baloo_2({ weight: ["600", "700", "800"], subsets: ["latin", "devanagari"], variable: "--font-display", display: "swap" });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getT();
+  const [t, shop] = await Promise.all([getT(), shopDetails()]);
   return {
     // makes the shared-link picture (opengraph-image.tsx) a full https:// address
     metadataBase: new URL(appOrigin()),
     title: t.common.meta.title,
-    description: t.common.meta.description,
+    description: fill(t.common.meta.description, { from: shop.deliveryFrom, to: shop.deliveryTo }),
   };
 }
 export const viewport: Viewport = { themeColor: "#ff9933" };
@@ -33,10 +33,12 @@ export const viewport: Viewport = { themeColor: "#ff9933" };
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [user, lang, t, shop] = await Promise.all([currentUser(), getLang(), getT(), shopDetails()]);
   const c = t.common;
-  const phone = process.env.SHOP_PHONE;
+  const phone = shop.phone;
+  const days = { from: shop.deliveryFrom, to: shop.deliveryTo };
   return (
     <html lang={lang} className={display.variable}>
-      <body>
+      {/* Settings > Show discount badges off: globals.css hides the "% off" badges and "You save" lines */}
+      <body className={shop.showDiscount ? undefined : "no-discounts"}>
         <I18nProvider lang={lang} t={clientDict(t)}>
         {/* reads the address, so it waits for it instead of holding up the page */}
         <Suspense fallback={null}>
@@ -71,6 +73,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
           <div className="toran" aria-hidden="true" />
         </header>
+        {shop.announcement && (
+          <p className="announce" role="note">
+            {shop.announcement}
+          </p>
+        )}
         <main id="main" className="wrap">
           {children}
         </main>
@@ -82,7 +89,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <img src="/icon.svg" alt="" width={28} height={28} className="logo" />
                 Agarwal Stores <span>Crackers</span>
               </p>
-              <p>{c.footer.promise}</p>
+              <p>{fill(c.footer.promise, days)}</p>
               <p>{c.footer.bookingOnly}</p>
               <p>{c.footer.adults}</p>
               <AppLink className="btn small">
@@ -108,6 +115,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   </>
                 )}
               </address>
+              {shop.hours && <p>{fill(c.footer.hours, { hours: shop.hours })}</p>}
               {shop.grievanceOfficer && (
                 <p>
                   {t.legal.rows.grievanceOfficer}: <Link href="/terms#contact">{shop.grievanceOfficer}</Link>

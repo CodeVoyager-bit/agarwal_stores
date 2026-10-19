@@ -7,6 +7,7 @@ import { requireStaff } from "@/lib/auth";
 import { connectDB, Order, Product, type OrderStatus } from "@/lib/db";
 import { day, inr, STATUS_LABEL } from "@/lib/format";
 import { fill } from "@/lib/i18n";
+import { shopDetails } from "@/lib/legal";
 import { getLang, getT } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -35,12 +36,13 @@ export default async function AdminOrders({ searchParams }: { searchParams: Prom
 
   await connectDB();
   const now = new Date();
+  const { lowStock: lowAt } = await shopDetails();
   const [orders, byStatus, overdue, lowStock] = await Promise.all([
     // open orders: the one due soonest first
     Order.find(filter).sort(status === "open" ? { deliverBy: 1 } : { createdAt: -1 }).limit(500).lean(),
     Order.aggregate<{ _id: string; count: number; value: number }>([{ $group: { _id: "$status", count: { $sum: 1 }, value: { $sum: "$total" } } }]),
     Order.countDocuments({ status: { $in: OPEN }, deliverBy: { $lt: now } }),
-    Product.countDocuments({ active: true, price: { $gt: 0 }, stock: { $lte: 5 } }),
+    Product.countDocuments({ active: true, price: { $gt: 0 }, stock: { $lte: lowAt } }),
   ]);
   const count = (s: string) => (s === "open" ? (OPEN as string[]) : s === "all" ? Object.keys(STATUS_LABEL) : [s]).reduce((n, k) => n + (byStatus.find((b) => b._id === k)?.count ?? 0), 0);
   const sales = byStatus.filter((b) => b._id !== "cancelled").reduce((n, b) => n + b.value, 0);

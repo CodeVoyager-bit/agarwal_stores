@@ -26,7 +26,10 @@ const keepTyped = (e: React.FormEvent) => e.preventDefault();
 const fingerprint = (lines: { id: string; qty: number }[]) =>
   [...lines.map((l) => `${l.id}:${l.qty}`).join(",")].reduce((h, c) => (h * 33 + c.charCodeAt(0)) >>> 0, 5381).toString(36);
 
-export function CartView({ items, customer, deliveryDays, popular }: { items: ShopItem[]; customer: Customer | null; deliveryDays: number; popular: string[] }) {
+/** What Settings says about booking: delivery days, a pause (its message, or null) and the smallest booking. */
+type Rules = { from: number; to: number; closed: string | null; minOrder: number };
+
+export function CartView({ items, customer, rules, popular }: { items: ShopItem[]; customer: Customer | null; rules: Rules; popular: string[] }) {
   const cart = useCart();
   const router = useRouter();
   const t = useT();
@@ -148,14 +151,18 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
         </dl>
         <ul className="assurances">
           <li>
-            <Truck size={18} aria-hidden="true" /> {fill(t.shop.assure.door, { days: deliveryDays })}
+            <Truck size={18} aria-hidden="true" /> {fill(t.shop.assure.door, { from: rules.from, to: rules.to })}
           </li>
           <li>
             <IndianRupee size={18} aria-hidden="true" /> {t.shop.assure.pay}
           </li>
         </ul>
 
-        {customer ? (
+        {rules.closed ? (
+          <p className="notice" role="status">
+            {rules.closed}
+          </p>
+        ) : customer ? (
           <form action={action} className="fields" onReset={keepTyped}>
             <h3>{w.details}</h3>
             <input type="hidden" name="cart" value={JSON.stringify(lines.map((l) => ({ id: l.id, qty: l.qty })))} />
@@ -246,12 +253,17 @@ export function CartView({ items, customer, deliveryDays, popular }: { items: Sh
               </span>
             </label>
             <p className="note">{w.bookingNote}</p>
+            {total < rules.minOrder && (
+              <p className="error" role="status">
+                {fill(w.minOrder, { min: inr(rules.minOrder), more: inr(rules.minOrder - total) })}
+              </p>
+            )}
             {state?.error && (
               <p role="alert" className="error">
                 {tr(state.error)}
               </p>
             )}
-            <button className="btn primary big" disabled={pending || short.length > 0 || !!state?.number}>
+            <button className="btn primary big" disabled={pending || short.length > 0 || total < rules.minOrder || !!state?.number}>
               {pending ? w.booking : fill(w.book, { total: inr(total) })}
             </button>
           </form>

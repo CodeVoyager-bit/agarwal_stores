@@ -4,7 +4,7 @@
 export const en = {
   meta: {
     title: "Agarwal Stores · Crackers",
-    description: "Book Diwali crackers from Agarwal Stores. Home delivery in 3–4 days, pay cash or UPI on delivery.",
+    description: "Book Diwali crackers from Agarwal Stores. Home delivery in {from}–{to} days, pay cash or UPI on delivery.",
   },
   nav: {
     main: "Main",
@@ -26,7 +26,7 @@ export const en = {
     cash: "Cash",
     staff: "Staff",
     audit: "Audit Log",
-    shop: "Shop Details",
+    shop: "Settings",
   },
   header: {
     skip: "Skip to content",
@@ -35,7 +35,7 @@ export const en = {
     language: "Language",
   },
   footer: {
-    promise: "Home delivery in 3–4 days · Pay cash or UPI on delivery",
+    promise: "Home delivery in {from}–{to} days · Pay cash or UPI on delivery",
     help: "Help",
     policies: "Policies",
     terms: "Terms of Sale",
@@ -44,6 +44,7 @@ export const en = {
     grievances: "Grievances",
     app: "Get the App",
     contact: "Contact",
+    hours: "Open: {hours}",
     links: "Quick Links",
     bookingOnly: "We take bookings only: the sale and payment happen at your door, from our licensed shop.",
     adults: "For buyers 18 and over",
@@ -53,8 +54,8 @@ export const en = {
     deleted: "Your account is deleted, with your name, number and addresses.",
     greeting: "शुभ दीपावली",
     title: "Diwali Crackers, Delivered to Your Door",
-    lead: "Pick your crackers here. We bring them home in 3–4 days.",
-    days: "Delivery in 3–4 days",
+    lead: "Pick your crackers here. We bring them home in {from}–{to} days.",
+    days: "Delivery in {from}–{to} days",
     pay: "Pay cash or UPI on delivery",
     call: "We call before we come",
     app: "Download the App",
@@ -112,7 +113,7 @@ export const en = {
 export const hi: typeof en = {
   meta: {
     title: "Agarwal Stores · पटाखे",
-    description: "Agarwal Stores से दिवाली के पटाखे बुक करें। 3–4 दिन में घर पर डिलीवरी, डिलीवरी पर नकद या UPI से भुगतान।",
+    description: "Agarwal Stores से दिवाली के पटाखे बुक करें। {from}–{to} दिन में घर पर डिलीवरी, डिलीवरी पर नकद या UPI से भुगतान।",
   },
   nav: {
     main: "मुख्य",
@@ -134,7 +135,7 @@ export const hi: typeof en = {
     cash: "नकद",
     staff: "स्टाफ़",
     audit: "ऑडिट लॉग",
-    shop: "दुकान की जानकारी",
+    shop: "सेटिंग्स",
   },
   header: {
     skip: "मुख्य हिस्से पर जाएँ",
@@ -143,7 +144,7 @@ export const hi: typeof en = {
     language: "भाषा",
   },
   footer: {
-    promise: "3–4 दिन में घर पर डिलीवरी · डिलीवरी पर नकद या UPI से भुगतान",
+    promise: "{from}–{to} दिन में घर पर डिलीवरी · डिलीवरी पर नकद या UPI से भुगतान",
     help: "मदद",
     policies: "नीतियाँ",
     terms: "बिक्री की शर्तें",
@@ -152,6 +153,7 @@ export const hi: typeof en = {
     grievances: "शिकायतें",
     app: "ऐप पाएँ",
     contact: "संपर्क",
+    hours: "खुलने का समय: {hours}",
     links: "ज़रूरी लिंक",
     bookingOnly: "हम सिर्फ़ बुकिंग लेते हैं: बिक्री और भुगतान आपके दरवाज़े पर, हमारी लाइसेंस वाली दुकान से होते हैं।",
     adults: "18 साल और उससे ज़्यादा उम्र के खरीदारों के लिए",
@@ -161,8 +163,8 @@ export const hi: typeof en = {
     deleted: "आपका खाता आपके नाम, नंबर और पतों के साथ हटा दिया गया है।",
     greeting: "शुभ दीपावली",
     title: "दिवाली के पटाखे, सीधे आपके घर",
-    lead: "यहाँ अपने पटाखे चुनें। हम 3–4 दिन में घर पहुँचा देंगे।",
-    days: "3–4 दिन में डिलीवरी",
+    lead: "यहाँ अपने पटाखे चुनें। हम {from}–{to} दिन में घर पहुँचा देंगे।",
+    days: "{from}–{to} दिन में डिलीवरी",
     pay: "डिलीवरी पर नकद या UPI से भुगतान",
     call: "आने से पहले हम फ़ोन करते हैं",
     app: "ऐप डाउनलोड करें",
@@ -220,7 +222,7 @@ export const hi: typeof en = {
 export const mr: typeof en = {
   meta: {
     title: "Agarwal Stores · फटाके",
-    description: "Agarwal Stores कडून दिवाळीचे फटाके बुक करा. 3–4 दिवसांत घरपोच डिलिव्हरी, डिलिव्हरीवेळी रोख किंवा UPI ने पैसे द्या.",
+    description: "Agarwal Stores कडून दिवाळीचे फटाके बुक करा. {from}–{to} दिवसांत घरपोच डिलिव्हरी, डिलिव्हरीवेळी रोख किंवा UPI ने पैसे द्या.",
   },
   nav: {
     main: "मुख्य",
@@ -242,7 +244,7 @@ export const mr: typeof en = {
     cash: "रोख",
     staff: "स्टाफ",
     audit: "ऑडिट लॉग",
-    shop: "दुकानाची माहिती",
+    shop: "सेटिंग्ज",
   },
   header: {
     skip: "मुख्य भागावर जा",
@@ -251,7 +253,7 @@ export const mr: typeof en = {
     language: "भाषा",
   },
   footer: {
-    promise: "3–4 दिवसांत घरपोच डिलिव्हरी · डिलिव्हरीवेळी रोख किंवा UPI ने पैसे द्या",
+    promise: "{from}–{to} दिवसांत घरपोच डिलिव्हरी · डिलिव्हरीवेळी रोख किंवा UPI ने पैसे द्या",
     help: "मदत",
     policies: "धोरणे",
     terms: "विक्रीच्या अटी",
@@ -260,6 +262,7 @@ export const mr: typeof en = {
     grievances: "तक्रारी",
     app: "ॲप मिळवा",
     contact: "संपर्क",
+    hours: "उघडण्याची वेळ: {hours}",
     links: "महत्त्वाच्या लिंक",
     bookingOnly: "आम्ही फक्त बुकिंग घेतो: विक्री आणि पैसे तुमच्या दारात, आमच्या परवानाधारक दुकानातून होतात.",
     adults: "18 वर्षे व त्यावरील खरेदीदारांसाठी",
@@ -269,8 +272,8 @@ export const mr: typeof en = {
     deleted: "तुमचे खाते तुमचे नाव, नंबर आणि पत्त्यांसह हटवले आहे.",
     greeting: "दिवाळीच्या हार्दिक शुभेच्छा",
     title: "दिवाळीचे फटाके, थेट तुमच्या घरी",
-    lead: "इथे तुमचे फटाके निवडा. आम्ही 3–4 दिवसांत घरी पोहोचवतो.",
-    days: "3–4 दिवसांत डिलिव्हरी",
+    lead: "इथे तुमचे फटाके निवडा. आम्ही {from}–{to} दिवसांत घरी पोहोचवतो.",
+    days: "{from}–{to} दिवसांत डिलिव्हरी",
     pay: "डिलिव्हरीवेळी रोख किंवा UPI ने पैसे द्या",
     call: "येण्यापूर्वी आम्ही फोन करतो",
     app: "ॲप डाउनलोड करा",

@@ -5,7 +5,6 @@ import { fill, locale } from "@/lib/i18n";
 import { rich } from "@/lib/i18n/rich";
 import { getLang, getT } from "@/lib/i18n/server";
 import { shopDetails, TERMS_VERSION } from "@/lib/legal";
-import { DELIVERY_DAYS } from "@/lib/orders";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getT();
@@ -28,7 +27,7 @@ export default async function TermsPage() {
   const [shop, lang, t] = await Promise.all([shopDetails(), getLang(), getT()]);
   const l = t.legal;
   const s = l.terms;
-  const phone = process.env.SHOP_PHONE;
+  const phone = shop.phone;
   const call = phone && <a href={`tel:+91${phone}`}>+91 {phone}</a>;
   const mail = shop.email && <a href={`mailto:${shop.email}`}>{shop.email}</a>;
   const date = new Intl.DateTimeFormat(locale(lang), { dateStyle: "long", timeZone: "UTC" }).format(new Date(TERMS_VERSION));
@@ -85,7 +84,7 @@ export default async function TermsPage() {
 
       <section id="delivery">
         <h2>{s.h.delivery}</h2>
-        {list(s.delivery.map((x) => fill(x, { days: DELIVERY_DAYS })))}
+        {list(s.delivery.map((x) => fill(x, { from: shop.deliveryFrom, to: shop.deliveryTo })))}
       </section>
 
       <section id="cancel">

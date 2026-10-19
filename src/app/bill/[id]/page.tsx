@@ -7,7 +7,7 @@ import { connectDB, Order } from "@/lib/db";
 import { inr } from "@/lib/format";
 import { fill, locale, type Lang } from "@/lib/i18n";
 import { getLang, getT } from "@/lib/i18n/server";
-import { billTitle, GST_RATE, gstSplit, HSN, stateOf } from "@/lib/legal";
+import { billTitle, GST_RATE, gstSplit, HSN, shopDetails, stateOf } from "@/lib/legal";
 import { issueBill } from "@/lib/orders";
 import { can } from "@/lib/roles";
 
@@ -40,18 +40,28 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
   // the rate the bill was made at, so a later change in GST never rewrites it
   const rate = bill.rate ?? GST_RATE;
   const tax = gstSplit(order.total, rate);
-  const [t, lang] = await Promise.all([getT(), getLang()]);
+  // how it looks follows Settings now; what it says (seller, number, rate, HSN) stays as it was made
+  const [t, lang, look] = await Promise.all([getT(), getLang(), shopDetails()]);
   const b = t.orders.bill;
+  const phone = shop.phone ?? look.phone;
+  const hsn = bill.hsn ?? HSN;
+  // a bill the law needs to name its buyer (₹50,000 or more) always shows the address
+  const address = look.billAddress || bill.named;
 
   return (
     <article className="slip bill">
       <PrintButton />
       <header>
         <div className="bill-from">
-          <strong className="slip-shop">{shop.legalName}</strong>
+          <strong className="slip-shop">
+            {look.billLogo && <img src="/icon.svg" alt="" width={32} height={32} className="bill-logo" />}
+            {shop.legalName}
+          </strong>
+          {look.billTagline && <span>{look.billTagline}</span>}
           <span>{shop.address}</span>
           {shop.gstin && <span>GSTIN {shop.gstin}</span>}
-          {process.env.SHOP_PHONE && <span>{fill(b.phone, { phone: process.env.SHOP_PHONE })}</span>}
+          {phone && <span>{fill(b.phone, { phone })}</span>}
+          {shop.email && <span>{shop.email}</span>}
         </div>
         <div className="slip-number">
           <strong>{b.titles[title] ?? title}</strong>
@@ -63,9 +73,13 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
         <h2>{b.billedTo}</h2>
         <p>
           <strong>{order.name}</strong>
-          <br />
-          {order.address.line}
-          {order.address.landmark && <>, {fill(b.near, { place: order.address.landmark })}</>} – {order.address.pincode}
+          {address && (
+            <>
+              <br />
+              {order.address.line}
+              {order.address.landmark && <>, {fill(b.near, { place: order.address.landmark })}</>} – {order.address.pincode}
+            </>
+          )}
           {/* delivered near the shop, so the buyer's State is the shop's (CGST rule 46(e)) */}
           {shop.gstin && (
             <>
@@ -80,7 +94,7 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
         <thead>
           <tr>
             <th>{b.item}</th>
-            <th>HSN</th>
+            {look.billHsnColumn && <th>HSN</th>}
             <th className="num">{b.qty}</th>
             <th className="num">{b.rate}</th>
             <th className="num">{b.amount}</th>
@@ -92,7 +106,7 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
               <td>
                 {i.name} <small>{i.unit}</small>
               </td>
-              <td>{HSN}</td>
+              {look.billHsnColumn && <td>{hsn}</td>}
               <td className="num">{i.qty}</td>
               <td className="num">{inr(i.price!)}</td>
               <td className="num">{inr(i.price! * i.qty!)}</td>
@@ -103,21 +117,21 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
           {title === "Tax Invoice" && (
             <>
               <tr>
-                <td colSpan={4}>{b.taxable}</td>
+                <td colSpan={look.billHsnColumn ? 4 : 3}>{b.taxable}</td>
                 <td className="num">{rupees(tax.taxable)}</td>
               </tr>
               <tr>
-                <td colSpan={4}>CGST {rate / 2}%</td>
+                <td colSpan={look.billHsnColumn ? 4 : 3}>CGST {rate / 2}%</td>
                 <td className="num">{rupees(tax.cgst)}</td>
               </tr>
               <tr>
-                <td colSpan={4}>SGST {rate / 2}%</td>
+                <td colSpan={look.billHsnColumn ? 4 : 3}>SGST {rate / 2}%</td>
                 <td className="num">{rupees(tax.sgst)}</td>
               </tr>
             </>
           )}
           <tr>
-            <th colSpan={4}>{title === "Tax Invoice" ? b.totalGst : b.total}</th>
+            <th colSpan={look.billHsnColumn ? 4 : 3}>{title === "Tax Invoice" ? b.totalGst : b.total}</th>
             <th className="num">{inr(order.total)}</th>
           </tr>
         </tfoot>
@@ -126,11 +140,19 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
       {title === "Tax Invoice" && <p className="slip-note">{b.reverseCharge}</p>}
       {title === "Bill of Supply" && <p className="slip-note">{b.composition}</p>}
       <footer>
-        <span className="slip-note">{b.computer}</span>
+        <span className="slip-note">
+          {look.billNote && (
+            <>
+              {look.billNote}
+              <br />
+            </>
+          )}
+          {b.computer}
+        </span>
         <span>
           {fill(b.for, { shop: shop.legalName ?? "" })}
           <br />
-          {b.signatory}
+          {look.billSignatory || b.signatory}
         </span>
       </footer>
     </article>

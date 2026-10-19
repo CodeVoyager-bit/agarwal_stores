@@ -2,12 +2,13 @@ import { randomInt, timingSafeEqual } from "node:crypto";
 import { isValidObjectId, Types } from "mongoose";
 import { ADDRESS_LABELS, audit, connectDB, Counter, MAX_ADDRESSES, Order, Product, User, type OrderStatus } from "./db";
 import { BY_HAND, MAX_QTY, STATUS_LABEL } from "./format";
-import { billTitle, GST_RATE, gstSplit, shopDetails, TERMS_VERSION } from "./legal";
+import { billTitle, gstSplit, servesPincode, SETTING_DEFAULTS, shopDetails, TERMS_VERSION } from "./legal";
 import { mockOtp, sendCode } from "./sms";
 
-export const DELIVERY_DAYS = 4;
+/** The defaults; an owner changes them on Admin > Settings (lib/legal.ts), which is what booking reads. */
+export const DELIVERY_DAYS = SETTING_DEFAULTS.deliveryTo;
 /** Bookings one account may have waiting for the shop's call: stock is held from the moment of booking. */
-export const MAX_WAITING = 5;
+export const MAX_WAITING = SETTING_DEFAULTS.maxWaiting;
 
 /** A mistake the person can fix; its message is safe to show them. */
 export class OrderError extends Error {}
@@ -48,19 +49,24 @@ export async function placeOrder(user: { id: string; role?: string }, lines: Lin
   if (!wanted.size) throw new OrderError("Your cart is empty.");
   // counted after the lines are added up, so splitting one product over many lines doesn't get past it
   if ([...wanted.values()].some((qty) => qty > MAX_QTY)) throw new OrderError(`At most ${MAX_QTY} of one item per order. Call the shop for more.`);
-  // staff booking for callers from their own account aren't held to a customer's limit
+  // staff booking for callers from their own account aren't held to a customer's limits (Settings)
   const capped = (user.role ?? "customer") === "customer";
-  const waitingCap = `You have ${MAX_WAITING} orders waiting for our call already. We'll call you soon, or call the shop.`;
-  if (capped && (await Order.countDocuments({ user: user.id, status: "placed" })) >= MAX_WAITING) throw new OrderError(waitingCap);
+  const settings = await shopDetails();
+  if (capped && !settings.bookingsOpen) throw new OrderError(settings.closedMessage || "Bookings are paused right now. Please call the shop.");
+  const waitingCap = `You have ${settings.maxWaiting} orders waiting for our call already. We'll call you soon, or call the shop.`;
+  if (capped && (await Order.countDocuments({ user: user.id, status: "placed" })) >= settings.maxWaiting) throw new OrderError(waitingCap);
   const problem = checkDetails(details);
   if (problem) throw new OrderError(problem);
+  if (capped && !servesPincode(settings, details.pincode)) throw new OrderError(`We don't deliver to ${details.pincode} yet. Please call the shop.`);
 
   const products = await Product.find({ _id: { $in: [...wanted.keys()] }, active: true, price: { $gt: 0 } });
   if (products.length !== wanted.size)
     throw new OrderError("Some items in your cart are no longer sold. Please refresh the page.");
+  const total = products.reduce((sum, p) => sum + p.price * wanted.get(String(p._id))!, 0);
   // the Terms promise the price shown when booking: if it changed since the cart was opened, say so first
-  if (details.total !== undefined && details.total !== products.reduce((sum, p) => sum + p.price * wanted.get(String(p._id))!, 0))
+  if (details.total !== undefined && details.total !== total)
     throw new OrderError("Prices have changed since you opened your cart. The cart shows the new ones now: check them, then book again.");
+  if (capped && total < settings.minOrder) throw new OrderError(`The smallest booking is ₹${settings.minOrder}. Please add a little more.`);
 
   const taken: { id: Types.ObjectId; qty: number }[] = [];
   try {
@@ -87,12 +93,12 @@ export async function placeOrder(user: { id: string; role?: string }, lines: Lin
       address,
       items,
       total: items.reduce((sum, i) => sum + i.price * i.qty, 0),
-      deliverBy: new Date(Date.now() + DELIVERY_DAYS * 86_400_000),
+      deliverBy: new Date(Date.now() + settings.deliveryTo * 86_400_000),
       terms: TERMS_VERSION,
       history: [{ by: `${details.name} · ${details.phone}`, text: "Booked" }],
     });
     // bookings sent at the same moment all pass the count above: the ones past the cap are undone here
-    if (capped && (await Order.countDocuments({ user: user.id, status: "placed", createdAt: { $lte: order.createdAt } })) > MAX_WAITING) {
+    if (capped && (await Order.countDocuments({ user: user.id, status: "placed", createdAt: { $lte: order.createdAt } })) > settings.maxWaiting) {
       await Order.deleteOne({ _id: order._id });
       throw new OrderError(waitingCap);
     }
@@ -254,14 +260,23 @@ export async function issueBill(orderId: string) {
   if (!claim.modifiedCount) return;
   const at = order.cash?.collectedAt ?? new Date();
   const fy = financialYear(at);
-  const { legalName, address, gstin, gstScheme } = await shopDetails();
+  const { legalName, address, gstin, gstScheme, phone, email, billPrefix, hsn, gstRate } = await shopDetails();
   const total = (await Order.findById(orderId, "total"))!.total;
   // CGST rule 46(e): an unregistered buyer is named, with address and State, from ₹50,000 of taxable value
-  const taxable = billTitle({ gstin, gstScheme }) === "Tax Invoice" ? gstSplit(total).taxable / 100 : total;
+  const taxable = billTitle({ gstin, gstScheme }) === "Tax Invoice" ? gstSplit(total, gstRate).taxable / 100 : total;
   const counter = await Counter.findOneAndUpdate({ _id: `bill ${fy}` }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: "after" });
   await Order.updateOne(
     { _id: orderId, "bill.number": { $exists: false } },
-    { bill: { number: `${fy}/${String(counter!.seq).padStart(4, "0")}`, at, rate: GST_RATE, named: taxable >= 50_000, shop: { legalName, address, gstin, gstScheme } } },
+    {
+      bill: {
+        number: `${billPrefix}${fy}/${String(counter!.seq).padStart(4, "0")}`,
+        at,
+        rate: gstRate,
+        hsn,
+        named: taxable >= 50_000,
+        shop: { legalName, address, gstin, gstScheme, phone, email },
+      },
+    },
   );
 }
 

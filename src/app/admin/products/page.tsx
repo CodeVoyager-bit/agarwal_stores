@@ -6,6 +6,7 @@ import { saveProductAction } from "@/lib/actions";
 import { requireStaff } from "@/lib/auth";
 import { CATEGORIES, connectDB, Product } from "@/lib/db";
 import { catName, fill } from "@/lib/i18n";
+import { shopDetails } from "@/lib/legal";
 import type { Dict } from "@/lib/i18n/dict";
 import { getT } from "@/lib/i18n/server";
 
@@ -93,12 +94,13 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
   // ?q=a&q=b arrives as a list: only a single search is read
   const q = (typeof params.q === "string" ? params.q : "").trim().slice(0, 60);
   const low = params.low === "1";
+  const { lowStock: lowAt } = await shopDetails();
   const t = await getT();
   const w = t.catalog.products;
   await connectDB();
   const products = await Product.find({
     ...(q && { $or: [{ name: new RegExp(escape(q), "i") }, { category: new RegExp(escape(q), "i") }] }),
-    ...(low && { active: true, price: { $gt: 0 }, stock: { $lte: 5 } }),
+    ...(low && { active: true, price: { $gt: 0 }, stock: { $lte: lowAt } }),
   })
     .sort({ category: 1, price: 1 })
     .lean();
@@ -129,12 +131,12 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
         <button className="btn">{t.common.words.search}</button>
       </form>
       <p className="muted">
-        {fill(products.length === 1 ? w.countOne : w.countMany, { n: products.length })}
+        {fill(products.length === 1 ? w.countOne : w.countMany, { n: products.length, low: lowAt })}
       </p>
 
       <div className="inventory">
         {products.map((p) => (
-          <ActionForm key={String(p._id)} action={saveProductAction} submit={t.common.words.save} small className={`inv-row${p.price > 0 && p.stock <= 5 ? " low" : ""}${p.active ? "" : " unlisted"}`} after={<Description p={p} w={w} />}>
+          <ActionForm key={String(p._id)} action={saveProductAction} submit={t.common.words.save} small className={`inv-row${p.price > 0 && p.stock <= lowAt ? " low" : ""}${p.active ? "" : " unlisted"}`} after={<Description p={p} w={w} />}>
             <Fields p={p} w={w} />
           </ActionForm>
         ))}

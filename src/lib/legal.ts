@@ -2,61 +2,151 @@ import { cache } from "react";
 import { connectDB, Shop } from "./db";
 
 /**
- * The shop's legal details, filled in by an owner on /admin/shop. The Consumer Protection
- * (E-Commerce) Rules, 2020 want the legal name, address, grievance officer and contact shown, and the
- * licence is what makes the sale lawful. A blank one is left off the pages.
+ * Everything an owner can change on Admin > Settings (/admin/shop), with what the site does until they
+ * do: today's behaviour, so nothing moves on its own. Stored in one document, _id "shop" (lib/db.ts).
  */
-export const SHOP_FIELDS = [
-  { key: "legalName", label: "Shop’s legal name", hint: "As on the GST certificate and the licence.", max: 120 },
-  { key: "address", label: "Full address", hint: "Shop address with pincode.", max: 300 },
-  { key: "gstin", label: "GSTIN", hint: "15 characters, e.g. 27ABCDE1234F1Z5. Leave blank if not registered.", max: 15 },
-  {
-    key: "gstScheme",
-    label: "GST scheme",
-    hint: "Decides the bill: a Tax Invoice with CGST and SGST, or a Bill of Supply. Only used when there's a GSTIN.",
-    max: 20,
-    options: [
-      ["regular", "Regular: Tax Invoice"],
-      ["composition", "Composition: Bill of Supply"],
-    ],
-  },
-  { key: "licence", label: "Fireworks licence", hint: "Number and validity, e.g. LE-5 No. 12/2026, valid till 31 Dec 2026.", max: 200 },
-  // the E-Commerce Rules want the officer's designation shown too
-  { key: "grievanceOfficer", label: "Grievance officer", hint: "Name and role of the person who handles complaints, e.g. Ramesh Agarwal, Owner.", max: 120 },
-  { key: "email", label: "Contact email", hint: "For complaints and privacy requests.", max: 120 },
-  { key: "courts", label: "Courts for disputes", hint: "Your district, e.g. Raigad, Maharashtra.", max: 120 },
-] as const;
-export type ShopDetails = Record<(typeof SHOP_FIELDS)[number]["key"], string>;
-
-/** What the pages show until an owner first saves Shop Details. */
-const DEFAULTS: ShopDetails = {
+const DEFAULTS = {
+  // Shop details. The Consumer Protection (E-Commerce) Rules, 2020 want the legal name, address,
+  // grievance officer (with their role) and contact shown; the licence is what makes the sale lawful.
+  // A blank one is left off the pages.
   legalName: "Agarwal Stores",
   address: "Nagothane, Raigad, Maharashtra",
+  phone: process.env.SHOP_PHONE ?? "",
+  email: "",
+  hours: "",
   gstin: "",
   gstScheme: "regular",
   licence: "",
   grievanceOfficer: "",
-  email: "",
   courts: "Raigad, Maharashtra",
+  // The bill (app/bill/[id]): what is printed, and the GST it's made at
+  billPrefix: "",
+  billTagline: "",
+  billNote: "",
+  billSignatory: "",
+  billLogo: true,
+  billHsnColumn: true,
+  billAddress: true,
+  hsn: "3604",
+  gstRate: 18,
+  // Bookings and delivery
+  bookingsOpen: true,
+  closedMessage: "",
+  deliveryFrom: 3,
+  deliveryTo: 4,
+  pincodes: "",
+  minOrder: 0,
+  maxWaiting: 5,
+  upiId: "",
+  // Shop front, stock and the packing slip
+  announcement: "",
+  showDiscount: true,
+  showLeftBelow: 10,
+  lowStock: 5,
+  slipNote: "",
 };
+export type Settings = typeof DEFAULTS;
+export const SETTING_DEFAULTS: Readonly<Settings> = DEFAULTS;
+export type ShopDetails = Settings;
 
-/** The saved details, once per request. */
-export const shopDetails = cache(async (): Promise<ShopDetails> => {
+export const SETTING_GROUPS = ["shop", "bill", "booking", "front"] as const;
+type Kind = "text" | "long" | "number" | "check" | "select";
+type Field = { key: keyof Settings; group: (typeof SETTING_GROUPS)[number]; kind: Kind; max?: number; min?: number; options?: readonly string[] };
+
+/** The Settings page, in order; labels and hints are in the catalog words (lib/i18n/sections/catalog.ts). */
+export const SETTINGS: readonly Field[] = [
+  { key: "legalName", group: "shop", kind: "text", max: 120 },
+  { key: "address", group: "shop", kind: "long", max: 300 },
+  // room for +91 and spaces, which readSettings takes off
+  { key: "phone", group: "shop", kind: "text", max: 20 },
+  { key: "email", group: "shop", kind: "text", max: 120 },
+  { key: "hours", group: "shop", kind: "text", max: 80 },
+  { key: "gstin", group: "shop", kind: "text", max: 15 },
+  { key: "gstScheme", group: "shop", kind: "select", options: ["regular", "composition"] },
+  { key: "licence", group: "shop", kind: "text", max: 200 },
+  { key: "grievanceOfficer", group: "shop", kind: "text", max: 120 },
+  { key: "courts", group: "shop", kind: "text", max: 120 },
+  { key: "billPrefix", group: "bill", kind: "text", max: 6 },
+  { key: "billTagline", group: "bill", kind: "text", max: 80 },
+  { key: "billNote", group: "bill", kind: "long", max: 300 },
+  { key: "billSignatory", group: "bill", kind: "text", max: 40 },
+  { key: "billLogo", group: "bill", kind: "check" },
+  { key: "billHsnColumn", group: "bill", kind: "check" },
+  { key: "billAddress", group: "bill", kind: "check" },
+  { key: "hsn", group: "bill", kind: "text", max: 8 },
+  // the GST slabs since 22 Sep 2025
+  { key: "gstRate", group: "bill", kind: "select", options: ["0", "5", "18", "40"] },
+  { key: "bookingsOpen", group: "booking", kind: "check" },
+  { key: "closedMessage", group: "booking", kind: "text", max: 160 },
+  { key: "deliveryFrom", group: "booking", kind: "number", min: 0, max: 30 },
+  { key: "deliveryTo", group: "booking", kind: "number", min: 1, max: 30 },
+  { key: "pincodes", group: "booking", kind: "long", max: 2000 },
+  { key: "minOrder", group: "booking", kind: "number", min: 0, max: 100000 },
+  { key: "maxWaiting", group: "booking", kind: "number", min: 1, max: 50 },
+  { key: "upiId", group: "booking", kind: "text", max: 60 },
+  { key: "announcement", group: "front", kind: "text", max: 200 },
+  { key: "showDiscount", group: "front", kind: "check" },
+  { key: "showLeftBelow", group: "front", kind: "number", min: 0, max: 1000 },
+  { key: "lowStock", group: "front", kind: "number", min: 0, max: 1000 },
+  { key: "slipNote", group: "front", kind: "text", max: 200 },
+];
+
+/** The saved settings over the defaults, once per request. */
+export const shopDetails = cache(async (): Promise<Settings> => {
   await connectDB();
-  const saved = await Shop.findById("shop").lean();
-  return saved ? (Object.fromEntries(SHOP_FIELDS.map(({ key }) => [key, saved[key] ?? DEFAULTS[key]])) as ShopDetails) : DEFAULTS;
+  const saved = (await Shop.findById("shop").lean()) as Record<string, unknown> | null;
+  return Object.fromEntries(SETTINGS.map(({ key }) => [key, saved?.[key] ?? DEFAULTS[key]])) as Settings;
 });
 
-/** What's wrong with details typed into the form, or null; the message is safe to show. */
-export function checkShop(d: ShopDetails) {
+/**
+ * A filled-in Settings form read as settings: text trimmed (spaces collapsed, line breaks kept in long
+ * ones), numbers as numbers (NaN when not one, for checkShop to catch), boxes ticked or not.
+ */
+export function readSettings(get: (key: string) => FormDataEntryValue | null): Settings {
+  const out: Record<string, unknown> = {};
+  for (const { key, kind, max } of SETTINGS) {
+    const raw = String(get(key) ?? "");
+    if (kind === "check") out[key] = raw === "on";
+    else if (kind === "number" || typeof DEFAULTS[key] === "number") out[key] = raw.trim() ? Number(raw) : NaN;
+    else if (kind === "long") out[key] = raw.replace(/\r\n?/g, "\n").replace(/[ \t]+/g, " ").replace(/ ?\n ?/g, "\n").trim().slice(0, max);
+    else out[key] = raw.replace(/\s+/g, " ").trim().slice(0, max);
+  }
+  const s = out as Settings;
+  s.gstin = s.gstin.toUpperCase();
+  s.billPrefix = s.billPrefix.toUpperCase();
+  // a number typed with +91, spaces or a leading 0 is the same ten digits
+  s.phone = s.phone.replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, "");
+  s.pincodes = s.pincodes.split(/[\s,]+/).filter(Boolean).join(", ");
+  return s;
+}
+
+/** What's wrong with settings typed into the form, or null; the message is safe to show. */
+export function checkShop(d: Settings) {
   if (!d.legalName || !d.address) return "Enter the shop’s legal name and full address.";
+  if (d.phone && !/^[6-9]\d{9}$/.test(d.phone)) return "Enter the shop’s 10‑digit mobile number, or leave it blank.";
   if (d.gstin && !/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(d.gstin)) return "That GSTIN doesn’t look right: 15 characters, like 27ABCDE1234F1Z5.";
   if (d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) return "That email doesn’t look right.";
-  if (!["regular", "composition"].includes(d.gstScheme)) return "Pick the GST scheme.";
+  for (const { key, kind, min = 0, max = 0, options } of SETTINGS) {
+    const value = d[key];
+    if (kind === "select" && !options!.includes(String(value))) return "Pick one of the choices in each list.";
+    if (kind === "number" && (!Number.isInteger(value) || (value as number) < min || (value as number) > max)) return "Each number must be a whole number within its range.";
+  }
+  // a GST bill number is at most 16 characters: the prefix, then 26-27/0001
+  if (!/^[A-Z0-9/-]{0,6}$/.test(d.billPrefix)) return "The bill number prefix can have up to 6 letters, numbers, / or -.";
+  if (!/^\d{4,8}$/.test(d.hsn)) return "The HSN code is 4 to 8 digits.";
+  if (d.deliveryFrom > d.deliveryTo) return "The first delivery day can’t be after the last.";
+  if (d.pincodes && !d.pincodes.split(", ").every((pin) => /^\d{6}$/.test(pin))) return "Pincodes are 6 digits each, separated by commas.";
+  if (d.upiId && !/^[\w.-]{2,}@[a-zA-Z]{2,}$/.test(d.upiId)) return "That UPI ID doesn’t look right, e.g. agarwalstores@okaxis.";
   return null;
 }
 
-/** Fireworks: HSN 3604, GST 18% since 22 Sep 2025 (CBIC notification 9/2025-CT(Rate), Schedule II, S. No. 80). */
+/** Whether the shop delivers to a pincode: any, until an owner lists the ones it serves. */
+export const servesPincode = (s: Settings, pincode: string) => !s.pincodes || s.pincodes.split(", ").includes(pincode);
+
+/**
+ * Fireworks: HSN 3604, GST 18% since 22 Sep 2025 (CBIC notification 9/2025-CT(Rate), Schedule II, S. No. 80).
+ * New bills use Settings' hsn and gstRate; these are for bills made before those were kept on the bill.
+ */
 export const HSN = "3604";
 export const GST_RATE = 18;
 

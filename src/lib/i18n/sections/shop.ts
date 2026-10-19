@@ -8,7 +8,7 @@ export const en = {
   outOfStock: "Out of Stock",
   youSave: "You save",
   assure: {
-    door: "At your door in 3–{days} days",
+    door: "At your door in {from}–{to} days",
     pay: "Pay cash or UPI when it arrives",
   },
   catalog: {
@@ -26,6 +26,8 @@ export const en = {
   },
   cart: {
     title: "Your Cart",
+    closed: "Bookings are paused right now. Please call the shop.",
+    minOrder: "The smallest booking is {min}. Add {more} more to book.",
     empty: "Your Cart Is Empty",
     emptyText: "Sparklers, chakri, rockets and gift boxes are waiting.",
     browse: "Browse Crackers",
@@ -96,7 +98,7 @@ export const hi: typeof en = {
   outOfStock: "स्टॉक खत्म",
   youSave: "आपकी बचत",
   assure: {
-    door: "3–{days} दिन में आपके घर",
+    door: "{from}–{to} दिन में आपके घर",
     pay: "सामान आने पर नकद या UPI से भुगतान करें",
   },
   catalog: {
@@ -114,6 +116,8 @@ export const hi: typeof en = {
   },
   cart: {
     title: "आपका कार्ट",
+    closed: "अभी बुकिंग रुकी हुई है। कृपया दुकान पर फ़ोन करें।",
+    minOrder: "सबसे छोटी बुकिंग {min} की है। बुक करने के लिए {more} का सामान और जोड़ें।",
     empty: "आपका कार्ट खाली है",
     emptyText: "फुलझड़ी, चकरी, रॉकेट और गिफ़्ट बॉक्स आपका इंतज़ार कर रहे हैं।",
     browse: "पटाखे देखें",
@@ -184,7 +188,7 @@ export const mr: typeof en = {
   outOfStock: "स्टॉक संपला",
   youSave: "तुमची बचत",
   assure: {
-    door: "3–{days} दिवसांत तुमच्या दारात",
+    door: "{from}–{to} दिवसांत तुमच्या दारात",
     pay: "माल आल्यावर रोख किंवा UPI ने पैसे द्या",
   },
   catalog: {
@@ -202,6 +206,8 @@ export const mr: typeof en = {
   },
   cart: {
     title: "तुमचे कार्ट",
+    closed: "सध्या बुकिंग थांबवली आहे. कृपया दुकानात फोन करा.",
+    minOrder: "सर्वात लहान बुकिंग {min} ची आहे. बुक करण्यासाठी आणखी {more} चे सामान जोडा.",
     empty: "तुमचे कार्ट रिकामे आहे",
     emptyText: "फुलबाजी, चकरी, रॉकेट आणि गिफ्ट बॉक्स तुमची वाट पाहत आहेत.",
     browse: "फटाके पाहा",
