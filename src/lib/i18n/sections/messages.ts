@@ -93,6 +93,7 @@ const rows: [string, string, string][] = [
   ["That didn't work. Please try again.", "यह नहीं हो पाया। फिर कोशिश करें।", "हे झाले नाही. पुन्हा प्रयत्न करा."],
   ["Saved.", "सेव हो गया।", "सेव्ह झाले."],
   ["{a} must be a whole number", "{a} पूरी संख्या होनी चाहिए", "{a} पूर्ण संख्या असावी"],
+  ["A product can have up to {a} more photos. Remove some first.", "एक प्रोडक्ट में ज़्यादा से ज़्यादा {a} और फ़ोटो हो सकती हैं। पहले कुछ हटाएँ।", "एका उत्पादनाला जास्तीत जास्त {a} आणखी फोटो असू शकतात. आधी काही काढा."],
   ["The photo must be a JPEG, PNG or WebP under 1.5 MB.", "फ़ोटो JPEG, PNG या WebP हो और 1.5 MB से छोटी हो।", "फोटो JPEG, PNG किंवा WebP असावा आणि 1.5 MB पेक्षा लहान असावा."],
   ["Enter the name and category.", "नाम और श्रेणी लिखें।", "नाव आणि प्रकार लिहा."],
   ["The price can’t be more than the MRP.", "कीमत MRP से ज़्यादा नहीं हो सकती।", "किंमत MRP पेक्षा जास्त असू शकत नाही."],

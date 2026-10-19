@@ -27,6 +27,12 @@ export const en = {
   photo: {
     add: "Add Photo",
     change: "Change Photo",
+    more: "More photos",
+    moreHint: "Up to {n}, shown on the product page.",
+    addMore: "Add Photos",
+    remove: "Remove",
+    removeNth: "Remove photo {n}",
+    toAdd: "New",
   },
 };
 
@@ -56,6 +62,12 @@ export const hi: typeof en = {
   photo: {
     add: "फ़ोटो जोड़ें",
     change: "फ़ोटो बदलें",
+    more: "और फ़ोटो",
+    moreHint: "ज़्यादा से ज़्यादा {n}, प्रोडक्ट पेज पर दिखेंगी।",
+    addMore: "फ़ोटो जोड़ें",
+    remove: "हटाएँ",
+    removeNth: "फ़ोटो {n} हटाएँ",
+    toAdd: "नई",
   },
 };
 
@@ -85,5 +97,11 @@ export const mr: typeof en = {
   photo: {
     add: "फोटो जोडा",
     change: "फोटो बदला",
+    more: "आणखी फोटो",
+    moreHint: "जास्तीत जास्त {n}, उत्पादनाच्या पेजवर दिसतील.",
+    addMore: "फोटो जोडा",
+    remove: "काढा",
+    removeNth: "फोटो {n} काढा",
+    toAdd: "नवीन",
   },
 };

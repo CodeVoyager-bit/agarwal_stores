@@ -91,9 +91,25 @@ img { max-width: 100%; height: auto; }
   background: var(--red); color: #fff; font-size: 0.72rem; font-weight: 800; line-height: 19px; text-align: center;
   box-shadow: 0 0 0 2px var(--saffron-2); font-variant-numeric: tabular-nums;
 }
-.foot { color: var(--muted); font-size: 0.85rem; padding-top: 40px; padding-bottom: 40px; text-align: center; }
+/* footer: brand and promises, contact (from Shop Details), shop links, policies; the legal line under */
+.foot { margin-top: 48px; padding: 32px 0 24px; background: var(--cream); border-top: 1px solid var(--line); color: var(--muted); font-size: 0.9rem; }
+.foot-grid { display: grid; grid-template-columns: 1.6fr 1.3fr 1fr 1fr; gap: 28px; }
+.foot h2 { margin: 0 0 10px; font: 700 0.78rem/1.3 system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; color: var(--maroon); }
+.foot p { margin: 0 0 8px; text-wrap: pretty; }
+.foot nav { display: grid; align-content: start; }
+.foot nav a { color: var(--ink); padding: 5px 0; text-decoration: none; }
+.foot nav a:hover { text-decoration: underline; }
+.foot address { font-style: normal; line-height: 1.7; margin-bottom: 8px; overflow-wrap: anywhere; }
+.foot-name { display: flex; align-items: center; gap: 8px; font: 800 1.15rem/1.2 var(--font-display), system-ui, sans-serif; color: var(--maroon); }
+.foot-name span { color: var(--red); }
+.foot-brand .btn { margin-top: 4px; }
+.foot-legal { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 0.8rem; }
+@media (max-width: 760px) {
+  .foot-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
+  .foot-brand, .foot-grid > section:nth-child(2) { grid-column: 1 / -1; }
+}
 .brand .logo { border-radius: 10px; box-shadow: 0 3px 8px -3px rgb(122 16 34 / 0.5); }
-.foot .logo { vertical-align: -5px; margin-right: 6px; }
+.foot .logo { border-radius: 8px; }
 /* the smallest phones: the logo already says crackers, and Log Out needs the room */
 @media (max-width: 360px) { .brand span { display: none; } }
 
@@ -400,6 +416,21 @@ main:has(.cartbar) ~ .foot { padding-bottom: 128px; }
 .photo-pick:has(input:focus-visible) { outline: 3px solid var(--maroon); outline-offset: 2px; }
 .photo-pick svg { margin-left: 8px; }
 .photo-pick img { width: 32px; height: 32px; object-fit: cover; border-radius: 8px; background: #fff; }
+/* Inventory: more photos for the product page */
+.more-photos { margin: 10px 0 0; padding: 10px 12px; display: grid; gap: 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.more-photos legend { padding: 0 4px; font-weight: 600; font-size: 0.9rem; }
+.more-photos legend small { display: inline; font-weight: 400; }
+.more-photos ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px; }
+.more-photos li { display: grid; justify-items: center; gap: 4px; }
+.more-photos li img { width: 64px; height: 64px; object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+.more-photos .f-check { font-size: 0.8rem; font-weight: 400; min-height: 32px; }
+.more-photos .photo-pick { justify-self: start; }
+/* product page: thumbnails under the big photo */
+.gallery { display: grid; gap: 10px; min-width: 0; }
+.thumbs { display: flex; gap: 8px; overflow-x: auto; padding: 2px; }
+.thumbs button { flex: none; padding: 0; background: none; border: 2px solid transparent; border-radius: calc(var(--radius-sm) + 2px); cursor: pointer; }
+.thumbs button[aria-pressed="true"] { border-color: var(--red); }
+.thumbs button:focus-visible { outline: 3px solid var(--maroon); outline-offset: 2px; }
 .inventory .inv-row .photo-pick span { text-transform: none; letter-spacing: 0; font-size: 0.85rem; color: var(--maroon); }
 
 @media (hover: hover) {
@@ -772,13 +803,19 @@ main > :nth-child(n + 3) { --stagger: 2; }
 .legal-rows dt { font-weight: 700; }
 .legal-rows dd { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 520px) { .legal-rows div { grid-template-columns: 1fr; gap: 2px; } }
-.foot-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin-top: 10px; }
-.foot-links a { color: var(--muted); padding: 6px 0; }
 .f-check.agree { align-items: flex-start; font-weight: 400; font-size: 0.9rem; }
 .f-check.agree input { flex: none; margin-top: 1px; }
 .shop-details { max-width: 640px; }
 .shop-details label > span small { display: block; margin-top: 2px; }
 .upper { text-transform: uppercase; }
+/* Get the App */
+.app-page { display: grid; gap: 14px; justify-items: start; }
+.app-page h1 { margin: 0; }
+.app-icon { border-radius: 18px; box-shadow: var(--shadow-2); margin-top: 24px; }
+.app-page .panel, .app-page .success { width: 100%; margin: 0; }
+.app-steps { display: grid; gap: 6px; }
+.app-steps h2 { font-size: 1.1rem; }
+.app-cta { margin-top: 14px; }
 .details-title { font-size: 1.05rem; margin: 4px 0 8px; }
 .bill-from, .bill .slip-number { display: grid; gap: 2px; font-size: 0.9rem; }
 .bill tfoot td { border-bottom: 0; padding-block: 4px; }

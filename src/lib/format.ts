@@ -11,6 +11,9 @@ export const day = (d: Date, lang: Lang = "en") =>
 /** The most of one product in one order. */
 export const MAX_QTY = 500;
 
+/** How many more photos a product can have besides its main one (Inventory, product page gallery). */
+export const MAX_PHOTOS = 6;
+
 /**
  * What staff can change an order's status to by hand. Out for Delivery only comes from the delivery
  * person's Start Delivery (it sends the handover code). Delivered by hand is for a counter pickup or

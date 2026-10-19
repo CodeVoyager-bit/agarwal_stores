@@ -55,7 +55,9 @@ test("the financial year turns at midnight on 1 April, India time", () => {
   assert.equal(financialYear(new Date("2027-01-15T06:00:00Z")), "26-27");
 });
 
-const customer = await User.create({ phone: "9811111111", name: "Bill Buyer" });
+// made in the first test that needs it: a top-level await here would let the runner finish the tests
+// above and close the database while it's still running
+let customer: { _id: mongoose.Types.ObjectId };
 let number = 5000;
 const order = (status: "placed" | "delivered", total = 300, at = new Date("2026-10-20T10:00:00Z")) =>
   Order.create({
@@ -73,6 +75,7 @@ const order = (status: "placed" | "delivered", total = 300, at = new Date("2026-
   });
 
 test("each delivery gets the next bill number of its year, once, with the shop as it was then", async () => {
+  customer = await User.create({ phone: "9811111111", name: "Bill Buyer" });
   const [a, b, open] = [await order("delivered"), await order("delivered", 60_000), await order("placed")];
   await issueBill(String(a._id));
   await issueBill(String(b._id));

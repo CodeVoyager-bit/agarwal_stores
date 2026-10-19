@@ -14,12 +14,13 @@ export function sign(params: Record<string, string>, secret: string) {
 }
 
 /**
- * Puts a product's photo on Cloudinary as products/<id>, replacing the one before, and returns its
- * https address. The address carries a new version each time, so browsers fetch the new photo.
+ * Puts a product's photo on Cloudinary as products/<name> (the product's id for its main photo, the id
+ * and a photo id for more), replacing the one before, and returns its https address. The address
+ * carries a new version each time, so browsers fetch the new photo.
  */
-export async function uploadPhoto(file: File, productId: string) {
+export async function uploadPhoto(file: File, name: string) {
   const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
-  const params = { public_id: `products/${productId}`, timestamp: String(Math.floor(Date.now() / 1000)) };
+  const params = { public_id: `products/${name}`, timestamp: String(Math.floor(Date.now() / 1000)) };
   const body = new FormData();
   for (const [k, v] of Object.entries(params)) body.set(k, v);
   body.set("api_key", CLOUDINARY_API_KEY!);

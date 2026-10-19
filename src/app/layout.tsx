@@ -4,12 +4,14 @@ import { Baloo_2 } from "next/font/google";
 import Link from "next/link";
 import { Suspense } from "react";
 import { NavProgress } from "@/components/nav-progress";
-import { LogOut } from "lucide-react";
+import { Download, LogOut } from "lucide-react";
 import { I18nProvider, LanguageSwitch } from "@/components/i18n";
+import { AppLink } from "@/components/install-app";
 import { SiteNav } from "@/components/nav";
 import { logoutAction } from "@/lib/actions";
 import { currentUser } from "@/lib/auth";
 import { appOrigin } from "@/lib/email";
+import { shopDetails } from "@/lib/legal";
 import { clientDict } from "@/lib/i18n/dict";
 import { fill } from "@/lib/i18n";
 import { getLang, getT } from "@/lib/i18n/server";
@@ -29,8 +31,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export const viewport: Viewport = { themeColor: "#ff9933" };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [user, lang, t] = await Promise.all([currentUser(), getLang(), getT()]);
+  const [user, lang, t, shop] = await Promise.all([currentUser(), getLang(), getT(), shopDetails()]);
   const c = t.common;
+  const phone = process.env.SHOP_PHONE;
   return (
     <html lang={lang} className={display.variable}>
       <body>
@@ -39,6 +42,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Suspense fallback={null}>
           <NavProgress />
         </Suspense>
+        {/* keeps the browser's install offer for the Get the App page, whichever page it fires on */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'addEventListener("beforeinstallprompt",function(e){window.__installPrompt=e});addEventListener("appinstalled",function(){window.__installPrompt=undefined;window.__appInstalled=true})',
+          }}
+        />
         <a href="#main" className="skip">
           {c.header.skip}
         </a>
@@ -64,20 +74,66 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <main id="main" className="wrap">
           {children}
         </main>
-        <footer className="wrap foot">
-          <img src="/icon.svg" alt="" width={20} height={20} className="logo" />
-          <span translate="no">Agarwal Stores</span> · {c.footer.promise}
-          {process.env.SHOP_PHONE && (
-            <>
-              {" "}· {c.footer.help}: <a href={`tel:+91${process.env.SHOP_PHONE}`}>{process.env.SHOP_PHONE}</a>
-            </>
-          )}
-          <nav className="foot-links" aria-label={c.footer.policies}>
-            <Link href="/terms">{c.footer.terms}</Link>
-            <Link href="/terms#refunds">{c.footer.refunds}</Link>
-            <Link href="/privacy">{c.footer.privacy}</Link>
-            <Link href="/terms#contact">{c.footer.grievances}</Link>
-          </nav>
+        {/* the seller's details the Consumer Protection (E-Commerce) Rules want on every page, from Admin > Shop Details */}
+        <footer className="foot">
+          <div className="wrap foot-grid">
+            <section className="foot-brand">
+              <p className="foot-name" translate="no">
+                <img src="/icon.svg" alt="" width={28} height={28} className="logo" />
+                Agarwal Stores <span>Crackers</span>
+              </p>
+              <p>{c.footer.promise}</p>
+              <p>{c.footer.bookingOnly}</p>
+              <p>{c.footer.adults}</p>
+              <AppLink className="btn small">
+                <Download size={16} aria-hidden="true" /> {c.footer.app}
+              </AppLink>
+            </section>
+            <section aria-labelledby="foot-contact">
+              <h2 id="foot-contact">{c.footer.contact}</h2>
+              <address>
+                <span translate="no">{shop.legalName}</span>
+                <br />
+                {shop.address}
+                {phone && (
+                  <>
+                    <br />
+                    <a href={`tel:+91${phone}`}>+91 {phone}</a>
+                  </>
+                )}
+                {shop.email && (
+                  <>
+                    <br />
+                    <a href={`mailto:${shop.email}`}>{shop.email}</a>
+                  </>
+                )}
+              </address>
+              {shop.grievanceOfficer && (
+                <p>
+                  {t.legal.rows.grievanceOfficer}: <Link href="/terms#contact">{shop.grievanceOfficer}</Link>
+                </p>
+              )}
+            </section>
+            <nav aria-labelledby="foot-shop">
+              <h2 id="foot-shop">{c.footer.links}</h2>
+              <Link href="/">{c.nav.shop}</Link>
+              <Link href="/cart">{c.nav.cart}</Link>
+              {user ? <Link href="/orders">{c.nav.orders}</Link> : <Link href="/login">{c.nav.logIn}</Link>}
+              {user && <Link href="/account">{c.nav.account}</Link>}
+            </nav>
+            <nav aria-labelledby="foot-policies">
+              <h2 id="foot-policies">{c.footer.policies}</h2>
+              <Link href="/terms">{c.footer.terms}</Link>
+              <Link href="/terms#refunds">{c.footer.refunds}</Link>
+              <Link href="/privacy">{c.footer.privacy}</Link>
+              <Link href="/terms#contact">{c.footer.grievances}</Link>
+            </nav>
+          </div>
+          <p className="wrap foot-legal">
+            © {new Date().getFullYear()} <span translate="no">{shop.legalName}</span>
+            {shop.gstin && ` · ${t.legal.rows.gstin} ${shop.gstin}`}
+            {shop.licence && ` · ${t.legal.rows.licence}: ${shop.licence}`} · {c.footer.pricesGst}
+          </p>
         </footer>
         </I18nProvider>
       </body>

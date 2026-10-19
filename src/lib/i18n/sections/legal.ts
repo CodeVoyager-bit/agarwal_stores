@@ -90,8 +90,6 @@ export const en = {
     contact: {
       intro: "For anything about a booking, call us first. For a complaint, write to our grievance officer:",
       promise: "We acknowledge a complaint within 48 hours and settle it within one month.",
-      helpline:
-        "If you’re not satisfied, you can contact the National Consumer Helpline on <tel>1915</tel> or at <helpline>consumerhelpline.gov.in</helpline>, or file a complaint with a consumer commission at <edaakhil>edaakhil.nic.in</edaakhil>.",
     },
     law: {
       courts: "These terms are governed by the laws of India. Disputes go to the courts at {courts}, without taking away your right to go to a consumer commission near you.",
@@ -147,13 +145,13 @@ export const en = {
         ["MiniMoth", "Sends one‑time codes by WhatsApp or SMS: your mobile number and the code."],
         ["Hostinger", "Sends our emails: your email address and the message."],
         ["Google", "If you log in with Google. And the delivery person’s Map button opens your delivery address in Google Maps."],
-        ["Brand websites", "Some product pictures load from the makers’ websites, which see your IP address when your browser fetches them."],
+        ["Brand websites", "Most product pictures from the makers’ websites are fetched for us by Vercel, so those websites don’t see you. A few load straight from the maker’s website, which then sees your IP address."],
         ["Authorities", "Police, courts or government bodies, only when the law requires it."],
       ] as [string, string][],
       text: "These services handle data for us under their own security terms, and some may process it outside India, as the law allows.",
     },
     device:
-      "We use only what the site needs to work: a login cookie that keeps you logged in for up to 60 days (or until you log out), short‑lived cookies while you log in with Google, and your cart, kept in your own browser. No analytics, advertising or tracking cookies, so there is no cookie banner.",
+      "We use only what the site needs to work: a login cookie that keeps you logged in for up to 60 days (or until you log out), a language cookie that remembers the language you picked for 1 year, short‑lived cookies while you log in with Google, and your cart with its booking number, kept in your own browser. The installed app is this same website and keeps nothing more. No analytics, advertising or tracking cookies, so there is no cookie banner.",
     keep: [
       "One‑time codes: 10 minutes.",
       "Login sessions: up to 60 days, or until you log out.",
@@ -265,8 +263,6 @@ export const hi: typeof en = {
     contact: {
       intro: "बुकिंग से जुड़ी किसी भी बात के लिए पहले हमें फ़ोन करें। शिकायत के लिए हमारे शिकायत अधिकारी को लिखें:",
       promise: "हम 48 घंटे के अंदर शिकायत मिलने की पुष्टि करते हैं और एक महीने के अंदर उसका निपटारा करते हैं।",
-      helpline:
-        "अगर आप संतुष्ट नहीं हैं, तो आप राष्ट्रीय उपभोक्ता हेल्पलाइन से <tel>1915</tel> पर या <helpline>consumerhelpline.gov.in</helpline> पर संपर्क कर सकते हैं, या <edaakhil>edaakhil.nic.in</edaakhil> पर उपभोक्ता आयोग में शिकायत दर्ज कर सकते हैं।",
     },
     law: {
       courts: "ये शर्तें भारत के कानूनों के तहत हैं। विवाद {courts} की अदालतों में जाएँगे, इससे आपके पास के उपभोक्ता आयोग में जाने का आपका अधिकार खत्म नहीं होता।",
@@ -322,13 +318,13 @@ export const hi: typeof en = {
         ["MiniMoth", "WhatsApp या SMS से वन-टाइम कोड भेजता है: आपका मोबाइल नंबर और कोड।"],
         ["Hostinger", "हमारे ईमेल भेजता है: आपका ईमेल पता और मैसेज।"],
         ["Google", "अगर आप Google से लॉग इन करते हैं। और डिलीवरी करने वाले का ‘नक्शा’ बटन आपका डिलीवरी पता Google Maps में खोलता है।"],
-        ["ब्रांड की वेबसाइटें", "कुछ प्रोडक्ट की तस्वीरें निर्माताओं की वेबसाइटों से लोड होती हैं, और जब आपका ब्राउज़र उन्हें लाता है तो वे वेबसाइटें आपका IP एड्रेस देखती हैं।"],
+        ["ब्रांड की वेबसाइटें", "निर्माताओं की वेबसाइटों से ज़्यादातर प्रोडक्ट की तस्वीरें Vercel हमारे लिए लाता है, इसलिए वे वेबसाइटें आपको नहीं देखतीं। कुछ तस्वीरें सीधे निर्माता की वेबसाइट से लोड होती हैं, और तब वह वेबसाइट आपका IP एड्रेस देखती है।"],
         ["सरकारी अधिकारी", "पुलिस, अदालतें या सरकारी संस्थाएँ, सिर्फ़ तब जब कानून के तहत ज़रूरी हो।"],
       ],
       text: "ये सेवाएँ हमारे लिए डेटा अपनी सुरक्षा शर्तों के तहत संभालती हैं, और इनमें से कुछ, कानून की इजाज़त के मुताबिक, उसे भारत के बाहर भी प्रोसेस कर सकती हैं।",
     },
     device:
-      "हम सिर्फ़ वही इस्तेमाल करते हैं जो साइट चलाने के लिए ज़रूरी है: एक लॉग इन कुकी जो आपको 60 दिन तक (या लॉग आउट करने तक) लॉग इन रखती है, Google से लॉग इन करते समय कुछ देर की कुकीज़, और आपका कार्ट, जो आपके अपने ब्राउज़र में रहता है। कोई एनालिटिक्स, विज्ञापन या ट्रैकिंग कुकी नहीं, इसलिए कोई कुकी बैनर नहीं है।",
+      "हम सिर्फ़ वही इस्तेमाल करते हैं जो साइट चलाने के लिए ज़रूरी है: एक लॉग इन कुकी जो आपको 60 दिन तक (या लॉग आउट करने तक) लॉग इन रखती है, एक भाषा कुकी जो आपकी चुनी हुई भाषा 1 साल तक याद रखती है, Google से लॉग इन करते समय कुछ देर की कुकीज़, और आपका कार्ट उसके बुकिंग नंबर के साथ, जो आपके अपने ब्राउज़र में रहता है। इंस्टॉल किया गया ऐप यही वेबसाइट है और इससे ज़्यादा कुछ नहीं रखता। कोई एनालिटिक्स, विज्ञापन या ट्रैकिंग कुकी नहीं, इसलिए कोई कुकी बैनर नहीं है।",
     keep: [
       "वन-टाइम कोड: 10 मिनट।",
       "लॉग इन सेशन: 60 दिन तक, या लॉग आउट करने तक।",
@@ -440,8 +436,6 @@ export const mr: typeof en = {
     contact: {
       intro: "बुकिंगबद्दल काहीही असल्यास आधी आम्हाला फोन करा. तक्रारीसाठी आमच्या तक्रार अधिकाऱ्यांना लिहा:",
       promise: "आम्ही 48 तासांच्या आत तक्रार मिळाल्याची पोच देतो आणि एका महिन्याच्या आत ती सोडवतो.",
-      helpline:
-        "तुमचे समाधान न झाल्यास, तुम्ही राष्ट्रीय ग्राहक हेल्पलाइनशी <tel>1915</tel> वर किंवा <helpline>consumerhelpline.gov.in</helpline> वर संपर्क करू शकता, किंवा <edaakhil>edaakhil.nic.in</edaakhil> वर ग्राहक आयोगाकडे तक्रार दाखल करू शकता.",
     },
     law: {
       courts: "या अटी भारताच्या कायद्यांनुसार आहेत. वाद {courts} येथील न्यायालयांत जातील, यामुळे तुमच्या जवळच्या ग्राहक आयोगाकडे जाण्याचा तुमचा हक्क संपत नाही.",
@@ -497,13 +491,13 @@ export const mr: typeof en = {
         ["MiniMoth", "WhatsApp किंवा SMS ने वन-टाइम कोड पाठवते: तुमचा मोबाईल नंबर आणि कोड."],
         ["Hostinger", "आमचे ईमेल पाठवते: तुमचा ईमेल पत्ता आणि मेसेज."],
         ["Google", "तुम्ही Google ने लॉग इन केल्यास. आणि डिलिव्हरी करणाऱ्यांचे ‘नकाशा’ बटण तुमचा डिलिव्हरी पत्ता Google Maps मध्ये उघडते."],
-        ["ब्रँडच्या वेबसाइट", "काही उत्पादनांची चित्रे उत्पादकांच्या वेबसाइटवरून लोड होतात, आणि तुमचा ब्राउझर ती आणतो तेव्हा त्या वेबसाइटना तुमचा IP ॲड्रेस दिसतो."],
+        ["ब्रँडच्या वेबसाइट", "उत्पादकांच्या वेबसाइटवरील बहुतेक उत्पादनांची चित्रे Vercel आमच्यासाठी आणते, त्यामुळे त्या वेबसाइटना तुम्ही दिसत नाही. काही चित्रे थेट उत्पादकाच्या वेबसाइटवरून लोड होतात, आणि तेव्हा त्या वेबसाइटला तुमचा IP ॲड्रेस दिसतो."],
         ["शासकीय यंत्रणा", "पोलीस, न्यायालये किंवा सरकारी संस्था, फक्त कायद्याने आवश्यक असेल तेव्हाच."],
       ],
       text: "या सेवा आमच्यासाठी डेटा त्यांच्या स्वतःच्या सुरक्षा अटींनुसार हाताळतात, आणि त्यांपैकी काही, कायद्याने परवानगी दिल्याप्रमाणे, तो भारताबाहेरही प्रोसेस करू शकतात.",
     },
     device:
-      "साइट चालण्यासाठी जे आवश्यक आहे तेवढेच आम्ही वापरतो: तुम्हाला 60 दिवसांपर्यंत (किंवा लॉग आउट करेपर्यंत) लॉग इन ठेवणारी एक लॉग इन कुकी, Google ने लॉग इन करताना थोड्या वेळासाठीच्या कुकीज, आणि तुमचे कार्ट, जे तुमच्याच ब्राउझरमध्ये ठेवले जाते. कोणत्याही ॲनालिटिक्स, जाहिरात किंवा ट्रॅकिंग कुकीज नाहीत, म्हणून कुकी बॅनर नाही.",
+      "साइट चालण्यासाठी जे आवश्यक आहे तेवढेच आम्ही वापरतो: तुम्हाला 60 दिवसांपर्यंत (किंवा लॉग आउट करेपर्यंत) लॉग इन ठेवणारी एक लॉग इन कुकी, तुम्ही निवडलेली भाषा 1 वर्ष लक्षात ठेवणारी एक भाषा कुकी, Google ने लॉग इन करताना थोड्या वेळासाठीच्या कुकीज, आणि तुमचे कार्ट त्याच्या बुकिंग नंबरसह, जे तुमच्याच ब्राउझरमध्ये ठेवले जाते. इन्स्टॉल केलेले ॲप हीच वेबसाइट आहे आणि यापेक्षा जास्त काही ठेवत नाही. कोणत्याही ॲनालिटिक्स, जाहिरात किंवा ट्रॅकिंग कुकीज नाहीत, म्हणून कुकी बॅनर नाही.",
     keep: [
       "वन-टाइम कोड: 10 मिनिटे.",
       "लॉग इन सेशन: 60 दिवसांपर्यंत, किंवा तुम्ही लॉग आउट करेपर्यंत.",

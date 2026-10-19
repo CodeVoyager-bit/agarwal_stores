@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ActionForm } from "@/components/action-form";
-import { PhotoInput } from "@/components/photo-input";
+import { MorePhotos, PhotoInput } from "@/components/photo-input";
 import { StockImport } from "@/components/stock-import";
 import { saveProductAction } from "@/lib/actions";
 import { requireStaff } from "@/lib/auth";
@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 type Words = Dict["catalog"]["products"];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-type Editable = { _id?: unknown; name?: string; category?: string; unit?: string | null; mrp?: number; price?: number; stock?: number; image?: string | null; description?: string | null; maker?: string | null; active?: boolean | null };
+type Editable = { _id?: unknown; name?: string; category?: string; unit?: string | null; mrp?: number; price?: number; stock?: number; image?: string | null; photos?: string[] | null; description?: string | null; maker?: string | null; active?: boolean | null };
 
 /** One product's inputs; the same fields add a new product and edit a listed one. */
 function Fields({ p, w }: { p: Editable; w: Words }) {
@@ -64,7 +64,13 @@ function Fields({ p, w }: { p: Editable; w: Words }) {
 
 /** The maker and the product page's write-up, folded away so the list stays one line per product. */
 function Description({ p, w }: { p: Editable; w: Words }) {
-  const summary = [p.maker && fill(w.maker, { text: p.maker }), p.description && fill(w.description, { text: p.description })].filter(Boolean).join(" · ");
+  const summary = [
+    p.maker && fill(w.maker, { text: p.maker }),
+    p.photos?.length && fill(w.photos, { n: p.photos.length }),
+    p.description && fill(w.description, { text: p.description }),
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <details className="f-desc">
       <summary>{summary || w.addDetails}</summary>
@@ -76,6 +82,7 @@ function Description({ p, w }: { p: Editable; w: Words }) {
         <span>{w.descLabel}</span>
         <textarea name="description" rows={4} maxLength={1000} defaultValue={p.description ?? ""} placeholder={w.descHint} />
       </label>
+      <MorePhotos current={p.photos ?? []} />
     </details>
   );
 }

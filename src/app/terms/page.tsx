@@ -15,17 +15,6 @@ export async function generateMetadata(): Promise<Metadata> {
 const tags = {
   b: (s: string) => <strong>{s}</strong>,
   privacy: (s: string) => <Link href="/privacy">{s}</Link>,
-  tel: (s: string) => <a href="tel:1915">{s}</a>,
-  helpline: (s: string) => (
-    <a href="https://consumerhelpline.gov.in" target="_blank" rel="noopener noreferrer">
-      {s}
-    </a>
-  ),
-  edaakhil: (s: string) => (
-    <a href="https://edaakhil.nic.in" target="_blank" rel="noopener noreferrer">
-      {s}
-    </a>
-  ),
 };
 const list = (items: string[]) => (
   <ul>
@@ -132,7 +121,6 @@ export default async function TermsPage() {
           ]}
         />
         <p>{s.contact.promise}</p>
-        <p>{rich(s.contact.helpline, tags)}</p>
       </section>
 
       <section id="law">

@@ -39,6 +39,8 @@ const productSchema = new Schema(
     price: { type: Number, required: true, min: 0 },
     stock: { type: Number, required: true, min: 0, default: 0 },
     image: { type: String, trim: true, default: "" },
+    /** more photos, after `image`, for the product page's gallery (at most MAX_PHOTOS, lib/format.ts) */
+    photos: { type: [String], default: undefined },
     /** a few lines for the product page: what it does, how long it lasts; line breaks kept */
     description: { type: String, trim: true, default: "", maxlength: 1000 },
     /** the maker's name and address, which Legal Metrology wants shown before purchase */

@@ -21,7 +21,8 @@ export const SHOP_FIELDS = [
     ],
   },
   { key: "licence", label: "Fireworks licence", hint: "Number and validity, e.g. LE-5 No. 12/2026, valid till 31 Dec 2026.", max: 200 },
-  { key: "grievanceOfficer", label: "Grievance officer", hint: "Name of the person who handles complaints.", max: 120 },
+  // the E-Commerce Rules want the officer's designation shown too
+  { key: "grievanceOfficer", label: "Grievance officer", hint: "Name and role of the person who handles complaints, e.g. Ramesh Agarwal, Owner.", max: 120 },
   { key: "email", label: "Contact email", hint: "For complaints and privacy requests.", max: 120 },
   { key: "courts", label: "Courts for disputes", hint: "Your district, e.g. Raigad, Maharashtra.", max: 120 },
 ] as const;
@@ -89,5 +90,4 @@ export function gstSplit(total: number, rate = GST_RATE) {
  * Bump to the day's date whenever /terms or /privacy changes in meaning (not for Shop Details).
  * Each booking keeps the version it was made under; earlier wording stays in git history.
  */
-export const TERMS_VERSION = "2026-10-17";
-export const TERMS_UPDATED = "17 October 2026";
+export const TERMS_VERSION = "2026-10-19";

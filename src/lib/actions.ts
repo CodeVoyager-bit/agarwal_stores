@@ -8,7 +8,7 @@ import { headers } from "next/headers";
 import { allowStaff, clientIp, currentUser, overLimit, ownerPhones, roleOf, safeNext, tenDigits, validPhone, who } from "./auth";
 import { getAuth, googleEnabled } from "./better-auth";
 import { isPlaceholderEmail, placeholderEmail } from "./email";
-import { tidyLines } from "./format";
+import { MAX_PHOTOS, tidyLines } from "./format";
 import { cloudinaryEnabled, uploadPhoto } from "./cloudinary";
 import { ADDRESS_LABELS, Audit, audit, connectDB, MAX_ADDRESSES, ORDER_STATUSES, Photo, Product, Shop, User, type OrderStatus } from "./db";
 import { addNote, assignDelivery, checkDetails, completeDelivery, deleteAccount, deliveryFailed, OrderError, saveToBook, placeOrder, receiveCash, setOrderStatus, startDelivery } from "./orders";
@@ -459,6 +459,23 @@ const rupees = (form: FormData, key: string) => {
   return n;
 };
 
+// components/photo-input.tsx shrinks phone photos to ~150 KB before they are sent
+const isPhoto = (file: FormDataEntryValue | null): file is File => file instanceof File && file.size > 0;
+function checkPhoto(file: File) {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 1_500_000) throw new OrderError("The photo must be a JPEG, PNG or WebP under 1.5 MB.");
+}
+
+/**
+ * Keeps one product photo and returns its address: on Cloudinary as products/<name>, or, with no
+ * Cloudinary account set, in the database under `dbId`; the version in that address lets browsers keep
+ * each photo forever (app/photo/[id]/route.ts).
+ */
+async function storePhoto(file: File, name: string, dbId: string) {
+  if (cloudinaryEnabled()) return uploadPhoto(file, name).catch((error: Error) => Promise.reject(new OrderError(error.message)));
+  await Photo.updateOne({ _id: dbId }, { data: Buffer.from(await file.arrayBuffer()), type: file.type }, { upsert: true });
+  return `/photo/${dbId}?v=${Date.now()}`;
+}
+
 export async function saveProductAction(_: Result, form: FormData): Promise<Result> {
   return attempt(async () => {
     const user = await allowStaff("catalog");
@@ -476,10 +493,11 @@ export async function saveProductAction(_: Result, form: FormData): Promise<Resu
       active: form.get("active") === "on",
     };
     const photo = form.get("photo");
-    const hasPhoto = photo instanceof File && photo.size > 0;
-    // components/photo-input.tsx shrinks phone photos to ~150 KB before they are sent
-    if (hasPhoto && (!/^image\/(jpeg|png|webp)$/.test(photo.type) || photo.size > 1_500_000))
-      throw new OrderError("The photo must be a JPEG, PNG or WebP under 1.5 MB.");
+    const hasPhoto = isPhoto(photo);
+    // more photos for the product page: new ones picked, old ones ticked to remove
+    const adding = form.getAll("photos").filter(isPhoto);
+    const removing = new Set(form.getAll("removePhoto").map(String));
+    [...(hasPhoto ? [photo] : []), ...adding].forEach(checkPhoto);
     if (!fields.name || !fields.category) throw new OrderError("Enter the name and category.");
     if (fields.price > fields.mrp) throw new OrderError("The price can’t be more than the MRP.");
 
@@ -490,25 +508,24 @@ export async function saveProductAction(_: Result, form: FormData): Promise<Resu
     if (await Product.exists({ name: sameName, ...(id && { _id: { $ne: id } }) })) throw new OrderError(`Another product is already called “${fields.name}”. Give this one a different name.`);
     const before = id ? await Product.findById(id).lean() : null;
     const productId = id || String(new mongoose.Types.ObjectId());
-    // the photo first: if it fails, nothing is half saved
-    let image: string | undefined;
-    if (hasPhoto) {
-      if (cloudinaryEnabled()) image = await uploadPhoto(photo, productId).catch((error: Error) => Promise.reject(new OrderError(error.message)));
-      else {
-        // no Cloudinary account set (CLOUDINARY_URL): the photo goes in the database, as before
-        await Photo.updateOne({ _id: productId }, { data: Buffer.from(await photo.arrayBuffer()), type: photo.type }, { upsert: true });
-        // the version in the address lets browsers keep each photo forever (app/photo/[id]/route.ts)
-        image = `/photo/${productId}?v=${Date.now()}`;
-      }
+    const kept = (before?.photos ?? []).filter((url) => !removing.has(url));
+    if (kept.length + adding.length > MAX_PHOTOS) throw new OrderError(`A product can have up to ${MAX_PHOTOS} more photos. Remove some first.`);
+    // the photos first: if one fails, nothing is half saved
+    const image = hasPhoto ? await storePhoto(photo, productId, productId) : undefined;
+    const added: string[] = [];
+    for (const file of adding) {
+      const photoId = String(new mongoose.Types.ObjectId());
+      added.push(await storePhoto(file, `${productId}-${photoId}`, photoId));
     }
+    const photos = adding.length || kept.length !== (before?.photos?.length ?? 0) ? [...kept, ...added] : undefined;
     // the stock on the page may be minutes old while orders keep taking from it: a changed number is
     // applied as the change made (+5 received, −2 broken), so sales in between aren't undone
     const stockWas = Number(text(form, "stockWas") || NaN);
     const relative = Boolean(id) && Number.isInteger(stockWas);
     const { stock, ...rest } = fields;
     const product = id
-      ? await Product.findByIdAndUpdate(id, { ...(relative ? rest : fields), ...(image && { image }) }, { runValidators: true })
-      : await Product.create({ _id: productId, ...fields, ...(image && { image }) });
+      ? await Product.findByIdAndUpdate(id, { ...(relative ? rest : fields), ...(image && { image }), ...(photos && { photos }) }, { runValidators: true })
+      : await Product.create({ _id: productId, ...fields, ...(image && { image }), ...(photos && { photos }) });
     if (!product) throw new OrderError("This product is gone. Refresh the page.");
     if (relative && stock !== stockWas)
       await Product.collection.updateOne({ _id: product._id }, [{ $set: { stock: { $max: [0, { $add: ["$stock", stock - stockWas] }] } } }]);
@@ -519,6 +536,14 @@ export async function saveProductAction(_: Result, form: FormData): Promise<Resu
           .map((f) => (f === "description" ? "description" : f === "stock" && relative ? `stock ${stock > stockWas ? "+" : ""}${stock - stockWas}` : `${f} ${before[f]} → ${fields[f]}`))
       : ["added"];
     if (hasPhoto) changes.push("new photo");
+    if (added.length) changes.push(`${added.length} more ${added.length === 1 ? "photo" : "photos"}`);
+    const dropped = (before?.photos ?? []).filter((url) => removing.has(url));
+    if (dropped.length) {
+      changes.push(`${dropped.length} ${dropped.length === 1 ? "photo" : "photos"} removed`);
+      // ones kept in the database go with it; ponytail: Cloudinary copies stay there (free plan room is plenty)
+      const ids = dropped.flatMap((url) => url.match(/^\/photo\/([\da-f]{24})/)?.[1] ?? []);
+      if (ids.length) await Photo.deleteMany({ _id: { $in: ids } });
+    }
     if (changes.length) await audit(who(user), before ? "product.edit" : "product.add", fields.name, changes.join(", "));
     return before ? "Saved." : `Added ${fields.name}.`;
   });

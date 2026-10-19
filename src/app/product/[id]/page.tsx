@@ -6,7 +6,8 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { Stepper } from "@/components/cart";
 import { ProductCard } from "@/components/catalog";
-import { CategoryIcon, ProductArt } from "@/components/category";
+import { CategoryIcon } from "@/components/category";
+import { Gallery } from "@/components/gallery";
 import { Rows } from "@/components/legal-rows";
 import { bestSellers, Product, shopItems } from "@/lib/db";
 import { inr } from "@/lib/format";
@@ -19,13 +20,15 @@ import { goesWith } from "@/lib/pairs";
 /** The product, its write-up, what goes with it and the rest of its shelf; once per request (the title asks too). */
 const load = cache(async (id: string) => {
   // all three at once rather than the write-up after the rest
-  const [items, popular, doc] = await Promise.all([shopItems(), bestSellers(), isValidObjectId(id) ? Product.findById(id, "description maker").lean() : null]);
+  const [items, popular, doc] = await Promise.all([shopItems(), bestSellers(), isValidObjectId(id) ? Product.findById(id, "description maker photos").lean() : null]);
   const item = items.find((i) => i.id === id);
   if (!item) return null;
   return {
     item,
     description: doc?.description ?? "",
     maker: doc?.maker ?? "",
+    // the main photo first, then the more photos added in Inventory
+    photos: [item.image, ...(doc?.photos ?? [])].filter(Boolean),
     pairs: goesWith(items, [item.category], new Set([id]), popular),
     more: items.filter((i) => i.category === item.category && i.id !== id),
   };
@@ -39,11 +42,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const found = await load((await params).id);
   if (!found) notFound();
-  const { item, description, maker, pairs, more } = found;
+  const { item, description, maker, photos, pairs, more } = found;
   const [shop, t] = await Promise.all([shopDetails(), getT()]);
   const w = t.shop.product;
   const cat = catName(t, item.category);
-  const phone = process.env.SHOP_PHONE;
   const off = Math.round((1 - item.price / item.mrp) * 100);
   const shelf = `/?c=${encodeURIComponent(item.category)}`;
 
@@ -56,10 +58,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       </nav>
 
       <article className={item.stock > 0 ? "product panel" : "product panel sold-out"}>
-        <div className="card-art">
-          <ProductArt category={item.category} image={item.image} large />
-          {off > 0 && <span className="off">{fill(t.shop.off, { n: off })}</span>}
-        </div>
+        <Gallery category={item.category} photos={photos} badge={off > 0 && <span className="off">{fill(t.shop.off, { n: off })}</span>} />
         <div className="product-info">
           <Link href={shelf} className="product-cat">
             <CategoryIcon category={item.category} /> {cat}
@@ -100,17 +99,6 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                 // Indian-made crackers only; change this if the shop ever stocks imported ones
                 [w.origin, w.india],
                 [w.soldBy, [shop.legalName, shop.address].filter(Boolean).join(", ")],
-                [
-                  w.care,
-                  <>
-                    {phone && (
-                      <>
-                        <a href={`tel:+91${phone}`}>+91 {phone}</a> ·{" "}
-                      </>
-                    )}
-                    <Link href="/terms#contact">{w.complaints}</Link>
-                  </>,
-                ],
               ]}
             />
           </section>

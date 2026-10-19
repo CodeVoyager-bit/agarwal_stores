@@ -1,5 +1,6 @@
-import { IndianRupee, PhoneCall, Truck } from "lucide-react";
+import { Download, IndianRupee, PhoneCall, Truck } from "lucide-react";
 import { Catalog } from "@/components/catalog";
+import { AppLink } from "@/components/install-app";
 import { Rangoli } from "@/components/rangoli";
 import { categoriesOf, shopItems } from "@/lib/db";
 import { getLang, getT } from "@/lib/i18n/server";
@@ -32,6 +33,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
               <PhoneCall size={18} aria-hidden="true" /> {h.call}
             </li>
           </ul>
+          <AppLink className="btn app-cta">
+            <Download size={18} aria-hidden="true" /> {h.app}
+          </AppLink>
         </div>
         <Rangoli className="rangoli" />
       </section>
