@@ -11,6 +11,7 @@ import { connectDB, Order, User } from "@/lib/db";
 import { day, inr, when } from "@/lib/format";
 import { fill, translateMessage } from "@/lib/i18n";
 import { getLang, getT } from "@/lib/i18n/server";
+import { shopDetails } from "@/lib/legal";
 import { can } from "@/lib/roles";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -29,9 +30,11 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
   const assignable = order.status === "placed" || order.status === "packed";
   // orders placed before history was kept start with just their placing
   const history = order.history?.length ? order.history : [{ at: order.createdAt, by: order.name, text: "Booked" }];
-  const [t, lang] = await Promise.all([getT(), getLang()]);
+  const [t, lang, shop] = await Promise.all([getT(), getLang(), shopDetails()]);
   const s = t.staff.order;
   const c = t.staff.cols;
+  // the shop has no general messages by SMS, so staff send this one from their own WhatsApp
+  const cancelNote = fill(s.cancelledText, { name: order.name, shop: shop.legalName, n: order.number }) + (shop.phone ? fill(s.callUs, { phone: `+91 ${shop.phone}` }) : "");
 
   return (
     <>
@@ -142,6 +145,13 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
           <section className="panel" aria-labelledby="status">
             <h2 id="status">{c.status}</h2>
             <StatusForm id={id} status={order.status} />
+            {order.status === "cancelled" && /^\d{10}$/.test(order.phone) && (
+              <p className="contact">
+                <a href={`https://wa.me/91${order.phone}?text=${encodeURIComponent(cancelNote)}`} target="_blank" rel="noreferrer" className="chip-link">
+                  <MessageCircle size={14} aria-hidden="true" /> {s.tellCancelled}
+                </a>
+              </p>
+            )}
           </section>
 
           <section className="panel" aria-labelledby="delivery">

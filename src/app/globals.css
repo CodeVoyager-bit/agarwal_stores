@@ -355,6 +355,13 @@ main:has(.cartbar) ~ .foot { padding-bottom: 128px; }
 .pill.out_for_delivery { background: #f3e8ff; color: #6b21a8; }
 .pill.delivered { background: #ebf6ec; color: #1b5e20; }
 .pill.cancelled { background: var(--danger-soft); color: var(--danger); }
+/* My Orders: a cancelled order says so plainly, and its amount is struck through (nothing to pay) */
+.cancel-note { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: var(--danger-soft); color: var(--danger); }
+.cancel-note svg { flex: none; margin-top: 1px; }
+.cancel-note p { margin: 0; display: grid; gap: 2px; color: var(--ink); }
+.cancel-note strong { color: var(--danger); }
+.order.cancelled .order-amount { text-decoration: line-through; color: var(--muted); }
+.order.cancelled .items { opacity: 0.7; }
 
 /* ---- admin ---- */
 .admin-tabs { display: flex; gap: 4px; margin-top: 16px; padding: 4px; width: fit-content; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); }
@@ -384,7 +391,8 @@ main:has(.cartbar) ~ .foot { padding-bottom: 128px; }
 .chip-link:hover { border-color: var(--red); }
 .late { color: var(--danger); font-weight: 700; }
 .late small { color: var(--danger); }
-.status-form { display: flex; gap: 6px; }
+.status-form { display: flex; flex-wrap: wrap; gap: 6px; }
+.status-form .error { flex-basis: 100%; margin: 0; font-size: 0.85rem; }
 .status-form select { min-height: 36px; padding: 4px 10px; width: auto; background-color: var(--surface); color: var(--ink); }
 .add-product { margin-bottom: 10px; padding: 0; }
 .add-product summary { cursor: pointer; font-weight: 700; padding: 16px 20px; list-style: none; display: flex; align-items: center; gap: 10px; color: var(--maroon); }
@@ -393,6 +401,9 @@ main:has(.cartbar) ~ .foot { padding-bottom: 128px; }
 .add-product summary::-webkit-details-marker { display: none; }
 .add-product .inv-row { border: 0; border-top: 1px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); box-shadow: none; }
 .inventory { display: grid; gap: 8px; }
+.inv-shelf { margin-top: 18px; }
+.inv-shelf h2 { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; font-size: 1.1rem; }
+.inv-shelf h2 small { color: var(--muted); font-weight: 600; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .inv-row {
   display: grid; grid-template-columns: 2.2fr 1.2fr 1fr 0.7fr 0.7fr 0.7fr auto auto auto; gap: 10px; align-items: end;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px; box-shadow: var(--shadow-1);

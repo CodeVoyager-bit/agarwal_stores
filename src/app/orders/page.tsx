@@ -1,6 +1,7 @@
-import { CircleCheck, LogOut, MapPin, Package } from "lucide-react";
+import { CircleCheck, CircleX, LogOut, MapPin, Package } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { logoutAction } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
 import { connectDB, Order } from "@/lib/db";
@@ -58,12 +59,15 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           </p>
         </div>
       )}
+      {/* an open order can change at the shop's end while this page is open */}
+      {orders.some((o) => STEPS.slice(0, 3).includes(o.status)) && <AutoRefresh />}
       {orders.length ? (
         <ul className="orders">
           {orders.map((o) => {
             const step = STEPS.indexOf(o.status);
+            const cancelledAt = o.status === "cancelled" ? ([...(o.history ?? [])].reverse().find((h) => h.text === "Marked Cancelled")?.at ?? o.updatedAt) : null;
             return (
-              <li key={String(o._id)} className="panel order">
+              <li key={String(o._id)} className={cancelledAt ? "panel order cancelled" : "panel order"}>
                 <div className="order-head">
                   <div>
                     <h2>{fill(m.order, { n: o.number })}</h2>
@@ -84,8 +88,19 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                   </div>
                 )}
 
-                {o.status === "cancelled" ? (
-                  <p className="pill cancelled">{t.common.status.cancelled}</p>
+                {cancelledAt ? (
+                  <div className="cancel-note" role="note">
+                    <CircleX size={22} aria-hidden="true" />
+                    <p>
+                      <strong>{fill(m.cancelledOn, { date: day(cancelledAt, lang) })}</strong>
+                      {m.cancelledText}
+                      {shop.phone && (
+                        <a href={`tel:+91${shop.phone}`} className="link">
+                          {fill(m.callShop, { phone: `+91 ${shop.phone}` })}
+                        </a>
+                      )}
+                    </p>
+                  </div>
                 ) : (
                   <ol className="track" aria-label={m.progress}>
                     {STEPS.map((s, n) => (

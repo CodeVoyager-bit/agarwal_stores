@@ -550,12 +550,13 @@ export async function saveProductAction(_: Result, form: FormData): Promise<Resu
   });
 }
 
-export async function setStatusAction(form: FormData) {
-  const user = await allowStaff("orders");
-  const status = text(form, "status") as OrderStatus;
-  if (!ORDER_STATUSES.includes(status)) throw new Error("Unknown status");
-  await setOrderStatus(text(form, "id"), status, who(user));
-  revalidatePath("/", "layout");
+export async function setStatusAction(_: Result, form: FormData): Promise<Result> {
+  return attempt(async () => {
+    const user = await allowStaff("orders");
+    const status = text(form, "status") as OrderStatus;
+    if (!ORDER_STATUSES.includes(status)) throw new Error("Unknown status");
+    await setOrderStatus(text(form, "id"), status, who(user));
+  });
 }
 
 export async function assignAction(_: Result, form: FormData): Promise<Result> {
@@ -629,8 +630,10 @@ export async function setRoleAction(_: Result, form: FormData): Promise<Result> 
     const phone = tenDigits(text(form, "phone"));
     const role = text(form, "role") as Role;
     if (!validPhone(phone)) throw new OrderError("Enter a valid 10‑digit mobile number.");
-    if (!ROLES.includes(role) || role === "owner") throw new OrderError("Pick Customer, Delivery or Admin. Owners are set in ADMIN_PHONES.");
-    if (ownerPhones().includes(phone)) throw new OrderError("This number is an owner (ADMIN_PHONES), so its role can't change here.");
+    if (!ROLES.includes(role)) throw new OrderError("Pick a role from the list.");
+    if (ownerPhones().includes(phone)) throw new OrderError("This number is a main owner, set on the server, so its role can't change here.");
+    // so nobody locks themselves out by a slip; the ADMIN_PHONES owners stay owners whatever happens here
+    if (phone === user.phone) throw new OrderError("You can't change your own role. Ask another owner.");
     await connectDB();
     const name = text(form, "name").slice(0, 80);
     // the team picks people by name (who delivers what), so nobody new joins as "Customer"

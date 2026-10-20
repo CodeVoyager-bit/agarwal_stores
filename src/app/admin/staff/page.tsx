@@ -12,14 +12,14 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: `${t.common.adminTabs.staff} · ${t.common.adminTabs.label}` };
 }
 
-const CHOICES = ["customer", "delivery", "admin"] as const;
+const CHOICES = ["customer", "delivery", "admin", "owner"] as const;
 
 export default async function Staff() {
-  await requireStaff("staff", "/admin/staff");
+  const me = await requireStaff("staff", "/admin/staff");
   await connectDB();
   const owners = ownerPhones();
   const [team, ownerUsers] = await Promise.all([
-    User.find({ role: { $in: ["delivery", "admin"] }, phone: { $nin: owners } }).sort({ role: 1, name: 1 }).lean(),
+    User.find({ role: { $in: ["delivery", "admin", "owner"] }, phone: { $nin: owners } }).sort({ role: 1, name: 1 }).lean(),
     User.find({ phone: { $in: owners } }).lean(),
   ]);
   const t = await getT();
@@ -88,16 +88,22 @@ export default async function Staff() {
                 <small>{u.phone}</small>
               </td>
               <td data-label={s.role}>
-                <ActionForm action={setRoleAction} submit={t.common.words.change} className="inline-form">
-                  <input type="hidden" name="phone" value={u.phone ?? ""} />
-                  <select key={u.role} name="role" defaultValue={u.role ?? "customer"} aria-label={fill(s.roleFor, { who: u.name || u.phone || "" })}>
-                    {CHOICES.map((r) => (
-                      <option key={r} value={r}>
-                        {r === "customer" ? s.removeCustomer : s.roles[r]}
-                      </option>
-                    ))}
-                  </select>
-                </ActionForm>
+                {u.phone === me.phone ? (
+                  <>
+                    <span className="pill delivered">{s.roles[u.role ?? "customer"]}</span> <small>{s.you}</small>
+                  </>
+                ) : (
+                  <ActionForm action={setRoleAction} submit={t.common.words.change} className="inline-form">
+                    <input type="hidden" name="phone" value={u.phone ?? ""} />
+                    <select key={u.role} name="role" defaultValue={u.role ?? "customer"} aria-label={fill(s.roleFor, { who: u.name || u.phone || "" })}>
+                      {CHOICES.map((r) => (
+                        <option key={r} value={r}>
+                          {r === "customer" ? s.removeCustomer : s.roles[r]}
+                        </option>
+                      ))}
+                    </select>
+                  </ActionForm>
+                )}
               </td>
             </tr>
           ))}

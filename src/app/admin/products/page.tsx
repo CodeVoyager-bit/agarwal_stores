@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
 import { MorePhotos, PhotoInput } from "@/components/photo-input";
 import { StockImport } from "@/components/stock-import";
@@ -88,22 +89,40 @@ function Description({ p, w }: { p: Editable; w: Words }) {
   );
 }
 
-export default async function AdminProducts({ searchParams }: { searchParams: Promise<{ q?: string; low?: string }> }) {
+/** The lists an owner works through: what's on sale, hidden, waiting for a price, running low or out. */
+const SHOWS = ["all", "sale", "hidden", "unpriced", "low", "out"] as const;
+type Show = (typeof SHOWS)[number];
+const only = (show: Show, lowAt: number) =>
+  ({
+    all: {},
+    sale: { active: true, price: { $gt: 0 } },
+    hidden: { active: false },
+    unpriced: { price: { $lte: 0 } },
+    // as the Orders page counts it: on sale and priced
+    low: { active: true, price: { $gt: 0 }, stock: { $lte: lowAt } },
+    out: { active: true, stock: { $lte: 0 } },
+  })[show];
+
+export default async function AdminProducts({ searchParams }: { searchParams: Promise<{ q?: string; show?: string; low?: string }> }) {
   await requireStaff("catalog", "/admin/products");
   const params = await searchParams;
   // ?q=a&q=b arrives as a list: only a single search is read
   const q = (typeof params.q === "string" ? params.q : "").trim().slice(0, 60);
-  const low = params.low === "1";
+  // ?low=1 is the old link for Low stock
+  const show: Show = params.low === "1" ? "low" : SHOWS.find((s) => s === params.show) ?? "all";
   const { lowStock: lowAt } = await shopDetails();
   const t = await getT();
   const w = t.catalog.products;
   await connectDB();
-  const products = await Product.find({
-    ...(q && { $or: [{ name: new RegExp(escape(q), "i") }, { category: new RegExp(escape(q), "i") }] }),
-    ...(low && { active: true, price: { $gt: 0 }, stock: { $lte: lowAt } }),
-  })
-    .sort({ category: 1, price: 1 })
-    .lean();
+  const search = q ? { $or: [{ name: new RegExp(escape(q), "i") }, { category: new RegExp(escape(q), "i") }] } : {};
+  const [products, counts] = await Promise.all([
+    Product.find({ ...search, ...only(show, lowAt) }).sort({ category: 1, price: 1 }).lean(),
+    Promise.all(SHOWS.map((s) => Product.countDocuments({ ...search, ...only(s, lowAt) }))),
+  ]);
+  // one heading per shelf, so a long list is easy to scan
+  const shelves = new Map<string, typeof products>();
+  for (const p of products) shelves.set(p.category, [...(shelves.get(p.category) ?? []), p]);
+  const link = (s: Show) => `/admin/products?${new URLSearchParams({ ...(s !== "all" && { show: s }), ...(q && { q }) })}`;
 
   return (
     <>
@@ -123,24 +142,36 @@ export default async function AdminProducts({ searchParams }: { searchParams: Pr
         </ActionForm>
       </details>
 
+      <nav className="chips" aria-label={w.showLabel}>
+        {SHOWS.map((s, n) => (
+          <Link key={s} href={link(s)} aria-current={s === show ? "page" : undefined}>
+            {w.show[s]} <small>{counts[n]}</small>
+          </Link>
+        ))}
+      </nav>
       <form className="filter" role="search">
+        {show !== "all" && <input type="hidden" name="show" value={show} />}
         <input type="search" name="q" defaultValue={q} placeholder={w.searchHint} autoComplete="off" aria-label={w.searchLabel} />
-        <label className="f-check">
-          <input type="checkbox" name="low" value="1" defaultChecked={low} /> {w.lowOnly}
-        </label>
         <button className="btn">{t.common.words.search}</button>
       </form>
       <p className="muted">
         {fill(products.length === 1 ? w.countOne : w.countMany, { n: products.length, low: lowAt })}
       </p>
 
-      <div className="inventory">
-        {products.map((p) => (
-          <ActionForm key={String(p._id)} action={saveProductAction} submit={t.common.words.save} small className={`inv-row${p.price > 0 && p.stock <= lowAt ? " low" : ""}${p.active ? "" : " unlisted"}`} after={<Description p={p} w={w} />}>
-            <Fields p={p} w={w} />
-          </ActionForm>
-        ))}
-      </div>
+      {[...shelves].map(([shelf, list]) => (
+        <section key={shelf} className="inv-shelf">
+          <h2>
+            {catName(t, shelf)} <small>{list.length}</small>
+          </h2>
+          <div className="inventory">
+            {list.map((p) => (
+              <ActionForm key={String(p._id)} action={saveProductAction} submit={t.common.words.save} small className={`inv-row${p.price > 0 && p.stock <= lowAt ? " low" : ""}${p.active ? "" : " unlisted"}`} after={<Description p={p} w={w} />}>
+                <Fields p={p} w={w} />
+              </ActionForm>
+            ))}
+          </div>
+        </section>
+      ))}
     </>
   );
 }

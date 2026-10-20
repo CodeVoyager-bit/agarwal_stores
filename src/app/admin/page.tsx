@@ -74,7 +74,7 @@ export default async function AdminOrders({ searchParams }: { searchParams: Prom
           <strong>{inr(sales)}</strong>
           <span>{s.booked}</span>
         </div>
-        <Link href="/admin/products?low=1" className={lowStock ? "alert" : ""}>
+        <Link href="/admin/products?show=low" className={lowStock ? "alert" : ""}>
           <TriangleAlert size={20} aria-hidden="true" />
           <strong>{lowStock}</strong>
           <span>{s.lowStock}</span>

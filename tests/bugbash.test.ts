@@ -40,7 +40,9 @@ test("status by hand: no Out for Delivery, nothing after Delivered, Delivered by
   const status = async () => (await Order.findById(id).lean())!;
 
   await setOrderStatus(id, "out_for_delivery", "Shop");
-  assert.equal((await status()).status, "placed", "only Start Delivery sends it out");
+  const out = await Order.findById(id).select("+handoverCode").lean();
+  assert.equal(out!.status, "out_for_delivery", "the shop can send it out by hand");
+  assert.match(out!.handoverCode ?? "", /^\d{6}$/, "and the customer gets a handover code, as with Start Delivery");
   await setOrderStatus(id, "delivered", "Shop");
   const done = await status();
   assert.equal(done.status, "delivered");
@@ -282,4 +284,26 @@ test("a form whose connection drops gets a message back, with what was there kep
   });
   await assert.rejects(broken(null, form), /x is undefined/);
   assert.ok(DICTS.hi.messages["Couldn't reach the shop. Check your internet and try again."], "the message has a Hindi version");
+});
+
+test("a cancelled order can be booked again: its stock comes off the shelf again, or it says what's short", async () => {
+  const who = await person();
+  const p = await Product.create({ name: "Undo Chakri", category: "Chakri", mrp: 100, price: 50, stock: 3 });
+  const order = await placeOrder(who, [{ id: String(p._id), qty: 2 }], details);
+  const id = String(order._id);
+  const stock = async () => (await Product.findById(p._id).lean())!.stock;
+  await setOrderStatus(id, "cancelled", "Shop");
+  assert.equal(await stock(), 3, "cancelling puts the stock back");
+
+  await Product.updateOne({ _id: p._id }, { stock: 1 });
+  await assert.rejects(setOrderStatus(id, "placed", "Shop"), /Only 1 left of Undo Chakri/);
+  assert.equal((await Order.findById(id).lean())!.status, "cancelled");
+  assert.equal(await stock(), 1, "nothing taken when it can't be booked again");
+
+  await Product.updateOne({ _id: p._id }, { stock: 5 });
+  await setOrderStatus(id, "placed", "Shop");
+  const again = (await Order.findById(id).lean())!;
+  assert.equal(again.status, "placed");
+  assert.equal(again.history.at(-1)?.text, "Cancel undone, booked again");
+  assert.equal(await stock(), 3, "its 2 come off the shelf again");
 });

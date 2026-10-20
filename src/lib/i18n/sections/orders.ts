@@ -19,6 +19,9 @@ export const en = {
     empty: "No Orders Yet",
     emptyText: "Your Diwali order will show up here.",
     browse: "Browse Crackers",
+    cancelledOn: "Cancelled on {date}",
+    cancelledText: "The shop cancelled this order, so there’s nothing to pay.",
+    callShop: "Questions? Call the shop on {phone}.",
   },
   bill: {
     titles: { "Tax Invoice": "Tax Invoice", "Bill of Supply": "Bill of Supply", Bill: "Bill" } as Record<string, string>,
@@ -62,6 +65,9 @@ export const hi: typeof en = {
     empty: "अभी कोई ऑर्डर नहीं",
     emptyText: "आपका दिवाली ऑर्डर यहाँ दिखेगा।",
     browse: "पटाखे देखें",
+    cancelledOn: "{date} को रद्द हुआ",
+    cancelledText: "दुकान ने यह ऑर्डर रद्द कर दिया है, इसलिए कुछ भी भुगतान नहीं करना है।",
+    callShop: "कोई सवाल? दुकान पर {phone} पर फ़ोन करें।",
   },
   bill: {
     titles: { "Tax Invoice": "Tax Invoice · टैक्स इनवॉइस", "Bill of Supply": "Bill of Supply · बिल ऑफ़ सप्लाई", Bill: "बिल" },
@@ -106,6 +112,9 @@ export const mr: typeof en = {
     empty: "अजून ऑर्डर नाही",
     emptyText: "तुमची दिवाळीची ऑर्डर इथे दिसेल.",
     browse: "फटाके पाहा",
+    cancelledOn: "{date} रोजी रद्द झाली",
+    cancelledText: "दुकानाने ही ऑर्डर रद्द केली आहे, त्यामुळे काहीही पैसे द्यायचे नाहीत.",
+    callShop: "काही प्रश्न? दुकानात {phone} वर फोन करा.",
   },
   bill: {
     titles: { "Tax Invoice": "Tax Invoice · टॅक्स इनव्हॉइस", "Bill of Supply": "Bill of Supply · बिल ऑफ सप्लाय", Bill: "बिल" },

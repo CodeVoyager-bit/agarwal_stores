@@ -15,15 +15,16 @@ export const MAX_QTY = 500;
 export const MAX_PHOTOS = 6;
 
 /**
- * What staff can change an order's status to by hand. Out for Delivery only comes from the delivery
- * person's Start Delivery (it sends the handover code). Delivered by hand is for a counter pickup or
- * the shop delivering itself, and puts the full amount on the Cash page to count in. Delivered and
- * Cancelled are final.
+ * What staff can change an order's status to by hand. Out for Delivery by hand does what the delivery
+ * person's Start Delivery does: the customer gets a handover code. Delivered by hand is for a counter
+ * pickup or the shop delivering itself, and puts the full amount on the Cash page to count in; it is
+ * final (the bill is made). A cancelled order can be booked again while its stock is still there.
  */
 export const BY_HAND: Record<string, string[]> = {
-  placed: ["packed", "delivered", "cancelled"],
-  packed: ["placed", "delivered", "cancelled"],
+  placed: ["packed", "out_for_delivery", "delivered", "cancelled"],
+  packed: ["placed", "out_for_delivery", "delivered", "cancelled"],
   out_for_delivery: ["packed", "delivered", "cancelled"],
+  cancelled: ["placed"],
 };
 
 export const STATUS_LABEL: Record<string, string> = {

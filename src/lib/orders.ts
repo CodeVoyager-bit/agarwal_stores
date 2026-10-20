@@ -139,33 +139,61 @@ export async function saveToBook(userId: string, a: { line: string; landmark: st
 
 const OPEN: OrderStatus[] = ["placed", "packed", "out_for_delivery"];
 
+type Stocked = { product?: Types.ObjectId | null; name?: string | null; qty?: number | null };
+const putBack = (items: Stocked[]) => Promise.all(items.map((i) => Product.updateOne({ _id: i.product }, { $inc: { stock: i.qty! } })));
+
+/** A cancelled order's lines taken off the shelf again, all or none. A product deleted since has no shelf to take from. */
+async function takeBack(items: Stocked[]) {
+  const taken: Stocked[] = [];
+  for (const i of items) {
+    if ((await Product.updateOne({ _id: i.product, stock: { $gte: i.qty } }, { $inc: { stock: -i.qty! } })).modifiedCount) taken.push(i);
+    else if (await Product.exists({ _id: i.product })) {
+      await putBack(taken);
+      const left = (await Product.findById(i.product, "stock"))?.stock ?? 0;
+      throw new OrderError(left ? `Only ${left} left of ${i.name}, so the order can't be booked again. Add stock first.` : `${i.name} is out of stock, so the order can't be booked again. Add stock first.`);
+    }
+  }
+}
+
 /**
- * Staff changing the status by hand, only the moves BY_HAND allows. Cancelled is final: its stock goes
- * back on the shelf exactly once. Delivered by hand records the full amount as collected by that staff
- * member, so the Cash page still asks for it.
+ * Staff changing the status by hand, only the moves BY_HAND allows. Cancelling puts the stock back on
+ * the shelf; booking a cancelled order again takes it off again, or says what's short. Out for Delivery
+ * makes a handover code, as Start Delivery does. Delivered by hand records the full amount as collected
+ * by that staff member, so the Cash page still asks for it.
  */
 export async function setOrderStatus(orderId: string, status: OrderStatus, by: string) {
   if (!isValidObjectId(orderId)) return;
   await connectDB();
   const from = Object.keys(BY_HAND).filter((s) => BY_HAND[s].includes(status)) as OrderStatus[];
-  const open = await Order.findOne({ _id: orderId, status: { $in: from } }, "total");
+  const open = await Order.findOne({ _id: orderId, status: { $in: from } }, "total status items");
   if (!open) return;
+  const reopening = open.status === "cancelled";
+  if (reopening) await takeBack(open.items);
+  const code = status === "out_for_delivery" ? String(randomInt(100000, 1000000)) : undefined;
+  const text = reopening ? "Cancel undone, booked again" : status === "delivered" ? `Marked ${STATUS_LABEL[status]}, ₹${open.total} to count in` : `Marked ${STATUS_LABEL[status]}`;
+  // any other move by hand ends the handover code there was. Delivered by the shop: the staff member
+  // holds the cash (Cash page), not the rider it was given to
+  const unset = { ...(!code && { handoverCode: 1 }), ...(status === "delivered" && { assignedTo: 1, assignedName: 1 }) };
   const order = await Order.findOneAndUpdate(
-    { _id: orderId, status: { $in: from } },
+    // reopening only from Cancelled: the stock just taken is for exactly that
+    { _id: orderId, status: reopening ? "cancelled" : { $in: from } },
     {
       status,
-      $push: { history: { by, text: status === "delivered" ? `Marked ${STATUS_LABEL[status]}, ₹${open.total} to count in` : `Marked ${STATUS_LABEL[status]}` } },
-      // only the delivery person's Start Delivery makes a code; any move by hand ends the one there was.
-      // Delivered by the shop: the staff member holds the cash (Cash page), not the rider it was given to
-      $unset: { handoverCode: 1, ...(status === "delivered" && { assignedTo: 1, assignedName: 1 }) },
+      $push: { history: { by, text } },
+      ...(code && { handoverCode: code, handoverTries: 0 }),
+      ...(Object.keys(unset).length && { $unset: unset }),
       ...(status === "delivered" && { cash: { collected: open.total, collectedAt: new Date(), collectedBy: by } }),
     },
   );
-  if (!order) return;
-  if (status === "cancelled")
-    await Promise.all(order.items.map((i) => Product.updateOne({ _id: i.product }, { $inc: { stock: i.qty! } })));
+  if (!order) {
+    if (reopening) await putBack(open.items);
+    return;
+  }
+  if (status === "cancelled") await putBack(order.items);
   if (status === "delivered") await issueBill(orderId);
   await audit(by, "order.status", `Order #${order.number}`, `${STATUS_LABEL[order.status]} → ${STATUS_LABEL[status]}`);
+  // as with Start Delivery: the customer can always read the code on their order page
+  if (code && !mockOtp()) await sendCode(order.phone, code);
 }
 
 /** Gives an open order to a delivery person, or takes it back (staffId empty). */
