@@ -5,7 +5,8 @@
 export const en = {
   mine: {
     title: "My Orders",
-    booked: "<b>Order #{n} is booked.</b> We’ll call +91 {phone} to confirm it before we deliver.",
+    booked: "<b>Order #{n} is booked, not yet accepted.</b> We’ll call +91 {phone} to accept it. Delivery happens only after the shop accepts your order.",
+    waiting: "Waiting for the shop to accept this order. We’ll call you; delivery happens only after we accept it.",
     order: "Order #{n}",
     bookedOn: "Booked {date}",
     arrivesBy: "Arrives by {date}",
@@ -54,7 +55,8 @@ export const en = {
 export const hi: typeof en = {
   mine: {
     title: "मेरे ऑर्डर",
-    booked: "<b>ऑर्डर #{n} बुक हो गया।</b> डिलीवरी से पहले पक्का करने के लिए हम +91 {phone} पर फ़ोन करेंगे।",
+    booked: "<b>ऑर्डर #{n} बुक हो गया है, अभी स्वीकार नहीं हुआ।</b> स्वीकार करने के लिए हम +91 {phone} पर फ़ोन करेंगे। दुकान के ऑर्डर स्वीकार करने के बाद ही डिलीवरी होगी।",
+    waiting: "यह ऑर्डर दुकान के स्वीकार करने का इंतज़ार कर रहा है। हम आपको फ़ोन करेंगे; स्वीकार होने के बाद ही डिलीवरी होगी।",
     order: "ऑर्डर #{n}",
     bookedOn: "{date} को बुक हुआ",
     arrivesBy: "{date} तक पहुँचेगा",
@@ -104,7 +106,8 @@ export const hi: typeof en = {
 export const mr: typeof en = {
   mine: {
     title: "माझ्या ऑर्डर",
-    booked: "<b>ऑर्डर #{n} बुक झाली.</b> डिलिव्हरीपूर्वी खात्री करण्यासाठी आम्ही +91 {phone} वर फोन करू.",
+    booked: "<b>ऑर्डर #{n} बुक झाली आहे, अजून स्वीकारलेली नाही.</b> स्वीकारण्यासाठी आम्ही +91 {phone} वर फोन करू. दुकानाने ऑर्डर स्वीकारल्यानंतरच डिलिव्हरी होईल.",
+    waiting: "ही ऑर्डर दुकानाने स्वीकारण्याची वाट पाहत आहे. आम्ही तुम्हाला फोन करू; स्वीकारल्यानंतरच डिलिव्हरी होईल.",
     order: "ऑर्डर #{n}",
     bookedOn: "{date} रोजी बुक झाली",
     arrivesBy: "{date} पर्यंत पोहोचेल",

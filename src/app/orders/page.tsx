@@ -1,4 +1,4 @@
-import { CircleCheck, CircleX, LogOut, MapPin, Package } from "lucide-react";
+import { CircleCheck, CircleX, Clock, LogOut, MapPin, Package } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -109,6 +109,13 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                       </li>
                     ))}
                   </ol>
+                )}
+                {/* a booking isn't an order yet: the shop calls to accept it, and only then delivers */}
+                {o.status === "placed" && (
+                  <p className="waiting-note" role="note">
+                    <Clock size={20} aria-hidden="true" />
+                    {m.waiting}
+                  </p>
                 )}
 
                 <ul className="items">
