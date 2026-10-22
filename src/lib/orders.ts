@@ -1,6 +1,7 @@
 import { randomInt, timingSafeEqual } from "node:crypto";
 import { isValidObjectId, Types } from "mongoose";
-import { ADDRESS_LABELS, audit, connectDB, Counter, MAX_ADDRESSES, Order, Product, User, type OrderStatus } from "./db";
+import { couponCode, couponDiscount } from "./coupons";
+import { ADDRESS_LABELS, audit, connectDB, Counter, Coupon, MAX_ADDRESSES, Order, Product, User, type OrderStatus } from "./db";
 import { BY_HAND, MAX_QTY, STATUS_LABEL } from "./format";
 import { billTitle, gstSplit, servesPincode, SETTING_DEFAULTS, shopDetails, TERMS_VERSION } from "./legal";
 import { mockOtp, sendCode } from "./sms";
@@ -14,7 +15,8 @@ export const MAX_WAITING = SETTING_DEFAULTS.maxWaiting;
 export class OrderError extends Error {}
 
 type Line = { id: string; qty: number };
-type Details = { name: string; phone: string; line: string; landmark: string; pincode: string; label?: string; key?: string; total?: number };
+/** `total` and `discount` are what the customer saw; `coupon` is the code they applied. */
+type Details = { name: string; phone: string; line: string; landmark: string; pincode: string; label?: string; key?: string; total?: number; coupon?: string; discount?: number };
 
 export function checkDetails(d: Details) {
   if (d.name.length < 2 || d.name.length > 80) return "Enter your name.";
@@ -67,6 +69,16 @@ export async function placeOrder(user: { id: string; role?: string }, lines: Lin
   if (details.total !== undefined && details.total !== total)
     throw new OrderError("Prices have changed since you opened your cart. The cart shows the new ones now: check them, then book again.");
   if (capped && total < settings.minOrder) throw new OrderError(`The smallest booking is ₹${settings.minOrder}. Please add a little more.`);
+  // checked again here: it may have ended, or been turned off, since the customer applied it
+  let coupon: { code: string; percent: number; discount: number } | undefined;
+  if (details.coupon) {
+    const found = await Coupon.findOne({ code: couponCode(details.coupon) }).lean();
+    const off = couponDiscount(found, total);
+    if ("error" in off) throw new OrderError(off.error);
+    if (details.discount !== undefined && details.discount !== off.discount)
+      throw new OrderError("The coupon has changed since you applied it. Apply it again, then book.");
+    coupon = { code: found!.code, percent: found!.percent, discount: off.discount };
+  }
 
   const taken: { id: Types.ObjectId; qty: number }[] = [];
   try {
@@ -92,10 +104,12 @@ export async function placeOrder(user: { id: string; role?: string }, lines: Lin
       phone: details.phone,
       address,
       items,
-      total: items.reduce((sum, i) => sum + i.price * i.qty, 0),
+      // what's paid at the door: the items less any coupon
+      total: total - (coupon?.discount ?? 0),
+      ...(coupon && { coupon }),
       deliverBy: new Date(Date.now() + settings.deliveryTo * 86_400_000),
       terms: TERMS_VERSION,
-      history: [{ by: `${details.name} · ${details.phone}`, text: "Booked" }],
+      history: [{ by: `${details.name} · ${details.phone}`, text: coupon ? `Booked with coupon ${coupon.code}, ₹${coupon.discount} off` : "Booked" }],
     });
     // bookings sent at the same moment all pass the count above: the ones past the cap are undone here
     if (capped && (await Order.countDocuments({ user: user.id, status: "placed", createdAt: { $lte: order.createdAt } })) > settings.maxWaiting) {

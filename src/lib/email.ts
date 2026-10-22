@@ -85,7 +85,7 @@ export function codeMail(code: string, type = "sign-in") {
   <tr><td align="center" style="padding:6px 28px 24px;${font};font-size:13px;color:#6f5548">Works for <b>10 minutes</b>. Never share it: the shop will never ask you for it.</td></tr>
   <tr><td style="padding:14px 28px;background:#fff1df;${font};font-size:13px;line-height:1.5;color:#6f5548">Didn’t ask for this? Just ignore this email. Nobody can use your account without the code.</td></tr>
   <tr><td align="center" style="padding:18px 28px 22px;${font};font-size:12px;line-height:1.6;color:#a08676">
-    Home delivery in 3–4 days · Pay cash or UPI on delivery<br>
+    Home delivery within 2 days · Pay cash or UPI on delivery<br>
     <a href="${site}" style="color:#c8102e;font-weight:700;text-decoration:none">${site.replace(/^https?:\/\//, "")}</a>${phone ? ` · Help: <a href="tel:+91${phone}" style="color:#c8102e;text-decoration:none">+91 ${phone}</a>` : ""}
   </td></tr>
 </table></td></tr></table></body></html>`,

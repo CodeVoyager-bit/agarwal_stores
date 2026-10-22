@@ -79,6 +79,12 @@ export default async function Slip({ params }: { params: Promise<{ id: string }>
           ))}
         </tbody>
         <tfoot>
+          {order.coupon?.discount ? (
+            <tr>
+              <td colSpan={4}>{fill(s.coupon, { code: order.coupon.code ?? "", percent: order.coupon.percent ?? "" })}</td>
+              <td className="num">−{inr(order.coupon.discount)}</td>
+            </tr>
+          ) : null}
           <tr>
             <th colSpan={2}>{fill(s.pieces, { n: pieces })}</th>
             <th colSpan={2} className="num">

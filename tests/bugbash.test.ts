@@ -265,6 +265,16 @@ test("the shelves list products not priced yet after all the ones people can boo
   assert.equal(prices.findIndex((p) => p === 0), prices.length - prices.filter((p) => p === 0).length, "an unpriced one before a priced one");
 });
 
+test("the shelves list sold-out products after all the ones in stock", async () => {
+  await Product.create([
+    { name: "Cheap Sold-out Rocket", category: "Rockets", mrp: 20, price: 1, stock: 0 },
+    { name: "Dear In-stock Rocket", category: "Rockets", mrp: 900, price: 800, stock: 5 },
+  ]);
+  const { shopItems } = await import("../src/lib/db");
+  const names = (await shopItems()).map((i) => i.name);
+  assert.ok(names.indexOf("Dear In-stock Rocket") < names.indexOf("Cheap Sold-out Rocket"));
+});
+
 test("photo links with a ?query aren't shrunk by the image service, so nobody can spend its quota with ?n=1, ?n=2…", async () => {
   const { resizable } = await import("../src/lib/image-hosts");
   assert.equal(resizable("https://standardcrackers.in/assets/uploads/a.jpg"), true);

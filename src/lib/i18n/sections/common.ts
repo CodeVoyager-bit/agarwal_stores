@@ -4,7 +4,7 @@
 export const en = {
   meta: {
     title: "Agarwal Stores · Crackers",
-    description: "Book Diwali crackers from Agarwal Stores. Home delivery in {from}–{to} days, pay cash or UPI on delivery.",
+    description: "Book Diwali crackers from Agarwal Stores. Home delivery {days}, pay cash or UPI on delivery.",
   },
   nav: {
     main: "Main",
@@ -19,6 +19,7 @@ export const en = {
   },
   adminTabs: {
     label: "Admin",
+    coupons: "Coupons",
     orders: "Orders",
     inventory: "Inventory",
     customers: "Customers",
@@ -35,7 +36,7 @@ export const en = {
     language: "Language",
   },
   footer: {
-    promise: "Home delivery in {from}–{to} days · Pay cash or UPI on delivery",
+    promise: "Home delivery {days} · Pay cash or UPI on delivery",
     help: "Help",
     policies: "Policies",
     terms: "Terms of Sale",
@@ -54,8 +55,8 @@ export const en = {
     deleted: "Your account is deleted, with your name, number and addresses.",
     greeting: "शुभ दीपावली",
     title: "Diwali Crackers, Delivered to Your Door",
-    lead: "Pick your crackers here. We bring them home in {from}–{to} days.",
-    days: "Delivery in {from}–{to} days",
+    lead: "Pick your crackers here. We bring them home {days}.",
+    days: "Delivery {days}",
     pay: "Pay cash or UPI on delivery",
     call: "We call before we come",
     app: "Download the App",
@@ -92,6 +93,8 @@ export const en = {
     "Kids Special": "Kids Special",
     "Gift Boxes": "Gift Boxes",
   } as Record<string, string>,
+  /** the delivery promise (lib/i18n deliveryDays): a range, or "within" when Settings starts it at 0 */
+  window: { range: "in {from}–{to} days", within: "within {to} days" },
   words: {
     save: "Save",
     saving: "Saving…",
@@ -113,7 +116,7 @@ export const en = {
 export const hi: typeof en = {
   meta: {
     title: "Agarwal Stores · पटाखे",
-    description: "Agarwal Stores से दिवाली के पटाखे बुक करें। {from}–{to} दिन में घर पर डिलीवरी, डिलीवरी पर नकद या UPI से भुगतान।",
+    description: "Agarwal Stores से दिवाली के पटाखे बुक करें। {days} घर पर डिलीवरी, डिलीवरी पर नकद या UPI से भुगतान।",
   },
   nav: {
     main: "मुख्य",
@@ -128,6 +131,7 @@ export const hi: typeof en = {
   },
   adminTabs: {
     label: "एडमिन",
+    coupons: "कूपन",
     orders: "ऑर्डर",
     inventory: "स्टॉक",
     customers: "ग्राहक",
@@ -144,7 +148,7 @@ export const hi: typeof en = {
     language: "भाषा",
   },
   footer: {
-    promise: "{from}–{to} दिन में घर पर डिलीवरी · डिलीवरी पर नकद या UPI से भुगतान",
+    promise: "{days} घर पर डिलीवरी · डिलीवरी पर नकद या UPI से भुगतान",
     help: "मदद",
     policies: "नीतियाँ",
     terms: "बिक्री की शर्तें",
@@ -163,8 +167,8 @@ export const hi: typeof en = {
     deleted: "आपका खाता आपके नाम, नंबर और पतों के साथ हटा दिया गया है।",
     greeting: "शुभ दीपावली",
     title: "दिवाली के पटाखे, सीधे आपके घर",
-    lead: "यहाँ अपने पटाखे चुनें। हम {from}–{to} दिन में घर पहुँचा देंगे।",
-    days: "{from}–{to} दिन में डिलीवरी",
+    lead: "यहाँ अपने पटाखे चुनें। हम {days} घर पहुँचा देंगे।",
+    days: "{days} डिलीवरी",
     pay: "डिलीवरी पर नकद या UPI से भुगतान",
     call: "आने से पहले हम फ़ोन करते हैं",
     app: "ऐप डाउनलोड करें",
@@ -201,6 +205,7 @@ export const hi: typeof en = {
     "Kids Special": "बच्चों के लिए",
     "Gift Boxes": "गिफ़्ट बॉक्स",
   },
+  window: { range: "{from}–{to} दिन में", within: "{to} दिन के अंदर" },
   words: {
     save: "सेव करें",
     saving: "सेव हो रहा है…",
@@ -222,7 +227,7 @@ export const hi: typeof en = {
 export const mr: typeof en = {
   meta: {
     title: "Agarwal Stores · फटाके",
-    description: "Agarwal Stores कडून दिवाळीचे फटाके बुक करा. {from}–{to} दिवसांत घरपोच डिलिव्हरी, डिलिव्हरीवेळी रोख किंवा UPI ने पैसे द्या.",
+    description: "Agarwal Stores कडून दिवाळीचे फटाके बुक करा. {days} घरपोच डिलिव्हरी, डिलिव्हरीवेळी रोख किंवा UPI ने पैसे द्या.",
   },
   nav: {
     main: "मुख्य",
@@ -237,6 +242,7 @@ export const mr: typeof en = {
   },
   adminTabs: {
     label: "ॲडमिन",
+    coupons: "कूपन",
     orders: "ऑर्डर",
     inventory: "स्टॉक",
     customers: "ग्राहक",
@@ -253,7 +259,7 @@ export const mr: typeof en = {
     language: "भाषा",
   },
   footer: {
-    promise: "{from}–{to} दिवसांत घरपोच डिलिव्हरी · डिलिव्हरीवेळी रोख किंवा UPI ने पैसे द्या",
+    promise: "{days} घरपोच डिलिव्हरी · डिलिव्हरीवेळी रोख किंवा UPI ने पैसे द्या",
     help: "मदत",
     policies: "धोरणे",
     terms: "विक्रीच्या अटी",
@@ -272,8 +278,8 @@ export const mr: typeof en = {
     deleted: "तुमचे खाते तुमचे नाव, नंबर आणि पत्त्यांसह हटवले आहे.",
     greeting: "दिवाळीच्या हार्दिक शुभेच्छा",
     title: "दिवाळीचे फटाके, थेट तुमच्या घरी",
-    lead: "इथे तुमचे फटाके निवडा. आम्ही {from}–{to} दिवसांत घरी पोहोचवतो.",
-    days: "{from}–{to} दिवसांत डिलिव्हरी",
+    lead: "इथे तुमचे फटाके निवडा. आम्ही {days} घरी पोहोचवतो.",
+    days: "{days} डिलिव्हरी",
     pay: "डिलिव्हरीवेळी रोख किंवा UPI ने पैसे द्या",
     call: "येण्यापूर्वी आम्ही फोन करतो",
     app: "ॲप डाउनलोड करा",
@@ -310,6 +316,7 @@ export const mr: typeof en = {
     "Kids Special": "लहान मुलांसाठी",
     "Gift Boxes": "गिफ्ट बॉक्स",
   },
+  window: { range: "{from}–{to} दिवसांत", within: "{to} दिवसांच्या आत" },
   words: {
     save: "सेव्ह करा",
     saving: "सेव्ह होत आहे…",

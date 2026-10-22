@@ -3,14 +3,14 @@ import { Catalog } from "@/components/catalog";
 import { AppLink } from "@/components/install-app";
 import { Rangoli } from "@/components/rangoli";
 import { categoriesOf, shopItems } from "@/lib/db";
-import { fill } from "@/lib/i18n";
+import { deliveryDays, fill } from "@/lib/i18n";
 import { getLang, getT } from "@/lib/i18n/server";
 import { shopDetails } from "@/lib/legal";
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ q?: string; c?: string; deleted?: string }> }) {
   const [items, params, t, lang, shop] = await Promise.all([shopItems(), searchParams, getT(), getLang(), shopDetails()]);
   const h = t.common.home;
-  const days = { from: shop.deliveryFrom, to: shop.deliveryTo };
+  const days = { days: deliveryDays(t, { from: shop.deliveryFrom, to: shop.deliveryTo }) };
   return (
     <>
       {params.deleted !== undefined && (

@@ -1,12 +1,12 @@
 "use client";
 
-import { IndianRupee, ShoppingBag, Trash2, Truck } from "lucide-react";
+import { IndianRupee, ShoppingBag, TicketPercent, Trash2, Truck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
-import { placeOrderAction } from "@/lib/actions";
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { checkCouponAction, placeOrderAction } from "@/lib/actions";
 import { inr, type ShopItem } from "@/lib/format";
-import { fill } from "@/lib/i18n";
+import { deliveryDays, fill } from "@/lib/i18n";
 import { rich } from "@/lib/i18n/rich";
 import { goesWith } from "@/lib/pairs";
 import { offlineSafe } from "./action-form";
@@ -46,6 +46,15 @@ export function CartView({ items, customer, rules, popular }: { items: ShopItem[
   // read in the browser only: the server has no saved booking id
   const [key, setKey] = useState("");
   useEffect(() => setKey(bookingKey()), []);
+  // a coupon the server said yes to; its discount follows the cart as it changes, and booking checks it again
+  const [coupon, setCoupon] = useState<{ code: string; percent: number; minOrder: number } | null>(null);
+  const [typed, setTyped] = useState("");
+  const [couponError, setCouponError] = useState("");
+  const [checking, startCheck] = useTransition();
+  // refused at booking (ended, turned off, changed): it comes off, and the totals with it
+  useEffect(() => {
+    if (/^(That|This|The) coupon/.test(state?.error ?? "")) setCoupon(null);
+  }, [state]);
 
   // prices changed since the cart opened: fresh prices from the server, the typed address stays in the form
   useEffect(() => {
@@ -65,6 +74,21 @@ export function CartView({ items, customer, rules, popular }: { items: ShopItem[
   const saved = lines.reduce((sum, l) => sum + Math.max(0, l.mrp - l.price) * l.qty, 0);
   const pieces = lines.reduce((sum, l) => sum + l.qty, 0);
   const short = lines.filter((l) => l.qty > l.stock);
+  // the same sum as lib/coupons.ts, so what's shown is what booking takes off
+  const discount = coupon && total >= coupon.minOrder ? Math.floor((total * coupon.percent) / 100) : 0;
+  const pay = total - discount;
+  const apply = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCouponError("");
+    startCheck(async () => {
+      const found = await checkCouponAction(typed, total).catch(() => ({ error: "Couldn't reach the shop. Check your internet and try again." }));
+      if ("error" in found) setCouponError(found.error);
+      else {
+        setCoupon(found);
+        setTyped("");
+      }
+    });
+  };
   // what goes with what's in the cart, from the shelves not in it yet
   const extras = goesWith(items, [...new Set(lines.map((l) => l.category))], new Set(lines.map((l) => l.id)), popular);
 
@@ -144,14 +168,47 @@ export function CartView({ items, customer, rules, popular }: { items: ShopItem[
               <dd>−{inr(saved)}</dd>
             </div>
           )}
+          {discount > 0 && (
+            <div className="saved">
+              <dt>{fill(w.couponRow, { code: coupon!.code, percent: coupon!.percent })}</dt>
+              <dd>−{inr(discount)}</dd>
+            </div>
+          )}
           <div className="grand">
             <dt>{w.total}</dt>
-            <dd>{inr(total)}</dd>
+            <dd>{inr(pay)}</dd>
           </div>
         </dl>
+        {coupon ? (
+          <div className="coupon">
+            <p className="coupon-on">
+              <TicketPercent size={18} aria-hidden="true" />
+              <strong>{coupon.code}</strong>
+              <button type="button" className="link" onClick={() => setCoupon(null)}>
+                {w.couponRemove}
+              </button>
+            </p>
+            {!discount && <p className="note">{fill(w.couponMore, { more: inr(coupon.minOrder - total), code: coupon.code })}</p>}
+          </div>
+        ) : (
+          <form className="coupon" onSubmit={apply}>
+            <label htmlFor="coupon-code">{w.couponLabel}</label>
+            <div className="coupon-row">
+              <input id="coupon-code" value={typed} onChange={(e) => setTyped(e.target.value)} maxLength={24} autoComplete="off" autoCapitalize="characters" spellCheck={false} className="upper" />
+              <button className="btn" disabled={checking || !typed.trim()}>
+                {checking ? w.couponChecking : w.couponApply}
+              </button>
+            </div>
+            {couponError && (
+              <p role="alert" className="error">
+                {tr(couponError)}
+              </p>
+            )}
+          </form>
+        )}
         <ul className="assurances">
           <li>
-            <Truck size={18} aria-hidden="true" /> {fill(t.shop.assure.door, { from: rules.from, to: rules.to })}
+            <Truck size={18} aria-hidden="true" /> {fill(t.shop.assure.door, { days: deliveryDays(t, rules) })}
           </li>
           <li>
             <IndianRupee size={18} aria-hidden="true" /> {t.shop.assure.pay}
@@ -170,6 +227,12 @@ export function CartView({ items, customer, rules, popular }: { items: ShopItem[
             <input type="hidden" name="key" value={key && `${key}-${fingerprint(lines)}`} />
             {/* what the customer sees; the server refuses the booking if prices moved since (lib/orders.ts) */}
             <input type="hidden" name="total" value={total} />
+            {discount > 0 && (
+              <>
+                <input type="hidden" name="coupon" value={coupon!.code} />
+                <input type="hidden" name="discount" value={discount} />
+              </>
+            )}
             <label>
               {w.name}
               <input name="name" required minLength={2} maxLength={80} autoComplete="name" defaultValue={customer.name} />
@@ -264,7 +327,7 @@ export function CartView({ items, customer, rules, popular }: { items: ShopItem[
               </p>
             )}
             <button className="btn primary big" disabled={pending || short.length > 0 || total < rules.minOrder || !!state?.number}>
-              {pending ? w.booking : fill(w.book, { total: inr(total) })}
+              {pending ? w.booking : fill(w.book, { total: inr(pay) })}
             </button>
           </form>
         ) : (

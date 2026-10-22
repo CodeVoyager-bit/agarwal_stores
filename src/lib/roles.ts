@@ -12,8 +12,8 @@ export const ROLE_LABEL: Record<Role, string> = {
 const GRANTS = {
   customer: [],
   delivery: ["delivery"],
-  admin: ["orders", "catalog", "customers", "reports", "cash"],
-  owner: ["orders", "catalog", "customers", "reports", "cash", "staff", "audit", "shop"],
+  admin: ["orders", "catalog", "customers", "reports", "cash", "coupons"],
+  owner: ["orders", "catalog", "customers", "reports", "cash", "coupons", "staff", "audit", "shop"],
 } as const;
 export type Permission = (typeof GRANTS)["owner" | "delivery"][number];
 

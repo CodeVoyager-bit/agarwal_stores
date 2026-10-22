@@ -13,6 +13,10 @@ export const isLang = (value: unknown): value is Lang => LANGS.includes(value as
 export const fill = (text: string, vars: Record<string, string | number> = {}) =>
   text.replace(/\{(\w+)\}/g, (whole, name: string) => (name in vars ? String(vars[name]) : whole));
 
+/** The delivery promise as a phrase for {days}: "in 3–4 days", or "within 2 days" when Settings starts it at 0. */
+export const deliveryDays = (t: { common: { window: { range: string; within: string } } }, d: { from: number; to: number }) =>
+  fill(d.from > 0 && d.from < d.to ? t.common.window.range : t.common.window.within, d);
+
 /** Dates in the reader's language, with the 0–9 digits people type (Marathi would default to Devanagari ones). */
 export const locale = (lang: Lang) => ({ en: "en-IN", hi: "hi-IN", mr: "mr-IN-u-nu-latn" })[lang];
 

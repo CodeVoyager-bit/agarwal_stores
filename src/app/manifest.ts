@@ -10,7 +10,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "Agarwal Stores · Crackers",
     short_name: "AGS Crackers",
-    description: "Book Diwali crackers from Agarwal Stores. Home delivery in 3–4 days, pay cash or UPI at the door.",
+    description: "Book Diwali crackers from Agarwal Stores. Home delivery within 2 days, pay cash or UPI at the door.",
     start_url: "/",
     scope: "/",
     display: "standalone",

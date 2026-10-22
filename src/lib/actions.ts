@@ -10,7 +10,8 @@ import { getAuth, googleEnabled } from "./better-auth";
 import { isPlaceholderEmail, placeholderEmail } from "./email";
 import { MAX_PHOTOS, tidyLines } from "./format";
 import { cloudinaryEnabled, uploadPhoto } from "./cloudinary";
-import { ADDRESS_LABELS, Audit, audit, connectDB, MAX_ADDRESSES, ORDER_STATUSES, Photo, Product, Shop, User, type OrderStatus } from "./db";
+import { COUPON_CODE, couponCode, couponDiscount, istMoment } from "./coupons";
+import { ADDRESS_LABELS, Audit, audit, connectDB, Coupon, MAX_ADDRESSES, ORDER_STATUSES, Photo, Product, Shop, User, type OrderStatus } from "./db";
 import { addNote, assignDelivery, checkDetails, completeDelivery, deleteAccount, deliveryFailed, OrderError, saveToBook, placeOrder, receiveCash, setOrderStatus, startDelivery } from "./orders";
 import { DICTS } from "./i18n/dict";
 import { checkShop, readSettings, SETTINGS, shopDetails } from "./legal";
@@ -428,13 +429,34 @@ export async function placeOrderAction(_: CheckoutState, form: FormData): Promis
     ? { name: text(form, "name"), phone, line: saved.line, landmark: saved.landmark, pincode: saved.pincode }
     : { name: text(form, "name"), phone, line: text(form, "line"), landmark: text(form, "landmark"), pincode: text(form, "pincode"), label: text(form, "label") };
   try {
-    const order = await placeOrder(user, lines.map((l) => ({ id: String(l?.id), qty: Number(l?.qty) })), { ...details, key: text(form, "key"), ...(/^\d+$/.test(text(form, "total")) && { total: Number(text(form, "total")) }) });
+    const shown = (key: string) => (/^\d+$/.test(text(form, key)) ? Number(text(form, key)) : undefined);
+    const order = await placeOrder(user, lines.map((l) => ({ id: String(l?.id), qty: Number(l?.qty) })), {
+      ...details,
+      key: text(form, "key"),
+      total: shown("total"),
+      ...(text(form, "coupon") && { coupon: text(form, "coupon"), discount: shown("discount") }),
+    });
     revalidatePath("/", "layout");
     return { number: order.number };
   } catch (error) {
     if (error instanceof OrderError) return { error: error.message };
     throw error;
   }
+}
+
+export type CouponCheck = { code: string; percent: number; minOrder: number; discount: number } | { error: string };
+
+/** The checkout's Apply button: what a coupon takes off these items, or why not. Booking checks it again. */
+export async function checkCouponAction(typed: string, subtotal: number): Promise<CouponCheck> {
+  const code = couponCode(String(typed ?? ""));
+  if (!COUPON_CODE.test(code)) return { error: "That coupon code isn't valid." };
+  // codes are short enough to guess at; a few dozen tries is plenty for a real customer
+  if (await overLimit(`coupon:${await clientIp()}`, 30)) return { error: "Too many tries. Please wait 15 minutes." };
+  await connectDB();
+  const found = await Coupon.findOne({ code }).lean();
+  const off = couponDiscount(found, Number.isFinite(Number(subtotal)) ? Number(subtotal) : 0);
+  if ("error" in off) return off;
+  return { code, percent: found!.percent, minOrder: found!.minOrder, discount: off.discount };
 }
 
 // ---- Staff ----
@@ -621,6 +643,39 @@ export async function saveShopAction(_: Result, form: FormData): Promise<Result>
     const changed = SETTINGS.filter(({ key }) => before[key] !== settings[key]).map(({ key }) => labels[key].label);
     if (changed.length) await audit(who(user), "shop.edit", "Settings", changed.join(", "));
     return "Saved. The whole site uses these now.";
+  });
+}
+
+/** Makes a coupon, or changes the one with the same code. */
+export async function saveCouponAction(_: Result, form: FormData): Promise<Result> {
+  return attempt(async () => {
+    const user = await allowStaff("coupons");
+    const code = couponCode(text(form, "code"));
+    const percent = Number(text(form, "percent"));
+    const minOrder = Number(text(form, "minOrder") || 0);
+    const validUntil = istMoment(text(form, "validUntil"));
+    if (!COUPON_CODE.test(code)) throw new OrderError("Use 3 to 20 letters and numbers for the code, like DIWALI10.");
+    if (!Number.isInteger(percent) || percent < 1 || percent > 90) throw new OrderError("The discount is a whole percent from 1 to 90.");
+    if (!Number.isInteger(minOrder) || minOrder < 0) throw new OrderError("The smallest order is in whole rupees, or 0 for any order.");
+    if (!validUntil) throw new OrderError("Pick the last date and time the coupon works.");
+    const active = form.get("active") === "on";
+    const before = await Coupon.exists({ code });
+    await Coupon.updateOne({ code }, { code, percent, minOrder, validUntil, active }, { upsert: true, runValidators: true });
+    const until = validUntil.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" });
+    await audit(who(user), before ? "coupon.edit" : "coupon.add", code, `${percent}% off orders of ₹${minOrder}+, till ${until}${active ? "" : ", off"}`);
+    return before ? "Coupon updated." : "Coupon saved.";
+  });
+}
+
+export async function switchCouponAction(_: Result, form: FormData): Promise<Result> {
+  return attempt(async () => {
+    const user = await allowStaff("coupons");
+    const code = couponCode(text(form, "code"));
+    const on = text(form, "on") === "yes";
+    const { matchedCount } = await Coupon.updateOne({ code }, { active: on });
+    if (!matchedCount) throw new OrderError("That coupon is gone. Refresh the page.");
+    await audit(who(user), "coupon.edit", code, on ? "turned on" : "turned off");
+    return on ? "Coupon turned on." : "Coupon turned off.";
   });
 }
 

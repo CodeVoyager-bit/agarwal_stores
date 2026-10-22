@@ -32,8 +32,9 @@ const DEFAULTS = {
   // Bookings and delivery
   bookingsOpen: true,
   closedMessage: "",
-  deliveryFrom: 3,
-  deliveryTo: 4,
+  // 0 to 2 reads “within 2 days” (lib/i18n deliveryDays)
+  deliveryFrom: 0,
+  deliveryTo: 2,
   pincodes: "",
   minOrder: 0,
   maxWaiting: 5,

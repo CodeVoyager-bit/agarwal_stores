@@ -120,6 +120,12 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                       <span className="num">{inr(i.price! * i.qty!)}</span>
                     </li>
                   ))}
+                  {o.coupon?.discount ? (
+                    <li className="saved">
+                      <span>{fill(m.coupon, { code: o.coupon.code ?? "", amount: inr(o.coupon.discount) })}</span>
+                      <span className="num">−{inr(o.coupon.discount)}</span>
+                    </li>
+                  ) : null}
                 </ul>
                 <p className="order-foot">
                   <MapPin size={16} aria-hidden="true" />

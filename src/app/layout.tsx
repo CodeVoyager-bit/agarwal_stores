@@ -13,7 +13,7 @@ import { currentUser } from "@/lib/auth";
 import { appOrigin } from "@/lib/email";
 import { shopDetails } from "@/lib/legal";
 import { clientDict } from "@/lib/i18n/dict";
-import { fill } from "@/lib/i18n";
+import { deliveryDays, fill } from "@/lib/i18n";
 import { getLang, getT } from "@/lib/i18n/server";
 
 // Headings, prices and the brand: round and friendly, with Devanagari for the Diwali greeting.
@@ -25,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
     // makes the shared-link picture (opengraph-image.tsx) a full https:// address
     metadataBase: new URL(appOrigin()),
     title: t.common.meta.title,
-    description: fill(t.common.meta.description, { from: shop.deliveryFrom, to: shop.deliveryTo }),
+    description: fill(t.common.meta.description, { days: deliveryDays(t, { from: shop.deliveryFrom, to: shop.deliveryTo }) }),
   };
 }
 export const viewport: Viewport = { themeColor: "#ff9933" };
@@ -34,7 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const [user, lang, t, shop] = await Promise.all([currentUser(), getLang(), getT(), shopDetails()]);
   const c = t.common;
   const phone = shop.phone;
-  const days = { from: shop.deliveryFrom, to: shop.deliveryTo };
+  const days = { days: deliveryDays(t, { from: shop.deliveryFrom, to: shop.deliveryTo }) };
   return (
     <html lang={lang} className={display.variable}>
       {/* Settings > Show discount badges off: globals.css hides the "% off" badges and "You save" lines */}

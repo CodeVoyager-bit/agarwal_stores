@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Rows } from "@/components/legal-rows";
-import { fill, locale } from "@/lib/i18n";
+import { deliveryDays, fill, locale } from "@/lib/i18n";
 import { rich } from "@/lib/i18n/rich";
 import { getLang, getT } from "@/lib/i18n/server";
 import { shopDetails, TERMS_VERSION } from "@/lib/legal";
@@ -84,7 +84,7 @@ export default async function TermsPage() {
 
       <section id="delivery">
         <h2>{s.h.delivery}</h2>
-        {list(s.delivery.map((x) => fill(x, { from: shop.deliveryFrom, to: shop.deliveryTo })))}
+        {list(s.delivery.map((x) => fill(x, { days: deliveryDays(t, { from: shop.deliveryFrom, to: shop.deliveryTo }) })))}
       </section>
 
       <section id="cancel">

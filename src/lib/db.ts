@@ -152,6 +152,8 @@ const orderSchema = new Schema(
     handoverTries: { type: Number, default: 0 },
     /** The checkout's own id for this booking: pressing Book again after a lost answer finds this order. */
     key: String,
+    /** money off from a coupon at checkout, as it was then; `total` is already less the discount */
+    coupon: { code: String, percent: Number, discount: Number },
     cash: {
       collected: Number,
       collectedAt: Date,
@@ -172,6 +174,20 @@ orderSchema.index({ assignedTo: 1, status: 1, deliverBy: 1 }); // a delivery per
 orderSchema.index({ createdAt: -1 }); // Admin "all" and Sales reports, by date
 
 orderSchema.index({ user: 1, key: 1 }, { unique: true, partialFilterExpression: { key: { $type: "string" } } });
+
+/** A code customers type at checkout for money off, made on Admin > Coupons (lib/coupons.ts). */
+const couponSchema = new Schema(
+  {
+    code: { type: String, required: true, unique: true, match: /^[A-Z0-9]{3,20}$/ },
+    percent: { type: Number, required: true, min: 1, max: 90 },
+    /** the smallest order (before the discount) it works on, in rupees */
+    minOrder: { type: Number, default: 0, min: 0 },
+    /** the last moment it works */
+    validUntil: { type: Date, required: true },
+    active: { type: Boolean, default: true },
+  },
+  { timestamps: true },
+);
 
 const auditSchema = new Schema({
   at: { type: Date, default: Date.now, index: true },
@@ -194,14 +210,16 @@ export const Shop = define("Shop", shopSchema);
 export const RateLimit = define("RateLimit", rateLimitSchema);
 export const Photo = define("Photo", photoSchema);
 export const Audit = define("Audit", auditSchema);
+export const Coupon = define("Coupon", couponSchema);
 export const Order = define("Order", orderSchema);
 
 export async function shopItems(): Promise<ShopItem[]> {
   await connectDB();
   // not the descriptions: up to 1000 characters each, and only the product page shows one
   const products = await Product.find({ active: true }, "name category unit mrp price stock image").sort({ price: 1, name: 1 }).lean();
-  // cheapest first, but the ones not priced yet (price 0) after all the ones people can book
-  products.sort((a, b) => Number(!a.price) - Number(!b.price));
+  // cheapest first, but sold-out ones after all the ones people can book, and the ones not priced yet (price 0) last
+  const rank = (p: { price: number; stock: number }) => (!p.price ? 2 : p.stock > 0 ? 0 : 1);
+  products.sort((a, b) => rank(a) - rank(b));
   return products.map((p) => ({
     id: String(p._id),
     name: p.name,

@@ -49,6 +49,7 @@ const ADMIN_TABS: { href: string; label: keyof ReturnType<typeof useT>["common"]
   { href: "/admin/customers", label: "customers", permission: "customers" },
   { href: "/admin/reports", label: "sales", permission: "reports" },
   { href: "/admin/cash", label: "cash", permission: "cash" },
+  { href: "/admin/coupons", label: "coupons", permission: "coupons" },
   { href: "/admin/staff", label: "staff", permission: "staff" },
   { href: "/admin/audit", label: "audit", permission: "audit" },
   { href: "/admin/shop", label: "shop", permission: "shop" },

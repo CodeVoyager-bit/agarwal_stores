@@ -8,7 +8,7 @@ export const en = {
   outOfStock: "Out of Stock",
   youSave: "You save",
   assure: {
-    door: "At your door in {from}–{to} days",
+    door: "At your door {days}",
     pay: "Pay cash or UPI when it arrives",
   },
   catalog: {
@@ -25,6 +25,12 @@ export const en = {
     more: "One more {name}, {n} in cart",
   },
   cart: {
+    couponLabel: "Coupon code",
+    couponApply: "Apply",
+    couponChecking: "Checking…",
+    couponRemove: "Remove coupon",
+    couponRow: "Coupon {code} ({percent}% off)",
+    couponMore: "Add {more} more to use {code}.",
     title: "Your Cart",
     closed: "Bookings are paused right now. Please call the shop.",
     minOrder: "The smallest booking is {min}. Add {more} more to book.",
@@ -98,7 +104,7 @@ export const hi: typeof en = {
   outOfStock: "स्टॉक खत्म",
   youSave: "आपकी बचत",
   assure: {
-    door: "{from}–{to} दिन में आपके घर",
+    door: "{days} आपके घर",
     pay: "सामान आने पर नकद या UPI से भुगतान करें",
   },
   catalog: {
@@ -115,6 +121,12 @@ export const hi: typeof en = {
     more: "एक {name} और जोड़ें, कार्ट में {n}",
   },
   cart: {
+    couponLabel: "कूपन कोड",
+    couponApply: "लागू करें",
+    couponChecking: "जाँच रहे हैं…",
+    couponRemove: "कूपन हटाएँ",
+    couponRow: "कूपन {code} ({percent}% छूट)",
+    couponMore: "{code} के लिए {more} का सामान और जोड़ें।",
     title: "आपका कार्ट",
     closed: "अभी बुकिंग रुकी हुई है। कृपया दुकान पर फ़ोन करें।",
     minOrder: "सबसे छोटी बुकिंग {min} की है। बुक करने के लिए {more} का सामान और जोड़ें।",
@@ -188,7 +200,7 @@ export const mr: typeof en = {
   outOfStock: "स्टॉक संपला",
   youSave: "तुमची बचत",
   assure: {
-    door: "{from}–{to} दिवसांत तुमच्या दारात",
+    door: "{days} तुमच्या दारात",
     pay: "माल आल्यावर रोख किंवा UPI ने पैसे द्या",
   },
   catalog: {
@@ -205,6 +217,12 @@ export const mr: typeof en = {
     more: "आणखी एक {name} जोडा, कार्टमध्ये {n}",
   },
   cart: {
+    couponLabel: "कूपन कोड",
+    couponApply: "लागू करा",
+    couponChecking: "तपासत आहोत…",
+    couponRemove: "कूपन काढा",
+    couponRow: "कूपन {code} ({percent}% सूट)",
+    couponMore: "{code} वापरण्यासाठी आणखी {more} चे सामान जोडा.",
     title: "तुमचे कार्ट",
     closed: "सध्या बुकिंग थांबवली आहे. कृपया दुकानात फोन करा.",
     minOrder: "सर्वात लहान बुकिंग {min} ची आहे. बुक करण्यासाठी आणखी {more} चे सामान जोडा.",

@@ -114,6 +114,19 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
           ))}
         </tbody>
         <tfoot>
+          {/* a coupon is a discount given when it's sold, so it comes off before GST is worked out */}
+          {order.coupon?.discount ? (
+            <>
+              <tr>
+                <td colSpan={look.billHsnColumn ? 4 : 3}>{b.itemsTotal}</td>
+                <td className="num">{inr(order.total + order.coupon.discount)}</td>
+              </tr>
+              <tr>
+                <td colSpan={look.billHsnColumn ? 4 : 3}>{fill(b.less, { code: order.coupon.code ?? "", percent: order.coupon.percent ?? "" })}</td>
+                <td className="num">−{inr(order.coupon.discount)}</td>
+              </tr>
+            </>
+          ) : null}
           {title === "Tax Invoice" && (
             <>
               <tr>

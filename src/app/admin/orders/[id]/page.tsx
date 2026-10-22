@@ -89,6 +89,12 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
                 ))}
               </tbody>
               <tfoot>
+                {order.coupon?.discount ? (
+                  <tr>
+                    <td colSpan={3}>{fill(s.coupon, { code: order.coupon.code ?? "", percent: order.coupon.percent ?? "" })}</td>
+                    <td className="num">−{inr(order.coupon.discount)}</td>
+                  </tr>
+                ) : null}
                 <tr>
                   <th colSpan={3}>{s.totalPay}</th>
                   <th className="num">{inr(order.total)}</th>

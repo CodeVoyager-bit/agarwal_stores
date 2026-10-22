@@ -11,7 +11,7 @@ import { Gallery } from "@/components/gallery";
 import { Rows } from "@/components/legal-rows";
 import { bestSellers, Product, shopItems } from "@/lib/db";
 import { inr } from "@/lib/format";
-import { catName, fill } from "@/lib/i18n";
+import { catName, deliveryDays, fill } from "@/lib/i18n";
 import { getT } from "@/lib/i18n/server";
 import { shopDetails } from "@/lib/legal";
 import { goesWith } from "@/lib/pairs";
@@ -106,7 +106,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           </section>
           <ul className="assurances">
             <li>
-              <Truck size={18} aria-hidden="true" /> {fill(t.shop.assure.door, { from: shop.deliveryFrom, to: shop.deliveryTo })}
+              <Truck size={18} aria-hidden="true" /> {fill(t.shop.assure.door, { days: deliveryDays(t, { from: shop.deliveryFrom, to: shop.deliveryTo }) })}
             </li>
             <li>
               <IndianRupee size={18} aria-hidden="true" /> {t.shop.assure.pay}

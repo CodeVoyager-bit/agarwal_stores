@@ -164,6 +164,20 @@ const rows: [string, string, string][] = [
   ["Code tried too many times: taken off this delivery person", "कोड बहुत बार गलत डाला गया: इस डिलीवरी करने वाले से हटाया", "कोड खूप वेळा चुकीचा टाकला: या डिलिव्हरी करणाऱ्यांकडून काढले"],
   ["Note: {a}", "नोट: {a}", "नोट: {a}"],
   ["Cash received at shop: ₹{a}", "दुकान पर नकद मिला: ₹{a}", "दुकानात रोख मिळाली: ₹{a}"],
+  ["That coupon code isn't valid.", "यह कूपन कोड सही नहीं है।", "हा कूपन कोड बरोबर नाही."],
+  ["That coupon has expired.", "इस कूपन का समय निकल गया है।", "या कूपनची मुदत संपली आहे."],
+  ["This coupon is for orders of ₹{a} or more.", "यह कूपन ₹{a} या उससे ज़्यादा के ऑर्डर पर ही चलता है।", "हा कूपन ₹{a} किंवा त्याहून जास्त ऑर्डरवरच चालतो."],
+  ["The coupon has changed since you applied it. Apply it again, then book.", "कूपन लगाने के बाद उसमें बदलाव हुआ है। उसे फिर से लागू करें, फिर बुक करें।", "कूपन लावल्यानंतर त्यात बदल झाला आहे. तो पुन्हा लागू करा, मग बुक करा."],
+  ["Booked with coupon {a}, ₹{b} off", "कूपन {a} के साथ बुक हुआ, ₹{b} की छूट", "कूपन {a} सह बुक झाले, ₹{b} सूट"],
+  ["Use 3 to 20 letters and numbers for the code, like DIWALI10.", "कोड में 3 से 20 अक्षर और अंक रखें, जैसे DIWALI10।", "कोडमध्ये 3 ते 20 अक्षरे व अंक ठेवा, जसे DIWALI10."],
+  ["The discount is a whole percent from 1 to 90.", "छूट 1 से 90 के बीच पूरे प्रतिशत में लिखें।", "सूट 1 ते 90 मधील पूर्ण टक्क्यांत लिहा."],
+  ["The smallest order is in whole rupees, or 0 for any order.", "सबसे छोटा ऑर्डर पूरे रुपयों में लिखें, या हर ऑर्डर के लिए 0।", "सर्वात लहान ऑर्डर पूर्ण रुपयांत लिहा, किंवा प्रत्येक ऑर्डरसाठी 0."],
+  ["Pick the last date and time the coupon works.", "कूपन की आख़िरी तारीख और समय चुनें।", "कूपनची शेवटची तारीख व वेळ निवडा."],
+  ["Coupon saved.", "कूपन सेव हो गया।", "कूपन सेव्ह झाला."],
+  ["Coupon updated.", "कूपन बदल गया।", "कूपन बदलला."],
+  ["Coupon turned on.", "कूपन चालू हो गया।", "कूपन चालू झाला."],
+  ["Coupon turned off.", "कूपन बंद हो गया।", "कूपन बंद झाला."],
+  ["That coupon is gone. Refresh the page.", "यह कूपन अब नहीं है। पेज रीफ़्रेश करें।", "हा कूपन आता नाही. पान रिफ्रेश करा."],
 ];
 
 export const en: Record<string, string> = {};

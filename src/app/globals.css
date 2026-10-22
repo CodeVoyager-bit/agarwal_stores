@@ -311,6 +311,23 @@ main:has(.cartbar) ~ .foot { padding-bottom: 128px; }
 .rows .grand { padding-top: 10px; border-top: 2px dotted #f2c99c; font-size: 1.2rem; }
 .rows .grand dt { color: var(--ink); font-weight: 700; }
 .rows .grand dd { font-family: var(--font-display), system-ui, sans-serif; font-weight: 800; color: var(--maroon); font-size: 1.4rem; line-height: 1.1; }
+/* the coupon box under the totals: a code and Apply, or the applied code with Remove */
+.coupon { display: grid; gap: 8px; margin: 0; }
+.coupon > label { font-size: 0.92rem; }
+.coupon-row { display: flex; gap: 8px; }
+.coupon-row input { flex: 1; min-width: 0; letter-spacing: 0.06em; }
+.coupon-row .btn { flex: none; }
+.coupon-on { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px; border-radius: var(--radius-sm); border: 1.5px dashed var(--leaf); background: #ebf6ec; color: #1b5e20; }
+.coupon-on strong { letter-spacing: 0.06em; }
+.coupon-on .link { margin-left: auto; font-size: 0.9rem; }
+.coupon .note, .coupon .error { margin: 0; }
+.items .saved { color: var(--leaf); font-weight: 700; }
+/* "−₹121" stays one piece when a long coupon line squeezes it */
+.rows dd { white-space: nowrap; }
+/* Admin > Coupons: the new-coupon form in a row on wide screens */
+.coupon-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; align-items: start; }
+.coupon-form > .error, .coupon-form > .ok, .coupon-form > .btn { grid-column: 1 / -1; justify-self: start; }
+.coupon-form .f-check { align-self: center; }
 .assurances { list-style: none; margin: 0; padding: 12px 14px; display: grid; gap: 8px; border-radius: var(--radius-sm); background: var(--cream); font-size: 0.9rem; }
 .assurances li { display: flex; align-items: center; gap: 10px; }
 .assurances svg { color: #e65100; flex: none; }
