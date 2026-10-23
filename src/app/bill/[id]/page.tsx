@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/print-button";
 import { requireStaff } from "@/lib/auth";
 import { connectDB, Order } from "@/lib/db";
-import { inr } from "@/lib/format";
+import { inWords } from "@/lib/format";
 import { fill, locale, type Lang } from "@/lib/i18n";
 import { getLang, getT } from "@/lib/i18n/server";
 import { billTitle, GST_RATE, gstSplit, HSN, shopDetails, stateOf } from "@/lib/legal";
@@ -15,11 +15,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const date = (d: Date, lang: Lang) => new Intl.DateTimeFormat(locale(lang), { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }).format(d);
-const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+/** Money on a bill: always with paise, so the columns line up. */
+const paise = (p: number) => `₹${(p / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = (rupees: number) => paise(rupees * 100);
 
 /**
- * The bill for a delivered order (CGST rule 46 for a Tax Invoice, rule 49 for a Bill of Supply), for its
- * customer and for staff. It prints on one page without the site around it, like the packing slip.
+ * The bill for an accepted order (CGST rule 46 for a Tax Invoice, rule 49 for a Bill of Supply), for staff to
+ * print and hand over with the delivery. It prints on one A4 page without the site around it.
  */
 export default async function Bill({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -46,134 +48,188 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
   const hsn = bill.hsn ?? HSN;
   // a bill the law needs to name its buyer (₹50,000 or more) always shows the address
   const address = look.billAddress || bill.named;
+  const discount = order.coupon?.discount ?? 0;
+  // printed before the door it says what to pay; after, what was paid
+  const state = order.status === "delivered" ? "paid" : order.status === "cancelled" ? "cancelled" : "due";
+  const payment =
+    state === "paid"
+      ? fill(order.cash?.method === "upi" ? b.paidUpi : b.paidCash, { amount: money(order.cash?.collected ?? order.total) })
+      : state === "cancelled"
+        ? b.cancelled
+        : fill(b.toPay, { amount: money(order.total) });
 
   return (
-    <article className="slip bill">
-      <PrintButton />
-      <header>
-        <div className="bill-from">
-          <strong className="slip-shop">
-            {look.billLogo && <img src="/icon.svg" alt="" width={32} height={32} className="bill-logo" />}
-            {shop.legalName}
-          </strong>
-          {look.billTagline && <span>{look.billTagline}</span>}
-          <span>{shop.address}</span>
-          {shop.gstin && <span>GSTIN {shop.gstin}</span>}
-          {phone && <span>{fill(b.phone, { phone })}</span>}
-          {shop.email && <span>{shop.email}</span>}
-        </div>
-        <div className="slip-number">
-          <strong>{b.titles[title] ?? title}</strong>
-          <span>{fill(b.number, { n: bill.number ?? "" })}</span>
-          <span>{date(bill.at!, lang)}</span>
-        </div>
-      </header>
-      <section>
-        <h2>{b.billedTo}</h2>
-        <p>
-          <strong>{order.name}</strong>
-          {address && (
-            <>
-              <br />
-              {order.address.line}
-              {order.address.landmark && <>, {fill(b.near, { place: order.address.landmark })}</>} – {order.address.pincode}
-            </>
-          )}
+    <div className="invoice-page">
+      <div className="invoice-tools no-print">
+        <PrintButton />
+      </div>
+      <article className={`invoice ${state}`}>
+        <header className="invoice-head">
+          <div className="invoice-from">
+            <div className="invoice-shop">
+              {look.billLogo && <img src="/icon.svg" alt="" width={48} height={48} />}
+              <div>
+                <strong>{shop.legalName}</strong>
+                {look.billTagline && <span>{look.billTagline}</span>}
+              </div>
+            </div>
+            <address>
+              {shop.address}
+              {shop.gstin && (
+                <>
+                  <br />
+                  GSTIN <b>{shop.gstin}</b>
+                </>
+              )}
+              {(phone || shop.email) && (
+                <>
+                  <br />
+                  {[phone && fill(b.phone, { phone }), shop.email].filter(Boolean).join(" · ")}
+                </>
+              )}
+            </address>
+          </div>
+          <div className="invoice-title">
+            <h1>{b.titles[title] ?? title}</h1>
+            {title === "Tax Invoice" && <span>{b.original}</span>}
+          </div>
+        </header>
+
+        <dl className="invoice-meta">
+          <div>
+            <dt>{b.billNo}</dt>
+            <dd>{bill.number}</dd>
+          </div>
+          <div>
+            <dt>{b.date}</dt>
+            <dd>{date(bill.at!, lang)}</dd>
+          </div>
+          <div>
+            <dt>{b.orderNo}</dt>
+            <dd>#{order.number}</dd>
+          </div>
           {/* delivered near the shop, so the buyer's State is the shop's (CGST rule 46(e)) */}
           {shop.gstin && (
-            <>
+            <div>
+              <dt>{b.placeOfSupply}</dt>
+              <dd>{stateOf(shop.gstin)}</dd>
+            </div>
+          )}
+        </dl>
+
+        <section className="invoice-parties">
+          <div>
+            <h2>{b.billedTo}</h2>
+            <p>
+              <strong>{order.name}</strong>
+              {address && (
+                <>
+                  <br />
+                  {order.address.line}
+                  {order.address.landmark && <>, {fill(b.near, { place: order.address.landmark })}</>} – {order.address.pincode}
+                </>
+              )}
               <br />
-              {fill(b.state, { state: stateOf(shop.gstin) })}
-            </>
-          )}
-        </p>
-        <p className="slip-note">{fill(b.order, { n: order.number })}</p>
-      </section>
-      <table>
-        <thead>
-          <tr>
-            <th>{b.item}</th>
-            {look.billHsnColumn && <th>HSN</th>}
-            <th className="num">{b.qty}</th>
-            <th className="num">{b.rate}</th>
-            <th className="num">{b.amount}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {order.items.map((i, n) => (
-            <tr key={n}>
-              <td>
-                {i.name} <small>{i.unit}</small>
-              </td>
-              {look.billHsnColumn && <td>{hsn}</td>}
-              <td className="num">{i.qty}</td>
-              <td className="num">{inr(i.price!)}</td>
-              <td className="num">{inr(i.price! * i.qty!)}</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          {/* a coupon is a discount given when it's sold, so it comes off before GST is worked out */}
-          {order.coupon?.discount ? (
-            <>
+              +91 {order.phone}
+            </p>
+          </div>
+          <div className="invoice-pay">
+            <h2>{b.payment}</h2>
+            <p>{payment}</p>
+          </div>
+        </section>
+
+        <div className="invoice-items">
+          <table>
+            <thead>
               <tr>
-                <td colSpan={look.billHsnColumn ? 4 : 3}>{b.itemsTotal}</td>
-                <td className="num">{inr(order.total + order.coupon.discount)}</td>
+                <th className="sr">#</th>
+                <th>{b.item}</th>
+                {look.billHsnColumn && <th>HSN</th>}
+                <th className="num">{b.qty}</th>
+                <th className="num">{b.rate}</th>
+                <th className="num">{b.amount}</th>
               </tr>
-              <tr>
-                <td colSpan={look.billHsnColumn ? 4 : 3}>{fill(b.less, { code: order.coupon.code ?? "", percent: order.coupon.percent ?? "" })}</td>
-                <td className="num">−{inr(order.coupon.discount)}</td>
-              </tr>
-            </>
-          ) : null}
-          {title === "Tax Invoice" && (
-            <>
-              <tr>
-                <td colSpan={look.billHsnColumn ? 4 : 3}>{b.taxable}</td>
-                <td className="num">{rupees(tax.taxable)}</td>
-              </tr>
-              <tr>
-                <td colSpan={look.billHsnColumn ? 4 : 3}>CGST {rate / 2}%</td>
-                <td className="num">{rupees(tax.cgst)}</td>
-              </tr>
-              <tr>
-                <td colSpan={look.billHsnColumn ? 4 : 3}>SGST {rate / 2}%</td>
-                <td className="num">{rupees(tax.sgst)}</td>
-              </tr>
-            </>
-          )}
-          <tr>
-            <th colSpan={look.billHsnColumn ? 4 : 3}>{title === "Tax Invoice" ? b.totalGst : b.total}</th>
-            <th className="num">{inr(order.total)}</th>
-          </tr>
-        </tfoot>
-      </table>
-      {/* printed before the door, it says what to pay; after, what was paid */}
-      <p>
-        {order.status === "delivered"
-          ? fill(order.cash?.method === "upi" ? b.paidUpi : b.paidCash, { amount: inr(order.cash?.collected ?? order.total) })
-          : order.status === "cancelled"
-            ? b.cancelled
-            : fill(b.toPay, { amount: inr(order.total) })}
-      </p>
-      {title === "Tax Invoice" && <p className="slip-note">{b.reverseCharge}</p>}
-      {title === "Bill of Supply" && <p className="slip-note">{b.composition}</p>}
-      <footer>
-        <span className="slip-note">
-          {look.billNote && (
-            <>
-              {look.billNote}
-              <br />
-            </>
-          )}
-          {b.computer}
-        </span>
-        <span>
-          {fill(b.for, { shop: shop.legalName ?? "" })}
-          <br />
-          {look.billSignatory || b.signatory}
-        </span>
-      </footer>
-    </article>
+            </thead>
+            <tbody>
+              {order.items.map((i, n) => (
+                <tr key={n}>
+                  <td className="sr">{n + 1}</td>
+                  <td>
+                    {i.name}
+                    {i.unit && <small>{i.unit}</small>}
+                  </td>
+                  {look.billHsnColumn && <td>{hsn}</td>}
+                  <td className="num">{i.qty}</td>
+                  <td className="num">{money(i.price!)}</td>
+                  <td className="num">{money(i.price! * i.qty!)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <section className="invoice-sums">
+          <div className="invoice-words">
+            <h2>{b.inWords}</h2>
+            <p>{inWords(order.total)}</p>
+            {title === "Tax Invoice" && <p className="invoice-small">{b.reverseCharge}</p>}
+            {title === "Bill of Supply" && <p className="invoice-small">{b.composition}</p>}
+          </div>
+          <dl className="invoice-totals">
+            {/* a coupon is a discount given when it's sold, so it comes off before GST is worked out */}
+            {discount > 0 && (
+              <>
+                <div>
+                  <dt>{b.itemsTotal}</dt>
+                  <dd>{money(order.total + discount)}</dd>
+                </div>
+                <div>
+                  <dt>{fill(b.less, { code: order.coupon?.code ?? "", percent: order.coupon?.percent ?? "" })}</dt>
+                  <dd>−{money(discount)}</dd>
+                </div>
+              </>
+            )}
+            {title === "Tax Invoice" && (
+              <>
+                <div>
+                  <dt>{b.taxable}</dt>
+                  <dd>{paise(tax.taxable)}</dd>
+                </div>
+                <div>
+                  <dt>CGST {rate / 2}%</dt>
+                  <dd>{paise(tax.cgst)}</dd>
+                </div>
+                <div>
+                  <dt>SGST {rate / 2}%</dt>
+                  <dd>{paise(tax.sgst)}</dd>
+                </div>
+              </>
+            )}
+            <div className="grand">
+              <dt>{title === "Tax Invoice" ? b.totalGst : b.total}</dt>
+              <dd>{money(order.total)}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <footer className="invoice-foot">
+          <div>
+            <p className="invoice-small">{b.declaration}</p>
+            {look.billNote && <p className="invoice-note">{look.billNote}</p>}
+            <p className="invoice-small">{b.computer}</p>
+          </div>
+          <div className="invoice-sign">
+            <span>{fill(b.for, { shop: shop.legalName ?? "" })}</span>
+            <span className="invoice-sign-line">{look.billSignatory || b.signatory}</span>
+          </div>
+        </footer>
+        {state === "cancelled" && (
+          <div className="invoice-stamp" aria-hidden="true">
+            {b.cancelledStamp}
+          </div>
+        )}
+      </article>
+    </div>
   );
 }

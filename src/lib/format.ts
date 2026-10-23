@@ -2,6 +2,23 @@ import { locale, type Lang } from "./i18n";
 
 export const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
+const ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+const below100 = (n: number) => (n < 20 ? ONES[n] : TENS[Math.floor(n / 10)] + (n % 10 ? `-${ONES[n % 10]}` : ""));
+const words = (n: number): string => {
+  const parts: string[] = [];
+  for (const [size, name] of [[1e7, "Crore"], [1e5, "Lakh"], [1e3, "Thousand"], [100, "Hundred"]] as const)
+    if (n >= size) {
+      parts.push(`${size === 1e7 ? words(Math.floor(n / size)) : below100(Math.floor(n / size))} ${name}`);
+      n %= size;
+    }
+  if (n) parts.push(below100(n));
+  return parts.join(" ");
+};
+
+/** Whole rupees in words, the Indian way (lakh, crore), as bills print them: "Rupees One Thousand Ninety-Eight Only". */
+export const inWords = (rupees: number) => `Rupees ${rupees > 0 ? words(Math.round(rupees)) : "Zero"} Only`;
+
 /** A description as stored: line breaks kept, runs of spaces and the spaces around a break dropped. Form and import alike. */
 export const tidyLines = (text: string) => text.replace(/\r\n?/g, "\n").replace(/[ \t]+/g, " ").replace(/ ?\n ?/g, "\n").trim();
 
