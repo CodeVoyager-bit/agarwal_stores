@@ -347,6 +347,7 @@ main:has(.cartbar) ~ .foot { padding-bottom: 128px; }
 
 /* ---- orders ---- */
 .head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.head-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .orders { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
 .order { display: grid; gap: 16px; }
 .order p { margin: 0; }

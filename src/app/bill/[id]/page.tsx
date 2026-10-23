@@ -2,14 +2,13 @@ import type { Metadata } from "next";
 import { isValidObjectId } from "mongoose";
 import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/print-button";
-import { requireUser } from "@/lib/auth";
+import { requireStaff } from "@/lib/auth";
 import { connectDB, Order } from "@/lib/db";
 import { inr } from "@/lib/format";
 import { fill, locale, type Lang } from "@/lib/i18n";
 import { getLang, getT } from "@/lib/i18n/server";
 import { billTitle, GST_RATE, gstSplit, HSN, shopDetails, stateOf } from "@/lib/legal";
-import { issueBill } from "@/lib/orders";
-import { can } from "@/lib/roles";
+import { BILLABLE, issueBill } from "@/lib/orders";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: `${(await getT()).orders.bill.titles.Bill} · Agarwal Stores` };
@@ -24,13 +23,13 @@ const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { 
  */
 export default async function Bill({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const user = await requireUser(`/bill/${id}`);
+  // staff only: customers get it on paper with the delivery, not online
+  await requireStaff("orders", `/bill/${id}`);
   if (!isValidObjectId(id)) notFound();
   await connectDB();
-  // a customer sees only their own bills; staff who run orders see any
-  const mine = can(user.role, "orders") ? {} : { user: user.id };
-  if (!(await Order.exists({ _id: id, status: "delivered", ...mine }))) notFound();
-  // a delivery from before bills were made gets its number the first time it's opened
+  // from when the shop accepts the order; one cancelled after its bill was made still shows it, marked
+  if (!(await Order.exists({ _id: id, $or: [{ status: { $in: BILLABLE } }, { "bill.number": { $exists: true } }] }))) notFound();
+  // its number is taken the first time it's opened (or at delivery, if nobody printed it before)
   await issueBill(id);
   const order = await Order.findById(id).lean();
   if (!order?.bill?.number) notFound();
@@ -149,7 +148,14 @@ export default async function Bill({ params }: { params: Promise<{ id: string }>
           </tr>
         </tfoot>
       </table>
-      <p>{fill(order.cash?.method === "upi" ? b.paidUpi : b.paidCash, { amount: inr(order.cash?.collected ?? order.total) })}</p>
+      {/* printed before the door, it says what to pay; after, what was paid */}
+      <p>
+        {order.status === "delivered"
+          ? fill(order.cash?.method === "upi" ? b.paidUpi : b.paidCash, { amount: inr(order.cash?.collected ?? order.total) })
+          : order.status === "cancelled"
+            ? b.cancelled
+            : fill(b.toPay, { amount: inr(order.total) })}
+      </p>
       {title === "Tax Invoice" && <p className="slip-note">{b.reverseCharge}</p>}
       {title === "Bill of Supply" && <p className="slip-note">{b.composition}</p>}
       <footer>

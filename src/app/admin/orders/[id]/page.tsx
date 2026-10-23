@@ -7,6 +7,7 @@ import { ActionForm } from "@/components/action-form";
 import { StatusForm } from "@/components/status-form";
 import { assignAction, noteAction, receiveCashAction } from "@/lib/actions";
 import { requireStaff } from "@/lib/auth";
+import { BILLABLE } from "@/lib/orders";
 import { connectDB, Order, User } from "@/lib/db";
 import { day, inr, when } from "@/lib/format";
 import { fill, translateMessage } from "@/lib/i18n";
@@ -47,16 +48,19 @@ export default async function AdminOrder({ params }: { params: Promise<{ id: str
         <h1>
           {fill(s.heading, { n: order.number })} <span className={`pill ${order.status}`}>{t.common.status[order.status]}</span>
         </h1>
-        {/* once it's delivered the packing slip is done with, and the bill is what's printed */}
-        {order.status === "delivered" ? (
-          <Link href={`/bill/${id}`} className="btn" target="_blank">
-            <ReceiptText size={18} aria-hidden="true" /> {s.viewBill}
-          </Link>
-        ) : (
-          <Link href={`/admin/orders/${id}/slip`} className="btn" target="_blank">
-            <Printer size={18} aria-hidden="true" /> {s.printSlip}
-          </Link>
-        )}
+        {/* the packing slip until it's delivered; the bill, printed to go with the delivery, from when it's accepted */}
+        <span className="head-actions">
+          {order.status !== "delivered" && (
+            <Link href={`/admin/orders/${id}/slip`} className="btn" target="_blank">
+              <Printer size={18} aria-hidden="true" /> {s.printSlip}
+            </Link>
+          )}
+          {(BILLABLE.includes(order.status) || order.bill?.number) && (
+            <Link href={`/bill/${id}`} className="btn" target="_blank">
+              <ReceiptText size={18} aria-hidden="true" /> {s.viewBill}
+            </Link>
+          )}
+        </span>
       </div>
       <p className="muted">
         {fill(s.booked, { when: when(order.createdAt, lang), day: day(order.deliverBy, lang) })}

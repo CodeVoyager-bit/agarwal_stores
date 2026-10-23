@@ -141,17 +141,12 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                     {o.address.landmark && `, ${fill(m.near, { place: o.address.landmark })}`} – {o.address.pincode} · +91&nbsp;{o.phone}
                   </span>
                 </p>
-                {o.status === "delivered" ? (
-                  <Link href={`/bill/${o._id}`} className="link">
-                    {m.viewBill}
-                  </Link>
-                ) : (
-                  o.status !== "cancelled" && (
-                    <p className="muted">
-                      {m.pay}
-                      {shop.upiId && ` ${fill(m.upiTo, { upi: shop.upiId })}`}
-                    </p>
-                  )
+                {/* the bill comes on paper with the delivery (staff print it), so there's no link to it here */}
+                {o.status !== "delivered" && o.status !== "cancelled" && (
+                  <p className="muted">
+                    {m.pay}
+                    {shop.upiId && ` ${fill(m.upiTo, { upi: shop.upiId })}`}
+                  </p>
                 )}
               </li>
             );

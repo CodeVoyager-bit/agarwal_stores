@@ -57,7 +57,7 @@ export const en = {
       "Prices are in Indian rupees and include GST. The MRP printed on the box is shown next to our price.",
       "The price you pay is the one shown when you booked. If it has to change, we tell you on the confirmation call first.",
       "You pay at the door, in cash or by UPI, only after you receive the crackers.",
-      "After delivery, your bill is on My Orders, to view or print.",
+      "You get a printed bill with your delivery.",
       "<b>We never ask for advance payment, a UPI request, card details or a code on a call.</b> Anyone who does is not us. Please tell us.",
     ],
     delivery: [
@@ -230,7 +230,7 @@ export const hi: typeof en = {
       "कीमतें भारतीय रुपये में हैं और इनमें GST शामिल है। डिब्बे पर छपी MRP हमारी कीमत के साथ दिखाई जाती है।",
       "आप वही कीमत देते हैं जो बुक करते समय दिखाई गई थी। अगर उसे बदलना पड़े, तो हम पहले कन्फ़र्मेशन कॉल पर आपको बताते हैं।",
       "आप पटाखे मिलने के बाद ही, दरवाज़े पर, नकद या UPI से भुगतान करते हैं।",
-      "डिलीवरी के बाद आपका बिल ‘मेरे ऑर्डर’ में होता है, देखने या प्रिंट करने के लिए।",
+      "डिलीवरी के साथ आपको छपा हुआ बिल मिलता है।",
       "<b>हम कभी भी एडवांस भुगतान, UPI रिक्वेस्ट, कार्ड की जानकारी या कॉल पर कोई कोड नहीं माँगते।</b> जो कोई ऐसा करे, वह हम नहीं हैं। कृपया हमें बताएँ।",
     ],
     delivery: [
@@ -403,7 +403,7 @@ export const mr: typeof en = {
       "किमती भारतीय रुपयांत आहेत आणि त्यात GST समाविष्ट आहे. बॉक्सवर छापलेली MRP आमच्या किमतीच्या शेजारी दाखवली जाते.",
       "तुम्ही बुक करताना दाखवलेलीच किंमत देता. ती बदलावी लागली, तर आम्ही आधी कन्फर्मेशन कॉलवर तुम्हाला सांगतो.",
       "तुम्ही फटाके मिळाल्यानंतरच, दारात, रोख किंवा UPI ने पैसे देता.",
-      "डिलिव्हरीनंतर तुमचे बिल ‘माझ्या ऑर्डर’ मध्ये असते, पाहण्यासाठी किंवा प्रिंट करण्यासाठी.",
+      "डिलिव्हरीसोबत तुम्हाला छापील बिल मिळते.",
       "<b>आम्ही कधीही आगाऊ पैसे, UPI रिक्वेस्ट, कार्डची माहिती किंवा फोनवर कोणताही कोड मागत नाही.</b> जो कोणी असे मागेल, ते आम्ही नाही. कृपया आम्हाला कळवा.",
     ],
     delivery: [

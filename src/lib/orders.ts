@@ -284,16 +284,23 @@ export function financialYear(at: Date) {
 }
 
 /**
- * Gives a delivered order its bill (GST wants one for every sale): the next number in the financial
- * year's series, the time it was handed over, and the shop's details as they are now, so a later change
- * on Shop Details never rewrites an old bill. Safe to call again: an order keeps its first bill.
- * The order is claimed first, so two calls at the same moment can't both take a number.
+ * Orders a bill can be printed for: from when the shop accepts it (Packed), so a paper copy goes with the
+ * delivery. GST lets the invoice be made before the goods leave (CGST Act s. 31(1)(a)).
+ */
+export const BILLABLE: OrderStatus[] = ["packed", "out_for_delivery", "delivered"];
+
+/**
+ * Gives an accepted order its bill (GST wants one for every sale) the first time staff open it, or at
+ * delivery: the next number in the financial year's series, that moment, and the shop's details as they
+ * are now, so a later change on Shop Details never rewrites an old bill. Safe to call again: an order
+ * keeps its first bill. The order is claimed first, so two calls at the same moment can't both take a number.
  * ponytail: a crash between taking the number and saving it still skips one (the claim lapses after a
  * minute); GST wants the series unbroken, so note any such gap in the books.
  */
+
 export async function issueBill(orderId: string) {
   await connectDB();
-  const order = await Order.findOne({ _id: orderId, status: "delivered", "bill.number": { $exists: false } }, "cash");
+  const order = await Order.findOne({ _id: orderId, status: { $in: BILLABLE }, "bill.number": { $exists: false } }, "cash");
   if (!order) return;
   const claim = await Order.collection.updateOne(
     { _id: order._id, "bill.number": { $exists: false }, $or: [{ "bill.claimed": { $exists: false } }, { "bill.claimed": { $lt: new Date(Date.now() - 60_000) } }] },

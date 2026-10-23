@@ -181,4 +181,4 @@ export function gstSplit(total: number, rate = GST_RATE) {
  * Bump to the day's date whenever /terms or /privacy changes in meaning (not for Shop Details).
  * Each booking keeps the version it was made under; earlier wording stays in git history.
  */
-export const TERMS_VERSION = "2026-10-19";
+export const TERMS_VERSION = "2026-10-24";
