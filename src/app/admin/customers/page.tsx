@@ -9,6 +9,7 @@ import { day, inr } from "@/lib/format";
 import { fill } from "@/lib/i18n";
 import { getLang, getT } from "@/lib/i18n/server";
 import { OPEN } from "@/lib/orders";
+import type { Role } from "@/lib/roles";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getT();
@@ -16,17 +17,17 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 type Bought = { _id: unknown; name: string; phone: string; pincode: string; line: string; orders: number; open: number; spent: number; last: Date };
-type Customer = Omit<Bought, "last"> & { email: string; joined: Date; login?: Date; last?: Date };
+type Customer = Omit<Bought, "last"> & { email: string; role: Role; joined: Date; login?: Date; last?: Date };
 
 export default async function Customers({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   await requireStaff("customers", "/admin/customers");
   const { q: raw } = await searchParams;
   const q = (typeof raw === "string" ? raw : "").trim().slice(0, 60).toLowerCase();
   await connectDB();
-  // every customer account (owners and staff are on the Staff page), its last login and its orders
+  // every account, staff too (marked), with its last login and its orders
   const owners = ownerPhones();
   const [users, logins, bought] = await Promise.all([
-    User.find({ role: { $in: ["customer", null] }, ...(owners.length && { phone: { $nin: owners } }) }, "name phone email addresses createdAt").lean(),
+    User.find({}, "name phone email role addresses createdAt").lean(),
     // a login is a session; expired ones are cleared after 60 days, so older visits show as none
     mongoose.connection.collection("authSessions").aggregate<{ _id: unknown; at: Date }>([{ $group: { _id: "$userId", at: { $max: "$createdAt" } } }]).toArray(),
     // name and address from each one's latest order
@@ -58,6 +59,7 @@ export default async function Customers({ searchParams }: { searchParams: Promis
         name: u.name && u.name !== "Customer" ? u.name : (b?.name ?? ""),
         phone: u.phone || b?.phone || "",
         email: isPlaceholderEmail(u.email) ? "" : (u.email ?? ""),
+        role: (u.phone && owners.includes(u.phone) ? "owner" : (u.role ?? "customer")) as Role,
         pincode: b?.pincode ?? home?.pincode ?? "",
         line: b?.line ?? home?.line ?? "",
         orders: b?.orders ?? 0,
@@ -120,6 +122,7 @@ export default async function Customers({ searchParams }: { searchParams: Promis
               <tr key={String(c._id)}>
                 <td data-label={col.customer}>
                   <strong>{c.name || "—"}</strong>
+                  {c.role !== "customer" && <span className="pill packed role-pill">{t.staff.staff.roles[c.role]}</span>}
                   {c.email && <small>{c.email}</small>}
                   {/^\d{10}$/.test(c.phone) && (
                     <span className="contact">

@@ -236,15 +236,23 @@ function LoginSteps({ next, hint, google, by, setBy, restart }: { next: string; 
   return (
     <form action={act} onReset={keepTyped} className="panel">
       <h2>{state.isNew ? l.create : l.setPassword}</h2>
-      <p className="note">{rich(fill(state.by === "email" ? l.sentEmail : l.sentPhone, { id: shown || "" }), { b: strong })}</p>
+      <p className="note">
+        {rich(fill(state.sent ? (state.by === "email" ? l.sentEmail : l.sentPhone) : state.by === "email" ? l.tapSendEmail : l.tapSendPhone, { id: shown || "" }), { b: strong })}
+      </p>
       {who}
       {carry}
       <input type="hidden" name="isNew" value={state.isNew ? "1" : ""} />
-      <label>
-        {f.code}
-        {/* the keyboard is already open from the first step, so the code field takes it over */}
-        <input name="code" className="otp" inputMode="numeric" autoComplete="one-time-code" spellCheck={false} pattern="\d{6}" maxLength={6} onInput={codeDigits} required autoFocus />
-      </label>
+      <input type="hidden" name="sent" value={state.sent ? "1" : ""} />
+      {/* the code goes only when they ask for it, beside the box it's typed into */}
+      <div className="code-row">
+        <label>
+          {f.code}
+          <input name="code" className="otp" inputMode="numeric" autoComplete="one-time-code" spellCheck={false} pattern="\d{6}" maxLength={6} onInput={codeDigits} required autoFocus={state.sent} />
+        </label>
+        <button className="btn" name="intent" value="send" formNoValidate disabled={pending} autoFocus={!state.sent}>
+          {state.sent ? l.sendAgain : l.sendCode}
+        </button>
+      </div>
       {hint && <p className="note">{hint}</p>}
       {state.isNew && (
         <label>
@@ -257,9 +265,6 @@ function LoginSteps({ next, hint, google, by, setBy, restart }: { next: string; 
       <Message error={state.error} ok={state.ok} />
       <button className="btn primary big" name="intent" value="code" disabled={pending}>
         {pending ? t.common.words.saving : state.isNew ? l.createAccount : l.savePassword}
-      </button>
-      <button className="link" name="intent" value="forgot" formNoValidate disabled={pending}>
-        {l.resend}
       </button>
     </form>
   );

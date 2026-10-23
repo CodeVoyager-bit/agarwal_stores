@@ -175,6 +175,20 @@ orderSchema.index({ createdAt: -1 }); // Admin "all" and Sales reports, by date
 
 orderSchema.index({ user: 1, key: 1 }, { unique: true, partialFilterExpression: { key: { $type: "string" } } });
 
+/**
+ * Every login code the site tried to send (Admin > OTP Log): to whom, why, and whether it went.
+ * Kept 30 days, to spot misuse and help someone whose code didn't arrive (as the Privacy page says).
+ */
+const codeLogSchema = new Schema({
+  at: { type: Date, default: Date.now, expires: 30 * 86_400 },
+  by: { type: String, enum: ["phone", "email"], required: true },
+  to: { type: String, required: true, index: true },
+  purpose: { type: String, enum: ["sign-up", "login", "reset", "add-number", "change-email"], required: true },
+  /** why it didn't go (too many asked for, the SMS service failed); blank when it went */
+  problem: String,
+  ip: String,
+});
+
 /** A code customers type at checkout for money off, made on Admin > Coupons (lib/coupons.ts). */
 const couponSchema = new Schema(
   {
@@ -211,6 +225,7 @@ export const RateLimit = define("RateLimit", rateLimitSchema);
 export const Photo = define("Photo", photoSchema);
 export const Audit = define("Audit", auditSchema);
 export const Coupon = define("Coupon", couponSchema);
+export const CodeLog = define("CodeLog", codeLogSchema);
 export const Order = define("Order", orderSchema);
 
 export async function shopItems(): Promise<ShopItem[]> {

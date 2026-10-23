@@ -169,6 +169,21 @@ export const en = {
     what: "What",
     details: "Details",
   },
+  codes: {
+    intro: "Every login code the site tried to send in the last 30 days: to whom, why, and whether it went. Someone who asked many times, or whose code didn't go, may need a call.",
+    today: "codes sent today",
+    week: "sent in 7 days",
+    failed: "didn't go, 7 days",
+    people: "numbers and emails, 7 days",
+    search: "Number or email…",
+    searchLabel: "Search codes",
+    cols: { when: "When", to: "Sent to", why: "Why", result: "Result", account: "Account" },
+    purposes: { "sign-up": "Sign up", login: "Login", reset: "Forgot password", "add-number": "Add number", "change-email": "Change email" } as Record<string, string>,
+    sent: "Sent",
+    hasAccount: "Has an account",
+    noAccount: "No account yet",
+    none: "No codes in the last 30 days.",
+  },
 };
 
 export const hi: typeof en = {
@@ -339,6 +354,21 @@ export const hi: typeof en = {
     what: "क्या",
     details: "जानकारी",
   },
+  codes: {
+    intro: "पिछले 30 दिनों में साइट ने जो भी लॉग इन कोड भेजने की कोशिश की: किसे, क्यों, और गया या नहीं। जिसने कई बार माँगा या जिस तक कोड नहीं गया, उसे फ़ोन करना पड़ सकता है।",
+    today: "आज भेजे गए कोड",
+    week: "7 दिनों में भेजे गए",
+    failed: "नहीं गए, 7 दिन",
+    people: "नंबर और ईमेल, 7 दिन",
+    search: "नंबर या ईमेल…",
+    searchLabel: "कोड खोजें",
+    cols: { when: "कब", to: "किसे", why: "क्यों", result: "नतीजा", account: "खाता" },
+    purposes: { "sign-up": "साइन अप", login: "लॉग इन", reset: "पासवर्ड भूल गए", "add-number": "नंबर जोड़ना", "change-email": "ईमेल बदलना" },
+    sent: "भेजा गया",
+    hasAccount: "खाता है",
+    noAccount: "अभी खाता नहीं",
+    none: "पिछले 30 दिनों में कोई कोड नहीं।",
+  },
 };
 
 export const mr: typeof en = {
@@ -508,5 +538,20 @@ export const mr: typeof en = {
     who: "कोणी",
     what: "काय",
     details: "तपशील",
+  },
+  codes: {
+    intro: "मागील 30 दिवसांत साइटने पाठवण्याचा प्रयत्न केलेला प्रत्येक लॉग इन कोड: कोणाला, का, आणि गेला की नाही. ज्याने अनेकदा मागितला किंवा ज्याला कोड गेला नाही, त्याला फोन करावा लागू शकतो.",
+    today: "आज पाठवलेले कोड",
+    week: "7 दिवसांत पाठवलेले",
+    failed: "गेले नाहीत, 7 दिवस",
+    people: "नंबर व ईमेल, 7 दिवस",
+    search: "नंबर किंवा ईमेल…",
+    searchLabel: "कोड शोधा",
+    cols: { when: "कधी", to: "कोणाला", why: "का", result: "निकाल", account: "खाते" },
+    purposes: { "sign-up": "साइन अप", login: "लॉग इन", reset: "पासवर्ड विसरलात", "add-number": "नंबर जोडणे", "change-email": "ईमेल बदलणे" },
+    sent: "पाठवला",
+    hasAccount: "खाते आहे",
+    noAccount: "अजून खाते नाही",
+    none: "मागील 30 दिवसांत एकही कोड नाही.",
   },
 };

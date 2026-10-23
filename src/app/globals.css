@@ -954,3 +954,20 @@ main > :nth-child(n + 3) { --stagger: 2; }
   .invoice-page { margin: 0; max-width: none; }
   .invoice { padding: 0; border: 0; border-radius: 0; box-shadow: none; font-size: 10.5pt; }
 }
+
+/*
+ * A required field's label gets a red * after its words, on every form. The field itself tells screen
+ * readers it's required, so the * is hidden from them. Labels here are a grid of their words, then the
+ * field: the words stay first, the * sits beside them, and everything else goes on the rows below.
+ */
+label:not(.f-check):has(:required) { grid-template-columns: fit-content(calc(100% - 1.2em)) 1fr; column-gap: 3px; }
+label:not(.f-check):has(:required) > * { grid-column: 1 / -1; order: 2; }
+label:not(.f-check):has(:required) > span:first-child:not(:has(input, select, textarea)) { grid-column: auto; order: 0; }
+label:has(:required)::after { content: "*"; content: "*" / ""; color: var(--danger); font-weight: 800; }
+label:not(.f-check):has(:required)::after { order: 1; }
+
+/* sign up: the code box with its Send code button beside it */
+.code-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.code-row .btn { min-height: 46px; white-space: nowrap; }
+/* Customers: a staff account's role beside its name */
+.role-pill { margin-left: 6px; vertical-align: 2px; font-size: 0.72rem; }

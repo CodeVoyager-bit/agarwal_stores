@@ -11,7 +11,7 @@ import { isPlaceholderEmail, placeholderEmail } from "./email";
 import { MAX_PHOTOS, tidyLines } from "./format";
 import { cloudinaryEnabled, uploadPhoto } from "./cloudinary";
 import { COUPON_CODE, couponCode, couponDiscount, istMoment } from "./coupons";
-import { ADDRESS_LABELS, Audit, audit, connectDB, Coupon, MAX_ADDRESSES, ORDER_STATUSES, Photo, Product, Shop, User, type OrderStatus } from "./db";
+import { ADDRESS_LABELS, Audit, audit, CodeLog, connectDB, Coupon, MAX_ADDRESSES, ORDER_STATUSES, Photo, Product, Shop, User, type OrderStatus } from "./db";
 import { addNote, assignDelivery, checkDetails, completeDelivery, deleteAccount, deliveryFailed, OrderError, saveToBook, placeOrder, receiveCash, setOrderStatus, startDelivery } from "./orders";
 import { DICTS } from "./i18n/dict";
 import { checkShop, readSettings, SETTINGS, shopDetails } from "./legal";
@@ -33,8 +33,9 @@ const hasPassword = async (userId: unknown) =>
 
 /**
  * One way in, step by step. "identify": a mobile number or email. Someone with a password is asked for
- * it; anyone else (new, or never set one) gets a 6‑digit code (WhatsApp/SMS to a number, a free email
- * to an email) and then sets a password. "forgot" sends the code to someone who has a password.
+ * it; anyone else (new, or never set one) gets the code step, and a 6‑digit code (WhatsApp/SMS to a
+ * number, a free email to an email) goes only when they tap Send code ("send"); then they set a password.
+ * "forgot" sends the code straight away to someone who has a password: they asked for it.
  */
 export type LoginStep = {
   step?: "password" | "code" | "google";
@@ -42,6 +43,8 @@ export type LoginStep = {
   id?: string;
   name?: string;
   isNew?: boolean;
+  /** a code has gone out on this step */
+  sent?: boolean;
   error?: string;
   ok?: string;
 };
@@ -58,15 +61,28 @@ async function codeLimit(id: string) {
   return null;
 }
 
-async function sendCodeTo(by: LoginStep["by"], id: string) {
+type CodePurpose = "sign-up" | "login" | "reset" | "add-number" | "change-email";
+
+/** Notes a code send, or why it didn't go, for Admin > OTP Log; never worth failing the login for. */
+async function logCode(by: LoginStep["by"], to: string, purpose: CodePurpose, problem: string | null) {
+  await CodeLog.create({ by, to, purpose, ...(problem && { problem }), ip: await clientIp() }).catch(console.error);
+}
+
+async function sendCodeTo(by: LoginStep["by"], id: string, purpose: CodePurpose) {
   const limited = await codeLimit(id);
-  if (limited) return limited;
+  if (limited) {
+    await logCode(by, id, purpose, limited);
+    return limited;
+  }
   try {
     if (by === "phone") await (await authApi()).sendPhoneNumberOTP({ body: { phoneNumber: id }, headers: await headerList() });
     else await (await authApi()).sendVerificationOTP({ body: { email: id, type: "sign-in" }, headers: await headerList() });
+    await logCode(by, id, purpose, null);
     return null;
   } catch (error) {
-    return authMessage(error, "We couldn't send the code. Please try again in a minute.");
+    const problem = authMessage(error, "We couldn't send the code. Please try again in a minute.");
+    await logCode(by, id, purpose, problem);
+    return problem;
   }
 }
 
@@ -94,9 +110,20 @@ export async function loginStepAction(_: LoginStep, form: FormData): Promise<Log
     // made with Google and no password yet: Google already knows it's them, so no code is needed
     if (intent === "identify" && user && googleEnabled() && (await mongoose.connection.collection("authAccounts").findOne({ userId: user._id, providerId: "google" })))
       return { ...at, step: "google" };
-    const problem = await sendCodeTo(by, id);
-    if (problem) return intent === "forgot" ? { ...at, step: "password", error: problem } : { by, error: problem };
-    return { ...at, step: "code", isNew: !user, ok: intent === "forgot" ? "Code sent." : undefined };
+    // new, or no password yet: the code step, and the code only when they tap Send code
+    if (intent === "identify") return { ...at, step: "code", isNew: !user };
+    const problem = await sendCodeTo(by, id, "reset");
+    if (problem) return { ...at, step: "password", error: problem };
+    return { ...at, step: "code", isNew: !user, sent: true, ok: "Code sent." };
+  }
+
+  if (intent === "send") {
+    const user = await User.findOne(by === "phone" ? { phone: id } : { email: id }, "_id").lean();
+    const isNew = !user;
+    const problem = await sendCodeTo(by, id, isNew ? "sign-up" : (await hasPassword(user._id)) ? "reset" : "login");
+    // a resend that fails still leaves the first code good
+    const sent = !problem || text(form, "sent") === "1";
+    return { ...at, step: "code", isNew, sent, ...(problem ? { error: problem } : { ok: "Code sent." }) };
   }
 
   if (intent === "password") {
@@ -120,7 +147,7 @@ export async function loginStepAction(_: LoginStep, form: FormData): Promise<Log
   const password = String(form.get("password") ?? "");
   const name = text(form, "name").slice(0, 80);
   const isNew = text(form, "isNew") === "1";
-  const again = { ...at, step: "code" as const, isNew };
+  const again = { ...at, step: "code" as const, isNew, sent: text(form, "sent") === "1" };
   if (code.length !== 6) return { ...again, error: "Enter the 6‑digit code." };
   if (isNew && name.length < 2) return { ...again, error: "Enter your name." };
   if (password.length < 8 || password.length > 128) return { ...again, error: "Choose a password of at least 8 characters." };
@@ -184,7 +211,7 @@ export async function sendPhoneCodeAction(_: LoginState, form: FormData): Promis
   if (owner && String(owner._id) !== me.id) return { error: "This number already has its own account. Log out and log in with it instead." };
   const wrong = await passwordProblem(me.id, String(form.get("current") ?? ""));
   if (wrong) return { error: wrong };
-  const problem = await sendCodeTo("phone", phone);
+  const problem = await sendCodeTo("phone", phone, "add-number");
   return problem ? { error: problem } : { phone };
 }
 
@@ -313,12 +340,18 @@ export async function requestEmailChangeAction(_: EmailChangeState, form: FormDa
   const wrong = await passwordProblem(user.id, String(form.get("current") ?? ""));
   if (wrong) return { error: wrong };
   const limited = await codeLimit(email);
-  if (limited) return { error: limited };
+  if (limited) {
+    await logCode("email", email, "change-email", limited);
+    return { error: limited };
+  }
   try {
     await (await authApi()).requestEmailChangeEmailOTP({ body: { newEmail: email }, headers: await headerList() });
   } catch (error) {
-    return { error: authMessage(error, "Couldn't send the code. Log out and back in, then try again.") };
+    const problem = authMessage(error, "Couldn't send the code. Log out and back in, then try again.");
+    await logCode("email", email, "change-email", problem);
+    return { error: problem };
   }
+  await logCode("email", email, "change-email", null);
   return { email };
 }
 

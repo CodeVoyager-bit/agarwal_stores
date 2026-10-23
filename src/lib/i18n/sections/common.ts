@@ -20,6 +20,7 @@ export const en = {
   adminTabs: {
     label: "Admin",
     coupons: "Coupons",
+    codes: "OTP Log",
     orders: "Orders",
     inventory: "Inventory",
     customers: "Customers",
@@ -132,6 +133,7 @@ export const hi: typeof en = {
   adminTabs: {
     label: "एडमिन",
     coupons: "कूपन",
+    codes: "OTP लॉग",
     orders: "ऑर्डर",
     inventory: "स्टॉक",
     customers: "ग्राहक",
@@ -243,6 +245,7 @@ export const mr: typeof en = {
   adminTabs: {
     label: "ॲडमिन",
     coupons: "कूपन",
+    codes: "OTP लॉग",
     orders: "ऑर्डर",
     inventory: "स्टॉक",
     customers: "ग्राहक",
