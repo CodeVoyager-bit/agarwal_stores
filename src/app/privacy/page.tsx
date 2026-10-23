@@ -69,6 +69,11 @@ export default async function PrivacyPage() {
         <p>{s.sharing.text}</p>
       </section>
 
+      <section id="google">
+        <h2>{s.h.google}</h2>
+        {list(s.google)}
+      </section>
+
       <section id="device">
         <h2>{s.h.device}</h2>
         <p>{s.device}</p>

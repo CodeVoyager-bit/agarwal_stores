@@ -26,6 +26,8 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(appOrigin()),
     title: t.common.meta.title,
     description: fill(t.common.meta.description, { days: deliveryDays(t, { from: shop.deliveryFrom, to: shop.deliveryTo }) }),
+    // Google Search Console's HTML-tag check that the site is ours (Google sign-in's branding review asks for it)
+    verification: { google: process.env.GOOGLE_SITE_VERIFICATION },
   };
 }
 export const viewport: Viewport = { themeColor: "#ff9933" };

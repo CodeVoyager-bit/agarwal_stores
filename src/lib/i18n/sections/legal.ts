@@ -108,6 +108,7 @@ export const en = {
       why: "Why we use it",
       consent: "Your consent",
       sharing: "Who sees it",
+      google: "Google sign‑in",
       device: "Cookies and your device",
       keep: "How long we keep it",
       rights: "Your rights",
@@ -173,6 +174,13 @@ export const en = {
     safety:
       "Passwords are stored only as hashes, the site runs only over HTTPS, and staff see only what their job needs. If a breach ever puts your data at risk, we will tell you and the Data Protection Board as the law requires.",
     children: "This website is for adults. We don’t knowingly let anyone under 18 create an account or book.",
+    google: [
+      "Logging in with Google is optional. If you choose “Continue with Google”, Google shares with us only your name, email address, profile picture link and Google account ID (the basic openid, email and profile permissions). We don’t ask for anything else: not your contacts, Gmail, Drive, calendar or any other Google data.",
+      "We use these only to create your account, log you in, show your name and contact you about your bookings.",
+      "We keep them with your account in our database (MongoDB Atlas, Mumbai). We don’t sell them, use them for advertising, or give them to anyone else; only the services that host the site for us (see “Who sees it”) handle them.",
+      "You can disconnect Google from your <account>Account</account> page once you have a password, remove our access any time in your Google Account (Security, then Third‑party apps), or delete your account, which deletes this data too.",
+      "Our use of information received from Google APIs follows the Google API Services User Data Policy, including its Limited Use requirements.",
+    ],
     changes: "If we change this policy, we update the date on top. Read it with our <terms>Terms of Sale</terms>.",
   },
 };
@@ -281,6 +289,7 @@ export const hi: typeof en = {
       why: "हम इसका इस्तेमाल क्यों करते हैं",
       consent: "आपकी सहमति",
       sharing: "इसे कौन देखता है",
+      google: "Google से लॉग इन",
       device: "कुकीज़ और आपका डिवाइस",
       keep: "हम इसे कितने समय तक रखते हैं",
       rights: "आपके अधिकार",
@@ -346,6 +355,13 @@ export const hi: typeof en = {
     safety:
       "पासवर्ड सिर्फ़ हैश के रूप में रखे जाते हैं, साइट सिर्फ़ HTTPS पर चलती है, और स्टाफ़ सिर्फ़ उतना ही देखता है जितना उनके काम के लिए ज़रूरी है। अगर कभी डेटा में सेंध लगने से आपका डेटा खतरे में पड़े, तो हम कानून के मुताबिक आपको और डेटा संरक्षण बोर्ड को बताएँगे।",
     children: "यह वेबसाइट वयस्कों के लिए है। हम जान-बूझकर 18 साल से कम उम्र के किसी को खाता बनाने या बुक करने नहीं देते।",
+    google: [
+      "Google से लॉग इन करना आपकी मर्ज़ी है। अगर आप “Google से आगे बढ़ें” चुनते हैं, तो Google हमें सिर्फ़ आपका नाम, ईमेल पता, प्रोफ़ाइल फ़ोटो का लिंक और Google खाता ID देता है (बुनियादी openid, email और profile अनुमतियाँ)। हम इसके अलावा कुछ नहीं माँगते: न आपके संपर्क, न Gmail, Drive, कैलेंडर या कोई और Google डेटा।",
+      "हम इनका इस्तेमाल सिर्फ़ आपका खाता बनाने, आपको लॉग इन करने, आपका नाम दिखाने और आपकी बुकिंग के बारे में आपसे संपर्क करने के लिए करते हैं।",
+      "हम इन्हें आपके खाते के साथ अपने डेटाबेस (MongoDB Atlas, मुंबई) में रखते हैं। हम इन्हें बेचते नहीं, विज्ञापन के लिए इस्तेमाल नहीं करते, और किसी और को नहीं देते; सिर्फ़ वे सेवाएँ जो हमारे लिए साइट चलाती हैं (देखें “इसे कौन देखता है”) इन्हें संभालती हैं।",
+      "पासवर्ड बना लेने के बाद आप अपने <account>खाता</account> पेज से Google को हटा सकते हैं, अपने Google खाते में (Security, फिर Third‑party apps) कभी भी हमारी पहुँच हटा सकते हैं, या अपना खाता हटा सकते हैं, जिससे यह डेटा भी हट जाता है।",
+      "Google API से मिली जानकारी का हमारा इस्तेमाल Google API Services User Data Policy के अनुसार है, जिसमें उसकी Limited Use शर्तें भी शामिल हैं।",
+    ],
     changes: "अगर हम यह नीति बदलते हैं, तो ऊपर की तारीख अपडेट कर देते हैं। इसे हमारी <terms>बिक्री की शर्तों</terms> के साथ पढ़ें।",
   },
 };
@@ -454,6 +470,7 @@ export const mr: typeof en = {
       why: "आम्ही ती का वापरतो",
       consent: "तुमची संमती",
       sharing: "ती कोण पाहते",
+      google: "Google ने लॉग इन",
       device: "कुकीज आणि तुमचे डिव्हाइस",
       keep: "आम्ही ती किती काळ ठेवतो",
       rights: "तुमचे हक्क",
@@ -519,6 +536,13 @@ export const mr: typeof en = {
     safety:
       "पासवर्ड फक्त हॅश स्वरूपात ठेवले जातात, साइट फक्त HTTPS वर चालते, आणि स्टाफला फक्त त्यांच्या कामासाठी आवश्यक तेवढेच दिसते. कधी डेटा फुटल्यामुळे (ब्रीच) तुमचा डेटा धोक्यात आला, तर आम्ही कायद्यानुसार तुम्हाला आणि डेटा संरक्षण मंडळाला कळवू.",
     children: "ही वेबसाइट प्रौढांसाठी आहे. आम्ही जाणूनबुजून 18 वर्षांखालील कोणालाही खाते तयार करू किंवा बुक करू देत नाही.",
+    google: [
+      "Google ने लॉग इन करणे तुमच्या इच्छेवर आहे. तुम्ही “Google ने पुढे जा” निवडल्यास, Google आम्हाला फक्त तुमचे नाव, ईमेल पत्ता, प्रोफाइल फोटोची लिंक आणि Google खाते ID देते (मूलभूत openid, email आणि profile परवानग्या). आम्ही याशिवाय काहीही मागत नाही: तुमचे संपर्क, Gmail, Drive, कॅलेंडर किंवा इतर कोणताही Google डेटा नाही.",
+      "आम्ही यांचा वापर फक्त तुमचे खाते तयार करणे, तुम्हाला लॉग इन करणे, तुमचे नाव दाखवणे आणि तुमच्या बुकिंगबद्दल तुमच्याशी संपर्क करणे यासाठी करतो.",
+      "आम्ही हे तुमच्या खात्यासोबत आमच्या डेटाबेसमध्ये (MongoDB Atlas, मुंबई) ठेवतो. आम्ही ते विकत नाही, जाहिरातींसाठी वापरत नाही, आणि इतर कोणालाही देत नाही; फक्त आमच्यासाठी साइट चालवणाऱ्या सेवा (पाहा “ती कोण पाहते”) ते हाताळतात.",
+      "पासवर्ड तयार केल्यावर तुम्ही तुमच्या <account>खाते</account> पानावरून Google काढू शकता, तुमच्या Google खात्यात (Security, मग Third‑party apps) कधीही आमचा प्रवेश काढू शकता, किंवा तुमचे खाते हटवू शकता, ज्यामुळे हा डेटाही हटतो.",
+      "Google API कडून मिळालेल्या माहितीचा आमचा वापर Google API Services User Data Policy नुसार आहे, त्यातील Limited Use अटींसह.",
+    ],
     changes: "आम्ही हे धोरण बदलल्यास वरची तारीख अपडेट करतो. ते आमच्या <terms>विक्रीच्या अटींसोबत</terms> वाचा.",
   },
 };
