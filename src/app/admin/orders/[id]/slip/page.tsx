@@ -98,6 +98,9 @@ export default async function Slip({ params }: { params: Promise<{ id: string }>
         {shop.slipNote || s.note}
         {shop.upiId && ` ${fill(t.orders.mine.upiTo, { upi: shop.upiId })}`}
       </p>
+      <p className="ticks">
+        {t.staff.sheet.paidBy}: ☐ {t.staff.sheet.cash} ☐ {t.staff.sheet.online}
+      </p>
       <footer>
         <span>{s.packedBy}</span>
         <span>{s.receivedBy}</span>

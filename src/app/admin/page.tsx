@@ -1,4 +1,4 @@
-import { Clock, IndianRupee, MessageCircle, Package, Phone, TriangleAlert } from "lucide-react";
+import { Clock, IndianRupee, MessageCircle, Package, Phone, Printer, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import { isValidObjectId } from "mongoose";
 import Link from "next/link";
@@ -57,7 +57,14 @@ export default async function AdminOrders({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <h1>{t.common.adminTabs.orders}</h1>
+      <div className="head">
+        <h1>{t.common.adminTabs.orders}</h1>
+        {count("packed") + count("out_for_delivery") > 0 && (
+          <Link href="/admin/sheet" className="btn" target="_blank">
+            <Printer size={18} aria-hidden="true" /> {s.printSheet}
+          </Link>
+        )}
+      </div>
       <div className="stats">
         <div>
           <Package size={20} aria-hidden="true" />

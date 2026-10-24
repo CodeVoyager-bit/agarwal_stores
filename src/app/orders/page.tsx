@@ -30,8 +30,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const user = await requireUser("/orders");
   const { placed } = await searchParams;
   await connectDB();
-  // the handover code is only ever shown to the customer it belongs to
-  const orders = await Order.find({ user: user.id }).select("+handoverCode").sort({ createdAt: -1 }).lean();
+  const orders = await Order.find({ user: user.id }).sort({ createdAt: -1 }).lean();
   // only for an order of theirs: a typed-in number shows nothing
   const placedOrder = typeof placed === "string" ? orders.find((o) => o.number === Number(placed)) : undefined;
   const [t, lang, shop] = await Promise.all([getT(), getLang(), shopDetails()]);
@@ -78,15 +77,6 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                   </div>
                   <strong className="order-amount">{inr(o.total)}</strong>
                 </div>
-
-                {o.status === "out_for_delivery" && o.handoverCode && (
-                  <div className="handover" role="status">
-                    <span>{m.handover}</span>
-                    <strong className="otp-code" aria-label={fill(m.handoverLabel, { code: o.handoverCode.split("").join(" ") })}>
-                      {o.handoverCode}
-                    </strong>
-                  </div>
-                )}
 
                 {cancelledAt ? (
                   <div className="cancel-note" role="note">

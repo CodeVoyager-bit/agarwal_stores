@@ -52,7 +52,7 @@ test("bad carts and details are refused before touching stock", async () => {
   await assert.rejects(placeOrder(who, [{ id: String(new mongoose.Types.ObjectId()), qty: 1 }], { ...details, pincode: "12" }), /pincode/);
 });
 
-test("delivery: only the assigned person, only with the customer's code and the full amount", async () => {
+test("delivery: only the assigned person, only with the full amount", async () => {
   const customer = await User.create({ phone: "9876500001" });
   const rider = await User.create({ phone: "9876500002", name: "Ramesh", role: "delivery" });
   const other = await User.create({ phone: "9876500003", role: "delivery" });
@@ -65,19 +65,13 @@ test("delivery: only the assigned person, only with the customer's code and the 
   await assignDelivery(id, String(rider._id), "owner");
   await assert.rejects(startDelivery(id, String(other._id), "other"), OrderError);
   await startDelivery(id, String(rider._id), "Ramesh");
-  const code = (await Order.findById(id).select("+handoverCode"))!.handoverCode!;
-  assert.match(code, /^\d{6}$/);
-  assert.equal((await Order.findById(id).lean())!.handoverCode, undefined, "the code is not selected by default");
 
-  const wrong = code === "000000" ? "111111" : "000000";
-  await assert.rejects(completeDelivery(id, String(rider._id), wrong, 160, "Ramesh"), /code is not right/);
-  await assert.rejects(completeDelivery(id, String(rider._id), code, 100, "Ramesh"), /full 160/);
-  await assert.rejects(completeDelivery(id, String(other._id), code, 160, "other"), OrderError);
-  await completeDelivery(id, String(rider._id), code, 160, "Ramesh");
-  const done = (await Order.findById(id).select("+handoverCode").lean())!;
+  await assert.rejects(completeDelivery(id, String(rider._id), 100, "Ramesh"), /full 160/);
+  await assert.rejects(completeDelivery(id, String(other._id), 160, "other"), OrderError);
+  await completeDelivery(id, String(rider._id), 160, "Ramesh");
+  const done = (await Order.findById(id).lean())!;
   assert.equal(done.status, "delivered");
   assert.equal(done.cash!.collected, 160);
-  assert.equal(done.handoverCode, undefined, "a used code is gone");
 
   await receiveCash(id, 150, "owner");
   await assert.rejects(receiveCash(id, 160, "owner"), /already counted/);
@@ -85,7 +79,7 @@ test("delivery: only the assigned person, only with the customer's code and the 
   assert.ok(await Audit.findOne({ action: "cash.received", detail: /10 short/ }));
 });
 
-test("delivery: five wrong codes lock it; a missed delivery goes back to packed", async () => {
+test("delivery: a missed delivery goes back to packed, still with the same person for another try", async () => {
   const customer = await User.create({ phone: "9876500005" });
   const rider = await User.create({ phone: "9876500006", role: "delivery" });
   const p = await Product.create({ name: "Rocket", category: "Rockets", mrp: 50, price: 20, stock: 10 });
@@ -93,19 +87,15 @@ test("delivery: five wrong codes lock it; a missed delivery goes back to packed"
   const id = String(order._id);
   await assignDelivery(id, String(rider._id), "owner");
   await startDelivery(id, String(rider._id), "r");
-  const code = (await Order.findById(id).select("+handoverCode"))!.handoverCode!;
-  const wrong = code === "000000" ? "111111" : "000000";
-  for (let i = 0; i < 5; i++) await assert.rejects(completeDelivery(id, String(rider._id), wrong, 20, "r"));
-  await assert.rejects(completeDelivery(id, String(rider._id), code, 20, "r"), /too many times/);
 
   await assert.rejects(deliveryFailed(id, String(rider._id), "no", "r"), /few words/);
   await deliveryFailed(id, String(rider._id), "Nobody home", "r");
   const back = (await Order.findById(id).lean())!;
   assert.equal(back.status, "packed");
   assert.ok(back.history.some((h) => /Nobody home/.test(h.text!)));
-  // locked by wrong codes: only the shop can give it out again, so the rider can't start over with fresh tries
-  assert.equal(back.assignedTo, undefined);
-  await assert.rejects(startDelivery(id, String(rider._id), "r"), OrderError);
+  assert.equal(String(back.assignedTo), String(rider._id));
+  await startDelivery(id, String(rider._id), "r");
+  assert.equal((await Order.findById(id).lean())!.status, "out_for_delivery");
 });
 
 test("booking: a price changed since the cart was opened is refused first, with nothing taken", async () => {

@@ -147,9 +147,6 @@ const orderSchema = new Schema(
     history: [{ _id: false, at: { type: Date, default: Date.now }, by: String, text: String }],
     assignedTo: { type: Schema.Types.ObjectId, ref: "User" },
     assignedName: String,
-    /** The code the customer reads out at the door; made when the delivery starts. */
-    handoverCode: { type: String, select: false },
-    handoverTries: { type: Number, default: 0 },
     /** The checkout's own id for this booking: pressing Book again after a lost answer finds this order. */
     key: String,
     /** money off from a coupon at checkout, as it was then; `total` is already less the discount */

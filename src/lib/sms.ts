@@ -1,5 +1,5 @@
 /**
- * Sends a 6-digit code (login or delivery handover) through MiniMoth, the same hook as Agarwal
+ * Sends a 6-digit login code through MiniMoth, the same hook as Agarwal
  * Online: WhatsApp first, then SMS. Returns a message for the person, or null when it went.
  */
 export async function sendCode(phone: string, code: string) {

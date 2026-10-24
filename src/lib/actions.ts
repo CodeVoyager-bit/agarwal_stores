@@ -642,7 +642,7 @@ export async function startDeliveryAction(_: Result, form: FormData): Promise<Re
   return attempt(async () => {
     const user = await allowStaff("delivery");
     await startDelivery(text(form, "id"), user.id, who(user));
-    return "On the way. Ask the customer for the code from their order page.";
+    return "On the way.";
   });
 }
 
@@ -650,7 +650,7 @@ export async function completeDeliveryAction(_: Result, form: FormData): Promise
   return attempt(async () => {
     const user = await allowStaff("delivery");
     const method = text(form, "method") === "upi" ? "upi" : "cash";
-    await completeDelivery(text(form, "id"), user.id, text(form, "code").replace(/\D/g, ""), Number(text(form, "collected")), who(user), method);
+    await completeDelivery(text(form, "id"), user.id, Number(text(form, "collected")), who(user), method);
     return method === "upi" ? "Delivered. Paid by UPI: the shop checks it arrived." : "Delivered. Hand the cash in at the shop.";
   });
 }

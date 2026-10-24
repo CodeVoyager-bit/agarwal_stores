@@ -40,9 +40,7 @@ test("status by hand: no Out for Delivery, nothing after Delivered, Delivered by
   const status = async () => (await Order.findById(id).lean())!;
 
   await setOrderStatus(id, "out_for_delivery", "Shop");
-  const out = await Order.findById(id).select("+handoverCode").lean();
-  assert.equal(out!.status, "out_for_delivery", "the shop can send it out by hand");
-  assert.match(out!.handoverCode ?? "", /^\d{6}$/, "and the customer gets a handover code, as with Start Delivery");
+  assert.equal((await status()).status, "out_for_delivery", "the shop can send it out by hand");
   await setOrderStatus(id, "delivered", "Shop");
   const done = await status();
   assert.equal(done.status, "delivered");
@@ -52,22 +50,6 @@ test("status by hand: no Out for Delivery, nothing after Delivered, Delivered by
   await setOrderStatus(id, "placed", "Shop");
   assert.equal((await status()).status, "delivered", "delivered is final");
   assert.equal((await Product.findById(p._id).lean())!.stock, 8, "no restock of goods the customer has");
-});
-
-test("handover: a wrong amount doesn't use a code try; an order without a code can't be closed", async () => {
-  const who = await person();
-  const rider = await person({ role: "delivery" });
-  const p = await Product.create({ name: "Door Rocket", category: "Rockets", mrp: 100, price: 50, stock: 10 });
-  const order = await placeOrder(who, [{ id: String(p._id), qty: 1 }], details);
-  const id = String(order._id);
-  await assignDelivery(id, rider.id, "Shop");
-  await startDelivery(id, rider.id, "Rider");
-  const code = (await Order.findById(id).select("+handoverCode").lean())!.handoverCode!;
-  for (let i = 0; i < 6; i++) await assert.rejects(completeDelivery(id, rider.id, code, 49, "Rider"), /full 50 rupees/);
-  assert.equal((await Order.findById(id).lean())!.handoverTries, 0);
-
-  await Order.updateOne({ _id: id }, { $unset: { handoverCode: 1 } });
-  await assert.rejects(completeDelivery(id, rider.id, "", 50, "Rider"), /not right/);
 });
 
 test("ordering: one product split over many lines still counts as one; five waiting orders is the most", async () => {
@@ -158,8 +140,7 @@ test("paid by UPI at the door: recorded as UPI, not cash the rider carries", asy
   const id = String((await placeOrder(who, [{ id: String(p._id), qty: 1 }], details))._id);
   await assignDelivery(id, rider.id, "Shop");
   await startDelivery(id, rider.id, "Rider");
-  const code = (await Order.findById(id).select("+handoverCode").lean())!.handoverCode!;
-  await completeDelivery(id, rider.id, code, 70, "Rider", "upi");
+  await completeDelivery(id, rider.id, 70, "Rider", "upi");
   const done = (await Order.findById(id).lean())!;
   assert.equal(done.cash?.method, "upi");
   assert.match(done.history.at(-1)!.text!, /paid by UPI/);

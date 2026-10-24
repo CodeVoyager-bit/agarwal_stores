@@ -585,8 +585,6 @@ ul.chips { list-style: none; margin: 0 0 12px; }
 .stop-collect { grid-column: 1 / -1; color: var(--red); }
 .collect { font-family: var(--font-display), system-ui, sans-serif; font-size: 1.4rem; font-weight: 800; color: var(--maroon); }
 .contact { display: flex; flex-wrap: wrap; gap: 8px; }
-.handover { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: var(--radius-sm); background: var(--cream); border: 2px dashed var(--saffron); font-weight: 600; }
-.otp-code { font-family: var(--font-display), system-ui, sans-serif; font-size: 2rem; font-weight: 800; letter-spacing: 0.3em; color: var(--maroon); font-variant-numeric: tabular-nums; }
 
 /* packing slip: a plain page that prints without the site around it */
 .slip { max-width: 760px; margin: 20px auto; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; display: grid; gap: 18px; }
@@ -604,10 +602,19 @@ ul.chips { list-style: none; margin: 0 0 12px; }
 .slip-note { color: var(--muted); font-size: 0.9rem; }
 .slip footer { display: flex; justify-content: space-between; gap: 16px; padding-top: 28px; }
 .slip > .btn { justify-self: end; }
+.slip .ticks { white-space: nowrap; line-height: 1.8; }
+/* delivery sheet: a slip-like page per delivery person, a roomy box for each customer's signature */
+.sheet-actions { max-width: 760px; margin: 20px auto 0; text-align: right; }
+.sheet .sign { width: 26%; height: 56px; }
+.sheet .slip-number > * { display: block; margin: 0; }
+.sheet-rider { font-size: 1.25rem; color: var(--maroon); }
+.sheet td:first-child, .sheet .nowrap { white-space: nowrap; }
 @media print {
   body { background: #fff; padding: 0; }
   .top, .site-nav, .foot, .admin-tabs, .no-print, .skip { display: none !important; }
   .slip { border: 0; margin: 0; padding: 0; max-width: none; }
+  .sheet:not(:last-child) { break-after: page; }
+  .sheet tr { break-inside: avoid; }
 }
 
 /* charts (sales): one hue, hairline grid, value on hover/focus */

@@ -1,10 +1,8 @@
-import { randomInt, timingSafeEqual } from "node:crypto";
 import { isValidObjectId, Types } from "mongoose";
 import { couponCode, couponDiscount } from "./coupons";
 import { ADDRESS_LABELS, audit, connectDB, Counter, Coupon, MAX_ADDRESSES, Order, Product, User, type OrderStatus } from "./db";
 import { BY_HAND, MAX_QTY, STATUS_LABEL } from "./format";
 import { billTitle, gstSplit, servesPincode, SETTING_DEFAULTS, shopDetails, TERMS_VERSION } from "./legal";
-import { mockOtp, sendCode } from "./sms";
 
 /** The defaults; an owner changes them on Admin > Settings (lib/legal.ts), which is what booking reads. */
 export const DELIVERY_DAYS = SETTING_DEFAULTS.deliveryTo;
@@ -171,9 +169,8 @@ async function takeBack(items: Stocked[]) {
 
 /**
  * Staff changing the status by hand, only the moves BY_HAND allows. Cancelling puts the stock back on
- * the shelf; booking a cancelled order again takes it off again, or says what's short. Out for Delivery
- * makes a handover code, as Start Delivery does. Delivered by hand records the full amount as collected
- * by that staff member, so the Cash page still asks for it.
+ * the shelf; booking a cancelled order again takes it off again, or says what's short. Delivered by hand
+ * records the full amount as collected by that staff member, so the Cash page still asks for it.
  */
 export async function setOrderStatus(orderId: string, status: OrderStatus, by: string) {
   if (!isValidObjectId(orderId)) return;
@@ -183,20 +180,15 @@ export async function setOrderStatus(orderId: string, status: OrderStatus, by: s
   if (!open) return;
   const reopening = open.status === "cancelled";
   if (reopening) await takeBack(open.items);
-  const code = status === "out_for_delivery" ? String(randomInt(100000, 1000000)) : undefined;
   const text = reopening ? "Cancel undone, booked again" : status === "delivered" ? `Marked ${STATUS_LABEL[status]}, ₹${open.total} to count in` : `Marked ${STATUS_LABEL[status]}`;
-  // any other move by hand ends the handover code there was. Delivered by the shop: the staff member
-  // holds the cash (Cash page), not the rider it was given to
-  const unset = { ...(!code && { handoverCode: 1 }), ...(status === "delivered" && { assignedTo: 1, assignedName: 1 }) };
   const order = await Order.findOneAndUpdate(
     // reopening only from Cancelled: the stock just taken is for exactly that
     { _id: orderId, status: reopening ? "cancelled" : { $in: from } },
     {
       status,
       $push: { history: { by, text } },
-      ...(code && { handoverCode: code, handoverTries: 0 }),
-      ...(Object.keys(unset).length && { $unset: unset }),
-      ...(status === "delivered" && { cash: { collected: open.total, collectedAt: new Date(), collectedBy: by } }),
+      // delivered by the shop: the staff member holds the cash (Cash page), not the rider it was given to
+      ...(status === "delivered" && { cash: { collected: open.total, collectedAt: new Date(), collectedBy: by }, $unset: { assignedTo: 1, assignedName: 1 } }),
     },
   );
   if (!order) {
@@ -206,8 +198,6 @@ export async function setOrderStatus(orderId: string, status: OrderStatus, by: s
   if (status === "cancelled") await putBack(order.items);
   if (status === "delivered") await issueBill(orderId);
   await audit(by, "order.status", `Order #${order.number}`, `${STATUS_LABEL[order.status]} → ${STATUS_LABEL[status]}`);
-  // as with Start Delivery: the customer can always read the code on their order page
-  if (code && !mockOtp()) await sendCode(order.phone, code);
 }
 
 /** Gives an open order to a delivery person, or takes it back (staffId empty). */
@@ -226,54 +216,35 @@ export async function assignDelivery(orderId: string, staffId: string, by: strin
   await audit(by, "order.assign", `Order #${order.number}`, rider ? `to ${name}` : "unassigned");
 }
 
-/**
- * The delivery person leaves with the order. A fresh handover code goes to the customer (shown on
- * their My Orders page, and by WhatsApp/SMS when MiniMoth is set up).
- */
+/** The delivery person leaves with the order. */
 export async function startDelivery(orderId: string, riderId: string, by: string) {
   await connectDB();
-  const code = String(randomInt(100000, 1000000));
   const order = await Order.findOneAndUpdate(
     { _id: orderId, assignedTo: riderId, status: { $in: ["placed", "packed"] } },
-    { status: "out_for_delivery", handoverCode: code, handoverTries: 0, $push: { history: { by, text: "Out for delivery" } } },
+    { status: "out_for_delivery", $push: { history: { by, text: "Out for delivery" } } },
   );
   if (!order) throw new OrderError("This order isn't waiting for you any more.");
   await audit(by, "delivery.start", `Order #${order.number}`, "");
-  // the customer can always read the code on their order page, so a failed message isn't fatal
-  if (!mockOtp()) await sendCode(order.phone, code);
 }
 
-/** At the door: the customer's code and the full amount in cash or UPI close the order. */
-export async function completeDelivery(orderId: string, riderId: string, code: string, collected: number, by: string, method: "cash" | "upi" = "cash") {
+/** At the door: the full amount in cash or UPI closes the order; the customer signs the printed delivery sheet. */
+export async function completeDelivery(orderId: string, riderId: string, collected: number, by: string, method: "cash" | "upi" = "cash") {
   await connectDB();
-  // the amount first: a slip typing it shouldn't use up one of the five code tries
   const open = await Order.findOne({ _id: orderId, assignedTo: riderId, status: "out_for_delivery" }, "total");
   if (!open) throw new OrderError("This delivery isn't open for you. Call the shop.");
   if (collected !== open.total) throw new OrderError(`Collect the full ${open.total} rupees before marking it delivered.`);
-  // one try used per check, so five wrong codes lock it until the shop restarts the delivery
-  const order = await Order.findOneAndUpdate(
-    { _id: orderId, assignedTo: riderId, status: "out_for_delivery", handoverTries: { $lt: 5 } },
-    { $inc: { handoverTries: 1 } },
-  ).select("+handoverCode");
-  if (!order) throw new OrderError("This delivery isn't open for you, or the code was tried too many times. Call the shop.");
-  const a = Buffer.from(order.handoverCode ?? "");
-  const b = Buffer.from(code);
-  // no code on the order means no handover is possible (two empty buffers would compare equal)
-  if (!a.length || a.length !== b.length || !timingSafeEqual(a, b)) throw new OrderError("That code is not right. Ask the customer to read it again from their order page.");
 
-  const now = new Date();
   const done = await Order.findOneAndUpdate(
-    { _id: orderId, status: "out_for_delivery" },
+    { _id: orderId, assignedTo: riderId, status: "out_for_delivery" },
     {
       status: "delivered",
-      cash: { collected, collectedAt: now, collectedBy: by, method },
-      $unset: { handoverCode: 1 },
+      cash: { collected, collectedAt: new Date(), collectedBy: by, method },
       $push: { history: { by, text: `Delivered, ₹${collected} ${method === "upi" ? "paid by UPI" : "in cash"}` } },
     },
   );
   if (!done) throw new OrderError("This delivery has already changed.");
   await issueBill(orderId);
-  await audit(by, "delivery.done", `Order #${order.number}`, `₹${collected} ${method === "upi" ? "by UPI" : "in cash"}`);
+  await audit(by, "delivery.done", `Order #${done.number}`, `₹${collected} ${method === "upi" ? "by UPI" : "in cash"}`);
 }
 
 /** The Indian financial year a moment falls in, by India time: "26-27" runs 1 April 2026 to 31 March 2027. */
@@ -360,12 +331,9 @@ export async function deliveryFailed(orderId: string, riderId: string, reason: s
   if (reason.trim().length < 5) throw new OrderError("Say what happened, in a few words.");
   const order = await Order.findOneAndUpdate(
     { _id: orderId, assignedTo: riderId, status: "out_for_delivery" },
-    { status: "packed", $unset: { handoverCode: 1 }, $push: { history: { by, text: `Couldn't deliver: ${reason.trim().slice(0, 300)}` } } },
+    { status: "packed", $push: { history: { by, text: `Couldn't deliver: ${reason.trim().slice(0, 300)}` } } },
   );
   if (!order) throw new OrderError("This delivery isn't open for you.");
-  // five wrong codes locked it: only the shop can give it out again, so Start Delivery can't reset the count
-  if (order.handoverTries >= 5)
-    await Order.updateOne({ _id: orderId }, { $unset: { assignedTo: 1, assignedName: 1 }, $push: { history: { by, text: "Code tried too many times: taken off this delivery person" } } });
   await audit(by, "delivery.failed", `Order #${order.number}`, reason.trim().slice(0, 300));
 }
 

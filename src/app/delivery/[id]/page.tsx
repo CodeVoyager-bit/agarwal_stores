@@ -59,7 +59,7 @@ export default async function DeliveryStop({ params }: { params: Promise<{ id: s
               </p>
             </>
           )}
-          {/* so the customer's "is everything there?" is answered before the code */}
+          {/* so the customer's "is everything there?" is answered before it's handed over */}
           <h2>{s.parcel}</h2>
           <ul className="items">
             {o.items.map((i, n) => (
@@ -77,7 +77,6 @@ export default async function DeliveryStop({ params }: { params: Promise<{ id: s
           {(o.status === "placed" || o.status === "packed") && (
             <>
               <h2>{s.ready}</h2>
-              <p className="muted">{s.startNote}</p>
               <ActionForm action={startDeliveryAction} submit={s.start} primary>
                 <input type="hidden" name="id" value={id} />
               </ActionForm>
@@ -88,11 +87,7 @@ export default async function DeliveryStop({ params }: { params: Promise<{ id: s
               <h2>{s.handOver}</h2>
               <ActionForm action={completeDeliveryAction} submit={s.verify} primary>
                 <input type="hidden" name="id" value={id} />
-                <label>
-                  {s.code}
-                  <input name="code" className="otp" inputMode="numeric" autoComplete="off" spellCheck={false} pattern="\d{6}" maxLength={6} required />
-                </label>
-                <p className="note">{s.codeNote}</p>
+                <p className="note">{s.signNote}</p>
                 <label>
                   {s.paid}
                   <input name="collected" inputMode="numeric" pattern="\d+" required defaultValue={o.total} autoComplete="off" />

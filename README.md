@@ -2,7 +2,7 @@
 
 Firecracker catalog → cart → login (mobile or email + password, or Google) → delivery address → order.
 Pay cash or UPI on delivery; delivery in 3–4 days. Staff run orders, inventory, deliveries and cash from `/admin`,
-with the admin system ported from Agarwal Online (roles, delivery handover codes, packing slips, audit log).
+with the admin system ported from Agarwal Online (roles, packing slips and delivery sheets, audit log).
 
 Same stack as Agarwal Online: Next.js 16, MongoDB (Mongoose), better-auth for logins, MiniMoth for WhatsApp/SMS
 codes, the Hostinger mailbox for emails.
@@ -35,8 +35,8 @@ Everyone logs in with their mobile number and password. What they see depends on
 
 | Role | Gets |
 | --- | --- |
-| Customer | the shop, cart, their orders (with the handover code when out for delivery) |
-| Delivery | `/delivery`: orders given to them, start delivery, check the customer's code, record cash or a missed delivery |
+| Customer | the shop, cart, their orders |
+| Delivery | `/delivery`: orders given to them, start delivery, record cash or UPI or a missed delivery |
 | Admin | `/admin`: orders, inventory, customers, sales, cash |
 | Owner | all of Admin plus Staff and the Audit Log. Owners are the numbers in `ADMIN_PHONES` |
 
@@ -62,7 +62,7 @@ Owners set roles on `/admin/staff`; the person then taps **Forgot password?** on
 | `/delivery` | delivery | the day's stops |
 
 Stock is taken when an order is placed and goes back if the shop cancels it. A delivery closes only with the
-6‑digit code the customer reads out at the door and the full amount collected.
+full amount collected; the customer signs the printed delivery sheet.
 
 ## Go live
 
