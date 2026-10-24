@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { connectDB, Shop } from "./db";
+import { cachedRead, connectDB, Shop } from "./db";
 
 /**
  * Everything an owner can change on Admin > Settings (/admin/shop), with what the site does until they
@@ -92,12 +92,14 @@ export const SETTINGS: readonly Field[] = [
   { key: "slipNote", group: "front", kind: "text", max: 200 },
 ];
 
-/** The saved settings over the defaults, once per request. */
-export const shopDetails = cache(async (): Promise<Settings> => {
-  await connectDB();
-  const saved = (await Shop.findById("shop").lean()) as Record<string, unknown> | null;
-  return Object.fromEntries(SETTINGS.map(({ key }) => [key, saved?.[key] ?? DEFAULTS[key]])) as Settings;
-});
+/** The saved settings over the defaults, once per request and from the data cache (lib/db.ts cachedRead). */
+export const shopDetails = cache(
+  cachedRead("shop-details", async (): Promise<Settings> => {
+    await connectDB();
+    const saved = (await Shop.findById("shop").lean()) as Record<string, unknown> | null;
+    return Object.fromEntries(SETTINGS.map(({ key }) => [key, saved?.[key] ?? DEFAULTS[key]])) as Settings;
+  }),
+);
 
 /**
  * A filled-in Settings form read as settings: text trimmed (spaces collapsed, line breaks kept in long

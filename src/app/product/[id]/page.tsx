@@ -1,5 +1,4 @@
 import { IndianRupee, PhoneCall, ShieldCheck, Truck } from "lucide-react";
-import { isValidObjectId } from "mongoose";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,7 +8,7 @@ import { ProductCard } from "@/components/catalog";
 import { CategoryIcon } from "@/components/category";
 import { Gallery } from "@/components/gallery";
 import { Rows } from "@/components/legal-rows";
-import { bestSellers, Product, shopItems } from "@/lib/db";
+import { bestSellers, productDetails, shopItems } from "@/lib/db";
 import { inr } from "@/lib/format";
 import { catName, deliveryDays, fill } from "@/lib/i18n";
 import { getT } from "@/lib/i18n/server";
@@ -18,16 +17,17 @@ import { goesWith } from "@/lib/pairs";
 
 /** The product, its write-up, what goes with it and the rest of its shelf; once per request (the title asks too). */
 const load = cache(async (id: string) => {
-  // all three at once rather than the write-up after the rest
-  const [items, popular, doc] = await Promise.all([shopItems(), bestSellers(), isValidObjectId(id) ? Product.findById(id, "description maker photos").lean() : null]);
+  const [items, popular] = await Promise.all([shopItems(), bestSellers()]);
   const item = items.find((i) => i.id === id);
+  // the write-up only for a product on sale, so made-up addresses don't fill the cache
   if (!item) return null;
+  const doc = await productDetails(id);
   return {
     item,
-    description: doc?.description ?? "",
-    maker: doc?.maker ?? "",
+    description: doc.description,
+    maker: doc.maker,
     // the main photo first, then the more photos added in Inventory
-    photos: [item.image, ...(doc?.photos ?? [])].filter(Boolean),
+    photos: [item.image, ...doc.photos].filter(Boolean),
     pairs: goesWith(items, [item.category], new Set([id]), popular),
     more: items.filter((i) => i.category === item.category && i.id !== id),
   };

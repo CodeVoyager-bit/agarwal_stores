@@ -228,7 +228,18 @@ export const Coupon = define("Coupon", couponSchema);
 export const CodeLog = define("CodeLog", codeLogSchema);
 export const Order = define("Order", orderSchema);
 
-export async function shopItems(): Promise<ShopItem[]> {
+/**
+ * `read`, kept in Next's data cache and shared by every visitor, so a busy day doesn't ask Mongo on each
+ * page view. Every change on the site (a booking, a product or Settings saved, an import) runs
+ * revalidatePath("/", "layout"), which clears it; edits made straight in the database show within a
+ * minute. Outside Next (tests, scripts) there is no such cache, so it just reads.
+ */
+export function cachedRead<A extends unknown[], R>(key: string, read: (...args: A) => Promise<R>) {
+  const cached = unstable_cache(read, [key], { revalidate: 60 });
+  return (...args: A) => (process.env.NEXT_RUNTIME ? cached(...args) : read(...args));
+}
+
+export const shopItems = cachedRead("shop-items", async (): Promise<ShopItem[]> => {
   await connectDB();
   // not the descriptions: up to 1000 characters each, and only the product page shows one
   const products = await Product.find({ active: true }, "name category unit mrp price stock image").sort({ price: 1, name: 1 }).lean();
@@ -245,7 +256,14 @@ export async function shopItems(): Promise<ShopItem[]> {
     stock: p.stock,
     image: p.image ?? "",
   }));
-}
+});
+
+/** The product page's write-up and more photos, cached like shopItems. */
+export const productDetails = cachedRead("product-details", async (id: string) => {
+  await connectDB();
+  const doc = await Product.findById(id, "description maker photos").lean();
+  return { description: doc?.description ?? "", maker: doc?.maker ?? "", photos: doc?.photos ?? [] };
+});
 
 /**
  * Product ids by units sold, best first (cancelled orders don't count): what other shoppers pick.
